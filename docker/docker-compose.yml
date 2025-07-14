@@ -1,0 +1,38 @@
+name: "postgres"
+
+x-action-postgres: &postgres-action
+  networks:
+    - postgres_network
+  secrets:
+    - postgres_password
+  environment:
+    POSTGRES_DB: postgres
+    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_PASSWORD: ${POSTGRES_password:-password}
+    TZ: ${TZ:-Europe/Lisbon}
+  volumes:
+    - postgres:/var/lib/postgresql/data
+
+services:
+  postgres:
+    <<: *postgres-action
+    image: postgres:${POSTGRES_VECTOR-}${POSTGRES_VERSION:-latest}
+    container_name: postgres
+    hostname: postgres
+    restart: unless-stopped
+    networks:
+      - postgres_network
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $POSTGRES_USER || exit 1" ]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
+networks:
+  postgres_network:
+    name: "postgres_network"
+
+volumes:
+  postgres:
