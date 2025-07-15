@@ -1,8 +1,14 @@
+import { Pool, PoolConfig } from "pg";
+import { PostgresAdapter } from "../../src";
+let con: Pool;
+const adapter = new PostgresAdapter(con);
+
 import {
   BaseModel,
   PersistenceKeys,
   pk,
   Repository,
+  table,
   uses,
 } from "@decaf-ts/core";
 import {
@@ -12,13 +18,11 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter } from "../../src";
 import { PostgresRepository } from "../../src/PostgresRepository";
 
 const admin = "postgres";
 const admin_password = "password";
-const user = "user";
+const user = "other_user";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -35,24 +39,59 @@ const config: PoolConfig = {
   statement_timeout: 10000,
 };
 
+jest.setTimeout(50000);
+
 const dbName = "bulk_db";
 
 jest.setTimeout(50000);
 
 describe("Bulk operations", () => {
   let con: Pool;
-  let adapter: PostgresAdapter;
 
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
+
+    try {
+      await PostgresAdapter.deleteDatabase(con, dbName);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+    try {
+      await PostgresAdapter.deleteUser(con, user, admin);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
     try {
       await PostgresAdapter.createDatabase(con, dbName);
+      await con.end();
+      con = await PostgresAdapter.connect(
+        Object.assign({}, config, {
+          database: dbName,
+        })
+      );
       await PostgresAdapter.createUser(con, dbName, user, user_password);
-    } catch (e: any) {
+      await PostgresAdapter.createNotifyFunction(con, user);
+      await con.end();
+    } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    adapter = new PostgresAdapter(con);
+
+    con = await PostgresAdapter.connect(
+      Object.assign({}, config, {
+        user: user,
+        password: user_password,
+        database: dbName,
+      })
+    );
+
+    adapter["_native" as keyof typeof PostgresAdapter] = con;
+
+    try {
+      await PostgresAdapter.createTable(con, TestBulkModel);
+    } catch (e: unknown) {
+      if (!(e instanceof ConflictError)) throw e;
+    }
   });
 
   afterAll(async () => {
@@ -60,9 +99,10 @@ describe("Bulk operations", () => {
   });
 
   @uses("postgres")
+  @table("tst_bulk_model")
   @model()
   class TestBulkModel extends BaseModel {
-    @pk({ type: "Number" })
+    @pk()
     id?: number = undefined;
 
     @required()
@@ -78,10 +118,8 @@ describe("Bulk operations", () => {
   let updated: TestBulkModel[];
 
   it.skip("creates one", async () => {
-    const repo: PostgresRepository<TestBulkModel> = Repository.forModel<
-      TestBulkModel,
-      PostgresRepository<TestBulkModel>
-    >(TestBulkModel);
+    const repo: PostgresRepository<TestBulkModel> =
+      Repository.forModel(TestBulkModel);
     const created = await repo.create(
       new TestBulkModel({
         attr1: "attr1",
@@ -91,11 +129,9 @@ describe("Bulk operations", () => {
   });
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> = Repository.forModel<
-      TestBulkModel,
-      PostgresRepository<TestBulkModel>
-    >(TestBulkModel);
-    const models = [1].map(
+    const repo: PostgresRepository<TestBulkModel> =
+      Repository.forModel(TestBulkModel);
+    const models = [1, 2, 3, 4, 5].map(
       (i) =>
         new TestBulkModel({
           attr1: "user_name_" + i,
@@ -109,10 +145,8 @@ describe("Bulk operations", () => {
   });
 
   it("Reads in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> = Repository.forModel<
-      TestBulkModel,
-      PostgresRepository<TestBulkModel>
-    >(TestBulkModel);
+    const repo: PostgresRepository<TestBulkModel> =
+      Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id) as number[];
     const read = await repo.readAll(ids);
     expect(read).toBeDefined();
@@ -124,10 +158,8 @@ describe("Bulk operations", () => {
   });
 
   it("Updates in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> = Repository.forModel<
-      TestBulkModel,
-      PostgresRepository<TestBulkModel>
-    >(TestBulkModel);
+    const repo: PostgresRepository<TestBulkModel> =
+      Repository.forModel(TestBulkModel);
     const toUpdate = created.map((c, i) => {
       return new TestBulkModel({
         id: c.id,
@@ -143,10 +175,8 @@ describe("Bulk operations", () => {
   });
 
   it("Deletes in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> = Repository.forModel<
-      TestBulkModel,
-      PostgresRepository<TestBulkModel>
-    >(TestBulkModel);
+    const repo: PostgresRepository<TestBulkModel> =
+      Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id);
     const deleted = await repo.deleteAll(ids as number[]);
     expect(deleted).toBeDefined();

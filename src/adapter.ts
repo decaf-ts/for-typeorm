@@ -47,6 +47,7 @@ import { PostgresFlags, type PostgresQuery } from "./types";
 import { Reflection } from "@decaf-ts/reflection";
 import { PostgresRepository } from "./PostgresRepository";
 import { Logging } from "@decaf-ts/logging";
+import { PostgresDispatch } from "./PostgresDispatch";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -107,6 +108,10 @@ export class PostgresAdapter extends Adapter<
       ).concat(pk as string);
     }
     return Object.assign(f, newObj) as PostgresFlags;
+  }
+
+  protected override Dispatch(): PostgresDispatch {
+    return new PostgresDispatch();
   }
 
   override repository<M extends Model>(): Constructor<
@@ -344,7 +349,8 @@ export class PostgresAdapter extends Adapter<
     tableName: string,
     id: string | number,
     model: Record<string, any>,
-    pk: string
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
   ): Promise<Record<string, any>> {
     const values = Object.values(model);
 
@@ -381,7 +387,9 @@ RETURNING *;`;
   override async delete(
     tableName: string,
     id: string | number,
-    pk: string
+    pk: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
   ): Promise<Record<string, any>> {
     const sql = `
         DELETE FROM ${tableName}
@@ -403,6 +411,197 @@ RETURNING *;`;
       );
     }
     return result.rows[0];
+  }
+
+  override async createAll(
+    tableName: string,
+    id: (string | number)[],
+    model: Record<string, any>[],
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    const columns = Object.keys(model[0]);
+
+    const valuePlaceholders = model
+      .map(
+        (_, recordIndex) =>
+          `(${columns
+            .map(
+              (_, colIndex) => `$${recordIndex * columns.length + colIndex + 1}`
+            )
+            .join(", ")})`
+      )
+      .join(", ");
+
+    const values = model.flatMap((record) => Object.values(record));
+    const q = `INSERT INTO ${tableName} (${columns.join(", ")})
+    VALUES ${valuePlaceholders}
+    RETURNING *;
+`;
+    const result: any = await this.raw(
+      {
+        query: q,
+        values: values,
+      },
+      false
+    );
+    return result.rows;
+  }
+
+  override async readAll(
+    tableName: string,
+    id: (string | number | bigint)[],
+    pk: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    if (!id.length) return [];
+
+    const sql = `
+    SELECT * 
+    FROM ${tableName} 
+    WHERE ${pk} = ANY($1)
+    ORDER BY array_position($1::${typeof id[0] === "number" ? "integer" : "text"}[], ${pk})`;
+
+    const result: any = await this.raw(
+      {
+        query: sql,
+        values: [id],
+      },
+      false
+    );
+
+    // If we didn't find all requested records, throw an error
+    if (result.rows.length !== id.length) {
+      const foundIds = result.rows.map((row: any) => row[pk]);
+      const missingIds = id.filter((id) => !foundIds.includes(id));
+      throw new NotFoundError(
+        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
+      );
+    }
+
+    return result.rows;
+  }
+
+  override async updateAll(
+    tableName: string,
+    ids: string[] | number[],
+    model: Record<string, any>[],
+    pk: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    if (!ids.length) return [];
+    if (ids.length !== model.length) {
+      throw new InternalError("Number of IDs must match number of records");
+    }
+
+    // Get all column names from the first record (excluding the primary key)
+    const columns = Object.keys(model[0]).filter((col) => col !== pk);
+
+    // Create value arrays for each record
+    const values: any[] = [];
+    const valueParams: string[] = [];
+
+    model.forEach((record, i) => {
+      // Add ID to values array
+      values.push(ids[i]);
+
+      // Add record values in column order
+      columns.forEach((col) => {
+        values.push(record[col]);
+      });
+
+      // Create parameters string for this record
+      const paramIndexBase = i * (columns.length + 1);
+      const recordParams = [`$${paramIndexBase + 1}`]; // ID parameter
+      columns.forEach((_, j) => {
+        recordParams.push(`$${paramIndexBase + j + 2}`); // Column value parameters
+      });
+      valueParams.push(`(${recordParams.join(", ")})`);
+    });
+
+    // Construct the update query using UPDATE with JOIN
+    const sql = `
+    WITH updated_values (${[pk, ...columns].join(", ")}) AS (
+      VALUES ${valueParams.join(", ")}
+    )
+    UPDATE ${tableName} t
+    SET ${columns.map((col) => `${col} = uv.${col}`).join(", ")}
+    FROM updated_values uv
+    WHERE t.${pk} = uv.${pk}
+    RETURNING *`;
+
+    const result: any = await this.raw(
+      {
+        query: sql,
+        values: values,
+      },
+      false
+    );
+
+    // Verify all records were updated
+    if (result.rows.length !== ids.length) {
+      const foundIds = result.rows.map((row: any) => row[pk]);
+      const missingIds = ids.filter((id) => !foundIds.includes(id));
+      throw new NotFoundError(
+        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
+      );
+    }
+
+    // Return updated records in the same order as input
+    return ids.map((id) =>
+      result.rows.find((row: any) => row[pk].toString() === id.toString())
+    );
+  }
+
+  override async deleteAll(
+    tableName: string,
+    ids: (string | number | bigint)[],
+    pk: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    if (!ids.length) return [];
+
+    // First fetch the records that will be deleted (for returning them later)
+    const fetchSql = `
+    SELECT * 
+    FROM ${tableName} 
+    WHERE ${pk} = ANY($1)
+    ORDER BY array_position($1::${typeof ids[0] === "number" ? "integer" : "text"}[], ${pk})`;
+
+    const fetchResult: any = await this.raw(
+      {
+        query: fetchSql,
+        values: [ids],
+      },
+      false
+    );
+
+    if (fetchResult.rows.length !== ids.length) {
+      const foundIds = fetchResult.rows.map((row: any) => row[pk]);
+      const missingIds = ids.filter((id) => !foundIds.includes(id));
+      throw new NotFoundError(
+        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
+      );
+    }
+
+    const deleteSql = `
+    DELETE FROM ${tableName} 
+    WHERE ${pk} = ANY($1)`;
+
+    await this.raw(
+      {
+        query: deleteSql,
+        values: [ids],
+      },
+      false
+    );
+
+    return ids.map((id) =>
+      fetchResult.rows.find((row: any) => row[pk].toString() === id.toString())
+    );
   }
 
   /**

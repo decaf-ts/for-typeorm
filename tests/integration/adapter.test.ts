@@ -5,7 +5,6 @@ import {
   BaseModel,
   column,
   Observer,
-  PersistenceKeys,
   pk,
   Repository,
   table,
@@ -139,7 +138,7 @@ describe("Adapter Integration", () => {
       })();
       // repo.observe(observer);
     });
-
+    //
     // afterEach(() => {
     //   repo.unObserve(observer);
     // });
@@ -220,7 +219,7 @@ $$ LANGUAGE plpgsql;`
 
       expect(created).toBeDefined();
       expect(created.hasErrors()).toBeUndefined();
-      // await new Promise((resolve) => setTimeout(resolve, 5000));
+      // await new Promise((resolve) => setTimeout(resolve, 10000));
       // expect(mock).toHaveBeenCalledWith(
       //   Repository.table(TestModel),
       //   OperationKeys.CREATE,
