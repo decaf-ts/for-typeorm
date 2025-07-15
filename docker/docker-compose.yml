@@ -3,8 +3,6 @@ name: "postgres"
 x-action-postgres: &postgres-action
   networks:
     - postgres_network
-  secrets:
-    - postgres_password
   environment:
     POSTGRES_DB: postgres
     POSTGRES_USER: ${POSTGRES_USER:-postgres}

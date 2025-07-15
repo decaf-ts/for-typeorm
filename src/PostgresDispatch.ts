@@ -8,7 +8,7 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
  * notifying observers when records are created, updated, or deleted
  * @template Pool - The pg Pool type
  * @param {number} [timeout=5000] - Timeout in milliseconds for notification requests
- * @class PostgreDispatch
+ * @class PostgresDispatch
  * @example
  * ```typescript
  * // Create a dispatcher for a PostgreSQL database
@@ -42,7 +42,7 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
  *   }
  *   Dispatch <|-- PostgreSQLDispatch
  */
-export class PostgreDispatch extends Dispatch<Pool> {
+export class PostgresDispatch extends Dispatch<Pool> {
   private observerLastUpdate?: string;
   private attemptCounter: number = 0;
   private client?: PoolClient;
@@ -149,7 +149,9 @@ export class PostgreDispatch extends Dispatch<Pool> {
     const log = this.log.for(this.initialize);
     const subLog = log.for(subscribeToPostgreSQL);
 
-    async function subscribeToPostgreSQL(this: PostgreDispatch): Promise<void> {
+    async function subscribeToPostgreSQL(
+      this: PostgresDispatch
+    ): Promise<void> {
       if (!this.adapter || !this.native) {
         throw new InternalError(`No adapter/native observed for dispatch`);
       }

@@ -1,10 +1,10 @@
 export * from "./indexes";
-export * from "./interfaces";
-export * from "./model";
 export * from "./sequences";
 export * from "./adapter";
 export * from "./constants";
 export * from "./errors";
+export * from "./PostgresDispatch";
+export * from "./PostgresRepository";
 export * from "./types";
 export * from "./utils";
 

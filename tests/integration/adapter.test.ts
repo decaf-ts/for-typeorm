@@ -1,5 +1,4 @@
 import { Observer, PersistenceKeys, Repository } from "@decaf-ts/core";
-import { Model } from "@decaf-ts/decorator-validation";
 import { TestModel } from "../TestModel";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PostgresAdapter } from "../../src";
@@ -8,7 +7,7 @@ import { PostgresRepository } from "../../src/PostgresRepository";
 
 const admin = "postgres";
 const admin_password = "password";
-const user = "user";
+const user = "other_user";
 const user_password = "password";
 const dbName = "test_db";
 const dbHost = "localhost";
@@ -36,12 +35,43 @@ describe("Adapter Integration", () => {
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
+
+    try {
+      await PostgresAdapter.deleteDatabase(con, dbName);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+    try {
+      await PostgresAdapter.deleteUser(con, user, admin);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
     try {
       await PostgresAdapter.createDatabase(con, dbName);
+      con = await PostgresAdapter.connect(
+        Object.assign({}, config, {
+          database: dbName,
+        })
+      );
       await PostgresAdapter.createUser(con, dbName, user, user_password);
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
+
+    con = await PostgresAdapter.connect(
+      Object.assign({}, config, {
+        user: user,
+        password: user_password,
+        database: dbName,
+      })
+    );
+
+    try {
+      await PostgresAdapter.createTable(con, TestModel);
+    } catch (e: unknown) {
+      if (!(e instanceof ConflictError)) throw e;
+    }
+
     adapter = new PostgresAdapter(con);
     repo = new Repository(adapter, TestModel);
   });
@@ -66,7 +96,9 @@ describe("Adapter Integration", () => {
   });
 
   afterAll(async () => {
+    con = await PostgresAdapter.connect(config);
     await PostgresAdapter.deleteDatabase(con, dbName);
+    await PostgresAdapter.deleteUser(con, user, admin);
   });
 
   let created: TestModel, updated: TestModel;

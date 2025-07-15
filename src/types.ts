@@ -30,6 +30,7 @@ export enum SQLOperator {
 export interface PostgresQuery {
   query: string;
   values: any[];
+  valueCount?: number;
 }
 
 /**
