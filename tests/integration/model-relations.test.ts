@@ -48,7 +48,7 @@ Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
-describe.skip(`Complex Database`, function () {
+describe(`Complex Database`, function () {
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
@@ -87,6 +87,17 @@ describe.skip(`Complex Database`, function () {
     );
 
     adapter["_native" as keyof typeof PostgresAdapter] = con;
+    await PostgresAdapter.createTable(con, TestDummyPhone);
+    await PostgresAdapter.createTable(con, TestDummyCountry);
+    await PostgresAdapter.createTable(con, TestPhoneModel);
+
+    await PostgresAdapter.createTable(con, TestCountryModel);
+    await PostgresAdapter.createTable(con, TestAddressModel);
+
+    await PostgresAdapter.createTable(con, TestUserModel);
+
+    await PostgresAdapter.createTable(con, NoPopulateOnceModel);
+    await PostgresAdapter.createTable(con, NoPopulateManyModel);
   });
 
   let observer: Observer;
@@ -452,11 +463,11 @@ describe.skip(`Complex Database`, function () {
         read.phones = [
           new TestDummyPhone({
             areaCode: "352",
-            number: "000-0000002",
+            phoneNumber: "000-0000002",
           }),
           new TestDummyPhone({
             areaCode: "51",
-            number: "000-0000000",
+            phoneNumber: "000-0000000",
           }),
         ];
         const updated = await noPopulateManyModelRepository.update(read);

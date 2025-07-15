@@ -44,6 +44,8 @@ export class TestCountryModel extends PGBaseModel {
   }
 }
 
+@uses(PostgresFlavour)
+@table("tst_address")
 @model()
 export class TestAddressModel extends PGBaseModel {
   @pk()
@@ -53,12 +55,15 @@ export class TestAddressModel extends PGBaseModel {
   street!: string;
 
   @required()
+  @column("tst_door_number")
   doorNumber!: string;
 
   @prop()
+  @column("tst_apartment_number")
   apartmentNumber?: string;
 
   @required()
+  @column("tst_area_code")
   areaCode!: string;
 
   @required()
@@ -76,22 +81,28 @@ export class TestAddressModel extends PGBaseModel {
   }
 }
 
+@uses(PostgresFlavour)
+@table("tst_phone")
 @model()
 export class TestPhoneModel extends PGBaseModel {
   @pk()
   id!: number;
 
   @required()
+  @column("tst_area_code")
   areaCode!: string;
 
   @required()
-  number!: string;
+  @column("tst_phone_number")
+  phoneNumber!: string;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
     super(m);
   }
 }
 
+@uses(PostgresFlavour)
+@table("tst_user")
 @model()
 export class TestUserModel extends PGBaseModel {
   @pk()
@@ -131,6 +142,8 @@ export class TestUserModel extends PGBaseModel {
   }
 }
 
+@uses(PostgresFlavour)
+@table("tst_dummy_country")
 @model()
 export class TestDummyCountry extends PGBaseModel {
   @pk()
@@ -140,6 +153,7 @@ export class TestDummyCountry extends PGBaseModel {
   name!: string;
 
   @required()
+  @column("tst_country_code")
   countryCode!: string;
 
   constructor(m?: ModelArg<TestDummyCountry>) {
@@ -147,6 +161,8 @@ export class TestDummyCountry extends PGBaseModel {
   }
 }
 
+@uses(PostgresFlavour)
+@table("tst_no_populate_once")
 @model()
 export class NoPopulateOnceModel extends PGBaseModel {
   @pk()
@@ -165,20 +181,25 @@ export class NoPopulateOnceModel extends PGBaseModel {
   }
 }
 
+@uses(PostgresFlavour)
+@table("tst_dummy_phone")
 @model()
 export class TestDummyPhone extends PGBaseModel {
   @pk()
   id!: number;
   @required()
+  @column("tst_area_code")
   areaCode!: string;
   @required()
-  number!: string;
+  @column("tst_phone_number")
+  phoneNumber!: string;
 
   constructor(m?: ModelArg<TestDummyPhone>) {
     super(m);
   }
 }
-
+@uses(PostgresFlavour)
+@table("tst_no_populate_many")
 @model()
 export class NoPopulateManyModel extends PGBaseModel {
   @pk()

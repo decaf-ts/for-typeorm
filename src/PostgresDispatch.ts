@@ -160,7 +160,7 @@ export class PostgresDispatch extends Dispatch<Pool> {
 
         // Listen for table change notifications
         // This assumes you have set up triggers in PostgreSQL to NOTIFY on table changes
-        await this.client.query("LISTEN user_table_changes");
+        const res = await this.client.query("LISTEN user_table_changes");
 
         this.attemptCounter = 0;
       } catch (e: unknown) {

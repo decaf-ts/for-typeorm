@@ -909,29 +909,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
 
   private static parseRelationsToPostgres(
     prop: string,
-    type: string,
-    key: string,
-    options: ValidatorOptions
+    tableName: string,
+    pk: string,
+    key: PersistenceKeys,
+    options: RelationsMetadata
   ) {
+    const { cascade } = options;
+    const cascadeStr = `${cascade.update ? " ON UPDATE CASCADE" : ""}${cascade.delete ? " ON DELETE CASCADE" : ""}`;
     switch (key) {
-      case ValidationKeys.REQUIRED:
-        return "NOT NULL";
-      case ValidationKeys.MAX_LENGTH:
-        if (type === "string" && options) {
-          return `(${(options as MaxLengthValidatorOptions)[ValidationKeys.MAX_LENGTH]})`;
-        }
-        return "";
-      case ValidationKeys.MIN_LENGTH:
-        return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) = ${(options as MinLengthValidatorOptions)[ValidationKeys.MIN_LENGTH]})`;
-      case ValidationKeys.PATTERN:
-      case ValidationKeys.URL:
-      case ValidationKeys.EMAIL:
-        return `CONSTRAINT locale_pattern_check CHECK (locale ~ '${(options as PatternValidatorOptions)[ValidationKeys.PATTERN]}')`;
-      case ValidationKeys.PASSWORD:
-      case ValidationKeys.TYPE:
-        return "";
+      case PersistenceKeys.ONE_TO_ONE:
+        return `FOREIGN KEY (${prop}) REFERENCES ${tableName}(${pk}${cascadeStr}`;
       default:
-        throw new InternalError(`Unsupported type: ${key}`);
+        throw new InternalError(`Unsupported operation: ${key}`);
     }
   }
 
@@ -988,6 +977,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
 
       const query: string[] = [];
       const constraints: string[] = [];
+      const foreignKeys: string[] = [];
 
       const typeData: TypeMetadata = decoratorData[
         ValidationKeys.TYPE
@@ -1026,13 +1016,30 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           if (validation) query.push(validation);
         }
       }
-      // const dbDecs = Reflection.getPropertyDecorators(
-      //   DBKeys.REFLECT,
-      //   this,
-      //   prop.toString(),
-      //   true,
-      //   true
-      // );
+      const dbDecs = Reflection.getPropertyDecorators(
+        DBKeys.REFLECT,
+        this,
+        prop.toString(),
+        true,
+        true
+      );
+
+      if (dbDecs && dbDecs.decorators.length) {
+        for (const [key, props] of Object.entries(dbDecs)) {
+          const validation = this.parseRelationsToPostgres(
+            column,
+            typeData.customTypes[0],
+            id as string,
+            key as PersistenceKeys,
+            props as unknown as RelationsMetadata
+          );
+          if (validation.startsWith("FOREIGN")) {
+            foreignKeys.push(validation);
+          } else {
+            throw new InternalError(`Unsupported relation: ${key}`);
+          }
+        }
+      }
 
       result[prop.toString()] = {
         query: query.join(" "),
