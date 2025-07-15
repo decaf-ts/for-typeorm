@@ -1,4 +1,9 @@
+import { PostgresAdapter } from "./adapter";
+
+PostgresAdapter.decoration();
+
 export * from "./indexes";
+export * from "./query";
 export * from "./sequences";
 export * from "./adapter";
 export * from "./constants";

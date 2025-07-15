@@ -147,58 +147,51 @@ export class PostgresDispatch extends Dispatch<Pool> {
    */
   protected override async initialize(): Promise<void> {
     const log = this.log.for(this.initialize);
-    const subLog = log.for(subscribeToPostgreSQL);
 
-    async function subscribeToPostgreSQL(
-      this: PostgresDispatch
-    ): Promise<void> {
+    async function subscribeToPostgres(this: PostgresDispatch): Promise<void> {
       if (!this.adapter || !this.native) {
         throw new InternalError(`No adapter/native observed for dispatch`);
       }
 
       try {
-        // Get a client from the pool
         this.client = await this.native.connect();
 
-        // Set up notification handler
         this.client.on("notification", this.notificationHandler.bind(this));
 
         // Listen for table change notifications
         // This assumes you have set up triggers in PostgreSQL to NOTIFY on table changes
         await this.client.query("LISTEN user_table_changes");
 
-        // Reset attempt counter on success
         this.attemptCounter = 0;
       } catch (e: unknown) {
-        // Release client if it exists
         if (this.client) {
           this.client.release();
           this.client = undefined;
         }
 
         if (++this.attemptCounter > 3) {
-          return subLog.error(
-            `Failed to subscribe to PostgreSQL notifications: ${e}`
+          return log.error(
+            `Failed to subscribe to Postgres notifications: ${e}`
           );
         }
 
-        subLog.info(
-          `Failed to subscribe to PostgreSQL notifications: ${e}. Retrying in ${this.timeout}ms...`
+        log.info(
+          `Failed to subscribe to Postgres notifications: ${e}. Retrying in ${this.timeout}ms...`
         );
 
         await new Promise((resolve) => setTimeout(resolve, this.timeout));
-        return subscribeToPostgreSQL.call(this);
+        return subscribeToPostgres.call(this);
       }
     }
 
-    subscribeToPostgreSQL
+    subscribeToPostgres
       .call(this)
       .then(() => {
-        this.log.info(`Subscribed to PostgreSQL notifications`);
+        this.log.info(`Subscribed to Postgres notifications`);
       })
       .catch((e: unknown) => {
         throw new InternalError(
-          `Failed to subscribe to PostgreSQL notifications: ${e}`
+          `Failed to subscribe to Postgres notifications: ${e}`
         );
       });
   }

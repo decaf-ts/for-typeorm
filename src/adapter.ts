@@ -5,8 +5,11 @@ import {
   PersistenceKeys,
   ConnectionError,
   Repository,
+  RelationsMetadata,
+  DefaultSequenceOptions,
+  final,
 } from "@decaf-ts/core";
-import { PostgresFlavour, PostgresKeys, reservedAttributes } from "./constants";
+import { PostgresFlavour, reservedAttributes } from "./constants";
 import {
   BaseError,
   ConflictError,
@@ -15,32 +18,57 @@ import {
   findPrimaryKey,
   InternalError,
   NotFoundError,
-  RepositoryFlags,
+  onCreate,
+  OperationKeys,
+  readonly,
 } from "@decaf-ts/db-decorators";
 import "reflect-metadata";
-
 import {
-  Constructor,
+  type Constructor,
+  Decoration,
   DEFAULT_ERROR_MESSAGES,
-  ListMetadata,
   MaxLengthValidatorOptions,
   MinLengthValidatorOptions,
   Model,
   ModelKeys,
   PatternValidatorOptions,
+  propMetadata,
+  required,
   TypeMetadata,
   ValidationKeys,
-  Validator,
   ValidatorOptions,
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
 import { PostgresStatement } from "./query";
-import { final } from "@decaf-ts/core";
 import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
 import { PostgresSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { PostgresQuery } from "./types";
+import { PostgresFlags, type PostgresQuery } from "./types";
 import { Reflection } from "@decaf-ts/reflection";
+import { PostgresRepository } from "./PostgresRepository";
+import { Logging } from "@decaf-ts/logging";
+
+export async function createdByOnPostgresCreateUpdate<
+  M extends Model,
+  R extends PostgresRepository<M>,
+  V extends RelationsMetadata,
+>(
+  this: R,
+  context: Context<PostgresFlags>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  try {
+    const user = context.get("user");
+    model[key] = user as M[typeof key];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e: unknown) {
+    throw new InternalError(
+      "No User found in context. Please provide a user in the context"
+    );
+  }
+}
 
 /**
  * @description Abstract adapter for Postgres database operations
@@ -56,11 +84,41 @@ import { Reflection } from "@decaf-ts/reflection";
 export class PostgresAdapter extends Adapter<
   Pool,
   PostgresQuery,
-  RepositoryFlags,
-  Context<RepositoryFlags>
+  PostgresFlags,
+  Context<PostgresFlags>
 > {
-  constructor(scope: Pool, alias?: string) {
-    super(scope, PostgresFlavour, alias);
+  constructor(pool: Pool, alias?: string) {
+    super(pool, PostgresFlavour, alias);
+  }
+
+  protected override async flags<M extends Model>(
+    operation: OperationKeys,
+    model: Constructor<M>,
+    flags: Partial<PostgresFlags>
+  ): Promise<PostgresFlags> {
+    const f = await super.flags(operation, model, flags);
+    const newObj: any = {
+      user: (await PostgresAdapter.getCurrentUser(this.native)) as string,
+    };
+    if (operation === "create" || operation === "update") {
+      const pk = findPrimaryKey(new model()).id;
+      newObj.ignoredValidationProperties = (
+        f.ignoredValidationProperties ? f.ignoredValidationProperties : []
+      ).concat(pk as string);
+    }
+    return Object.assign(f, newObj) as PostgresFlags;
+  }
+
+  override repository<M extends Model>(): Constructor<
+    Repository<
+      M,
+      PostgresQuery,
+      PostgresAdapter,
+      PostgresFlags,
+      Context<PostgresFlags>
+    >
+  > {
+    return PostgresRepository;
   }
 
   /**
@@ -102,6 +160,7 @@ export class PostgresAdapter extends Adapter<
    * @param {...Constructor<M>} models - The model constructors to create indexes for
    * @return {Promise<void>} A promise that resolves when all indexes are created
    */
+  @final()
   protected async index<M extends Model>(
     ...models: Constructor<M>[]
   ): Promise<void> {
@@ -120,7 +179,6 @@ export class PostgresAdapter extends Adapter<
       await client.query("ROLLBACK");
       throw this.parseError(e as Error);
     } finally {
-      // Release the client back to the pool
       client.release();
     }
   }
@@ -133,6 +191,8 @@ export class PostgresAdapter extends Adapter<
    * @param {boolean} rowsOnly - Whether to return only the rows or the full response
    * @return {Promise<R>} A promise that resolves to the query result
    */
+
+  @final()
   override async raw<R>(q: PostgresQuery, rowsOnly: boolean): Promise<R> {
     const client: PoolClient = await this.native.connect();
     try {
@@ -145,6 +205,82 @@ export class PostgresAdapter extends Adapter<
     } finally {
       client.release();
     }
+  }
+
+  override prepare<M extends Model>(
+    model: M,
+    pk: keyof M
+  ): {
+    record: Record<string, any>;
+    id: string;
+    transient?: Record<string, any>;
+  } {
+    const prepared = super.prepare(model, pk);
+
+    prepared.record = Object.entries(prepared.record).reduce(
+      (accum: Record<string, any>, [key, value]) => {
+        if (
+          key === PersistenceKeys.METADATA ||
+          this.isReserved(key) ||
+          key === pk
+        )
+          return accum;
+        if (value === undefined) {
+          return accum;
+        }
+
+        if (value instanceof Date) {
+          value = new Date(value.getTime());
+        } else {
+          switch (typeof value) {
+            case "string":
+              value = `${value}`;
+              break;
+            default:
+            //do nothing;
+          }
+        }
+        accum[key] = value;
+        return accum;
+      },
+      {}
+    );
+    return prepared;
+  }
+
+  override revert<M extends Model>(
+    obj: Record<string, any>,
+    clazz: string | Constructor<M>,
+    pk: keyof M,
+    id: string | number | bigint,
+    transient?: Record<string, any>
+  ): M {
+    const log = this.log.for(this.revert);
+    const ob: Record<string, any> = {};
+    ob[pk as string] = id || obj[pk as string];
+    const m = (
+      typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
+    ) as M;
+    log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
+    const result = Object.keys(m).reduce((accum: M, key) => {
+      (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
+      return accum;
+    }, m);
+
+    if (transient) {
+      log.verbose(
+        `re-adding transient properties: ${Object.keys(transient).join(", ")}`
+      );
+      Object.entries(transient).forEach(([key, val]) => {
+        if (key in result)
+          throw new InternalError(
+            `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
+          );
+        result[key as keyof M] = val;
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -163,19 +299,10 @@ export class PostgresAdapter extends Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const fields: string[] = [];
-    const values: any[] = [];
-
-    Object.entries(model).forEach(([key, value]) => {
-      if (key !== PersistenceKeys.METADATA && !this.isReserved(key)) {
-        fields.push(key);
-        values.push(value);
-      }
-    });
-
-    const sql = `INSERT INTO $1 ($2}) VALUES ($3) RETURNING *`;
+    const values = Object.values(model);
+    const sql = `INSERT INTO ${tableName} (${Object.keys(model)}) VALUES (${values.map((_, i) => `$${i + 1}`)}) RETURNING *`;
     const response: QueryResult = await this.raw(
-      { query: sql, values: [tableName, fields.join(", "), values.join(", ")] },
+      { query: sql, values: values },
       false
     );
     const { rows } = response;
@@ -195,11 +322,8 @@ export class PostgresAdapter extends Adapter<
     id: string | number,
     pk: string
   ): Promise<Record<string, any>> {
-    const sql = "SELECT * FROM $1 WHERE $2 = $3";
-    const result: any = await this.raw(
-      { query: sql, values: [tableName, pk, id] },
-      false
-    );
+    const sql = `SELECT * FROM ${tableName} as t WHERE t.${pk} = $1`;
+    const result: any = await this.raw({ query: sql, values: [id] }, false);
     if (result.rowCount === 0)
       throw new NotFoundError(
         `Record with id: ${id} not found in table ${tableName}`
@@ -213,7 +337,7 @@ export class PostgresAdapter extends Adapter<
    * @param {string} tableName - The name of the table
    * @param {string|number} id - The ID of the record
    * @param {Record<string, any>} model - The model to update
-   * @param {any[]} args - Additional arguments
+   * @param {string} pk - Additional arguments
    * @return A promise that resolves to the updated record
    */
   override async update(
@@ -222,18 +346,17 @@ export class PostgresAdapter extends Adapter<
     model: Record<string, any>,
     pk: string
   ): Promise<Record<string, any>> {
-    const sets: string[] = [];
+    const values = Object.values(model);
 
-    Object.entries(model).forEach(([key, value]) => {
-      if (key !== PersistenceKeys.METADATA && !this.isReserved(key)) {
-        sets.push(`${key} = $${value}`);
-      }
-    });
-
-    const sql = `UPDATE $1 as t SET $2 WHERE t.$3 = $4 RETURNING *`;
+    const sql = `UPDATE ${tableName} 
+SET ${Object.keys(model)
+      .map((f, i) => `${f} = $${i + 1}`)
+      .join(", ")}
+WHERE id = $${values.length + 1}
+RETURNING *;`;
 
     const response: QueryResult = await this.raw(
-      { query: sql, values: [tableName, sets.join(", "), pk, id] },
+      { query: sql, values: [...values, id] },
       false
     );
 
@@ -252,18 +375,17 @@ export class PostgresAdapter extends Adapter<
    * @summary Abstract method that must be implemented to delete a record
    * @param {string} tableName - The name of the table
    * @param {string|number} id - The ID of the record
-   * @param {any[]} args - Additional arguments
+   * @param {string} pk - Additional arguments
    * @return A promise that resolves to the deleted record
    */
   override async delete(
     tableName: string,
     id: string | number,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+    pk: string
   ): Promise<Record<string, any>> {
     const sql = `
         DELETE FROM ${tableName}
-        WHERE ${PostgresKeys.ID} = $1
+        WHERE ${pk} = $1
         RETURNING *
       `;
 
@@ -400,12 +522,52 @@ export class PostgresAdapter extends Adapter<
   }
 
   static async createDatabase(pool: Pool, dbName: string): Promise<void> {
+    const log = Logging.for(this.createDatabase);
+    log.verbose(`Creating database ${dbName}`);
     const client = await pool.connect();
     try {
       await client.query({
         name: `create-database`,
         text: `CREATE DATABASE ${dbName}`,
       });
+      log.info(`Created database ${dbName}`);
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    } finally {
+      client.release();
+    }
+  }
+
+  static async createNotifyFunction(pool: Pool, user: string): Promise<void> {
+    const log = Logging.for(this.createNotifyFunction);
+    log.verbose(`Creating notify function`);
+    const client = await pool.connect();
+    try {
+      await client.query(
+        `CREATE OR REPLACE FUNCTION notify_table_changes()
+RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_notify(
+        'table_changes',
+        json_build_object(
+            'table', TG_TABLE_NAME,
+            'action', TG_OP,
+            'data', row_to_json(NEW),
+            'old_data', row_to_json(OLD)
+        )::text
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+;`
+      );
+      await client.query(
+        `ALTER FUNCTION notify_table_changes() OWNER TO ${user};`
+      );
+      await client.query(`
+            GRANT EXECUTE ON FUNCTION notify_table_changes() TO public;
+        `);
+      log.info(`Created notify function`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     } finally {
@@ -434,27 +596,25 @@ export class PostgresAdapter extends Adapter<
     password: string
   ): Promise<void> {
     const client = await pool.connect();
-    let res;
     try {
-      res = await client.query(
-        `CREATE USER ${user} WITH PASSWORD '${password}'`
-      );
-      res = await client.query(
-        `GRANT CONNECT ON DATABASE ${dbName} TO ${user}`
-      );
+      await client.query(`CREATE USER ${user} WITH PASSWORD '${password}'`);
+      await client.query(`GRANT CONNECT ON DATABASE ${dbName} TO ${user}`);
 
-      res = await client.query(`GRANT USAGE ON SCHEMA public TO ${user}`);
-      res = await client.query(`GRANT CREATE ON SCHEMA public TO ${user}`);
-      res = await client.query(
+      await client.query(`GRANT USAGE ON SCHEMA public TO ${user}`);
+      await client.query(`GRANT CREATE ON SCHEMA public TO ${user}`);
+      await client.query(
         `GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${user}`
       );
-      res = await client.query(
+      await client.query(
         `GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${user}`
       );
-      res = await client.query(
+      await client.query(
+        `GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO ${user}`
+      );
+      await client.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO ${user}`
       );
-      res = await client.query(
+      await client.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO ${user}`
       );
     } catch (e: unknown) {
@@ -470,29 +630,28 @@ export class PostgresAdapter extends Adapter<
     admin: string
   ): Promise<void> {
     const client = await pool.connect();
-    let res;
     try {
-      res = await client.query(`REASSIGN OWNED BY ${user} TO ${admin}`);
-      res = await client.query(
+      await client.query(`REASSIGN OWNED BY ${user} TO ${admin}`);
+      await client.query(
         `REVOKE ALL ON ALL TABLES IN SCHEMA public FROM ${user}`
       );
-      res = await client.query(`REVOKE ALL ON SCHEMA public FROM ${user}`);
-      res = await client.query(
+      await client.query(`REVOKE ALL ON SCHEMA public FROM ${user}`);
+      await client.query(
         `REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM ${user}`
       );
-      res = await client.query(
+      await client.query(
         `REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM ${user}`
       );
-      res = await client.query(
+      await client.query(
         `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM ${user}`
       );
-      res = await client.query(
+      await client.query(
         `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM ${user};`
       );
-      res = await client.query(
+      await client.query(
         `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM ${user}`
       );
-      res = await client.query(`DROP USER IF EXISTS "${user}"`);
+      await client.query(`DROP USER IF EXISTS "${user}"`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     } finally {
@@ -509,7 +668,7 @@ export class PostgresAdapter extends Adapter<
       case "boolean":
         return "BOOLEAN";
       case "date":
-        return "DATE";
+        return "TIMESTAMP";
       case "bigint":
         return isPk ? "BIGINT PRIMARY KEY" : "BIGINT";
       default:
@@ -577,7 +736,7 @@ export class PostgresAdapter extends Adapter<
       {};
     const m = new model();
     const tableName = Repository.table(model);
-    const { id, props } = findPrimaryKey(m);
+    const { id } = findPrimaryKey(m);
 
     let isPk: boolean, column: string;
     const properties = Object.getOwnPropertyNames(m) as (keyof M)[];
@@ -648,7 +807,8 @@ export class PostgresAdapter extends Adapter<
       );
 
       for (const [key, props] of Object.entries(decoratorData).filter(
-        ([k]) => ![ValidationKeys.TYPE, ValidationKeys.MAX_LENGTH].includes(k)
+        ([k]) =>
+          ![ValidationKeys.TYPE, ValidationKeys.MAX_LENGTH].includes(k as any)
       )) {
         const validation = this.parseValidationToPostgres(
           column,
@@ -690,10 +850,69 @@ export class PostgresAdapter extends Adapter<
         name: `create-table`,
         text: queryString,
       });
+      await client.query(
+        `CREATE TRIGGER notify_changes_${tableName}
+AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
+    FOR EACH ROW
+    EXECUTE FUNCTION notify_table_changes();`
+      );
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     } finally {
       client.release();
     }
+  }
+
+  static async getCurrentUser(pool: Pool): Promise<string> {
+    const client = await pool.connect();
+    const queryString = `SELECT CURRENT_USER;`;
+    try {
+      const result = await client.query({
+        name: `get-current-user`,
+        text: queryString,
+      });
+      return result.rows[0].current_user;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    } finally {
+      client.release();
+    }
+  }
+
+  static decoration() {
+    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+    const pkKey = Repository.key(DBKeys.ID);
+    const uniqueKey = Repository.key(DBKeys.UNIQUE);
+
+    Decoration.flavouredAs(PostgresFlavour)
+      .for(pkKey)
+      .define(
+        required(),
+        readonly(),
+        propMetadata(pkKey, DefaultSequenceOptions)
+      )
+      .apply();
+
+    Decoration.flavouredAs(PostgresFlavour)
+      .for(uniqueKey)
+      .define(propMetadata(uniqueKey, {}))
+      .apply();
+
+    Decoration.flavouredAs(PostgresFlavour)
+      .for(createdByKey)
+      .define(
+        onCreate(createdByOnPostgresCreateUpdate),
+        propMetadata(createdByKey, {})
+      )
+      .apply();
+
+    Decoration.flavouredAs(PostgresFlavour)
+      .for(updatedByKey)
+      .define(
+        onCreate(createdByOnPostgresCreateUpdate),
+        propMetadata(updatedByKey, {})
+      )
+      .apply();
   }
 }

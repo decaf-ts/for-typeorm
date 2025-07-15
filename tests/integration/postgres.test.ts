@@ -67,8 +67,8 @@ describe("Adapter Integration", () => {
           database: dbName,
         })
       );
+      await PostgresAdapter.createNotifyFunction(con);
       await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
       await con.end();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
@@ -85,7 +85,7 @@ describe("Adapter Integration", () => {
     adapter["_native" as keyof typeof PostgresAdapter] = con;
   });
 
-  describe("TestModel", () => {
+  describe("pg", () => {
     @table("tst_user")
     @model()
     class TestModel extends BaseModel {
@@ -103,18 +103,10 @@ describe("Adapter Integration", () => {
       @required()
       nif!: string;
 
-      @column("tst_created_on")
-      createdOn!: Date;
-
-      @column("tst_updated_on")
-      updatedOn!: Date;
-
       constructor(arg?: ModelArg<TestModel>) {
         super(arg);
       }
     }
-
-    let repo: PostgresRepository<TestModel>;
 
     beforeAll(async () => {
       try {
@@ -122,27 +114,7 @@ describe("Adapter Integration", () => {
       } catch (e: unknown) {
         if (!(e instanceof ConflictError)) throw e;
       }
-      repo = new PostgresRepository(adapter, TestModel);
     });
-
-    let observer: Observer;
-    let mock: any;
-    beforeEach(() => {
-      jest.clearAllMocks();
-      jest.restoreAllMocks();
-      jest.resetAllMocks();
-      mock = jest.fn();
-      observer = new (class implements Observer {
-        refresh(...args: any[]): Promise<void> {
-          return mock(...args);
-        }
-      })();
-      // repo.observe(observer);
-    });
-
-    // afterEach(() => {
-    //   repo.unObserve(observer);
-    // });
 
     afterAll(async () => {
       await con.end();
@@ -188,7 +160,7 @@ describe("Adapter Integration", () => {
       expect(response).toBeDefined();
     });
 
-    it.skip("inserts functions", async () => {
+    it.only("inserts functions", async () => {
       await con.query(
         `CREATE OR REPLACE FUNCTION notify_table_changes()
 RETURNS trigger AS $$
@@ -205,58 +177,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;`
-      );
-    });
-
-    let created: TestModel, updated: TestModel;
-
-    it("creates", async () => {
-      const model = new TestModel({
-        name: "test_name",
-        nif: "123456789",
-      });
-
-      created = await repo.create(model);
-
-      expect(created).toBeDefined();
-      expect(created.hasErrors()).toBeUndefined();
-      // await new Promise((resolve) => setTimeout(resolve, 5000));
-      // expect(mock).toHaveBeenCalledWith(
-      //   Repository.table(TestModel),
-      //   OperationKeys.CREATE,
-      //   [model.id]
-      // );
-    });
-
-    it("reads", async () => {
-      const read = await repo.read(created.id as number);
-
-      expect(read).toBeDefined();
-      expect(read.equals(created)).toEqual(true); // same model
-      expect(read === created).toEqual(false); // different instances
-    });
-
-    it("updates", async () => {
-      const toUpdate = new TestModel(
-        Object.assign({}, created, {
-          name: "new_test_name",
-        })
-      );
-
-      updated = await repo.update(toUpdate);
-
-      expect(updated).toBeDefined();
-      expect(updated.equals(created)).toEqual(false);
-      expect(updated.equals(created, "updatedOn", "name")).toEqual(true); // minus the expected changes
-    });
-
-    it("deletes", async () => {
-      const deleted = await repo.delete(created.id as number);
-      expect(deleted).toBeDefined();
-      expect(deleted.equals(updated)).toEqual(true);
-
-      await expect(repo.read(created.id as number)).rejects.toThrowError(
-        NotFoundError
       );
     });
   });

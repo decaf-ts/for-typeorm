@@ -210,7 +210,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    * @summary Converts a Condition object into PostgreSQL condition structures
    * @param {Condition<M>} condition - The condition to parse
    * @param {number} [valueCount=0] - the positional index of the arguments
-   * @return {PostgreSQLCondition} The PostgresSQL condition
+   * @return {PostgresQuery} The PostgresSQL condition
    * @mermaid
    * sequenceDiagram
    *   participant Statement
@@ -255,8 +255,8 @@ export class PostgresStatement<M extends Model, R> extends Statement<
     ) {
       const sqlOperator = translateOperators(operator);
       postgresCondition = {
-        query: ` $${++valueCount} ${sqlOperator} $${++valueCount}`,
-        values: [`t.${attr1}`, comparison],
+        query: ` t.${attr1} ${sqlOperator} $${++valueCount}`,
+        values: [comparison],
         valueCount: valueCount,
       };
       return postgresCondition;
@@ -276,7 +276,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
       const leftConditions = this.parseCondition(attr1 as Condition<M>);
       const rightConditions = this.parseCondition(comparison as Condition<M>);
       postgresCondition = {
-        query: ` ($${++valueCount} ${operator} $${++valueCount})`,
+        query: ` ((${leftConditions.query}) ${operator} (${rightConditions.query}))`,
         values: [...leftConditions.values, ...rightConditions.values],
         valueCount: valueCount,
       };

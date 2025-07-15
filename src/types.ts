@@ -43,14 +43,5 @@ export interface PostgresFlags extends RepositoryFlags {
   /**
    * @description User authentication information for Postgres database connections
    */
-  user: {
-    /**
-     * @description Username for authentication with the Postgres database
-     */
-    name: string;
-    /**
-     * @description Optional array of roles assigned to the user
-     */
-    roles?: string[];
-  };
+  user: string;
 }
