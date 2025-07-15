@@ -3,11 +3,7 @@ import { PostgresAdapter, PostgresRepository } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 
-import {
-  ConflictError,
-  InternalError,
-  NotFoundError,
-} from "@decaf-ts/db-decorators";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
 import { TestCountryModel } from "./models";
 import { Repository } from "@decaf-ts/core";
@@ -76,6 +72,12 @@ describe(`Pagination`, function () {
 
     adapter["_native" as keyof typeof PostgresAdapter] = con;
     repo = Repository.forModel(TestCountryModel);
+
+    try {
+      await PostgresAdapter.createTable(con, TestCountryModel);
+    } catch (e: unknown) {
+      if (!(e instanceof ConflictError)) throw e;
+    }
   });
 
   let observer: Observer;
@@ -109,14 +111,26 @@ describe(`Pagination`, function () {
   const size = 100;
 
   let selected: TestCountryModel[];
-  it.skip("Fails to sort in an unindexed property", async () => {
-    await expect(
-      repo.select().orderBy(["id", OrderDirection.ASC]).execute()
-    ).rejects.toThrow(InternalError);
-  });
 
-  it("indexes de database properly according to defined indexes", async () => {
-    await adapter.initialize();
+  it("Creates in bulk", async () => {
+    const repo: PostgresRepository<TestCountryModel> = Repository.forModel<
+      TestCountryModel,
+      PostgresRepository<TestCountryModel>
+    >(TestCountryModel);
+    const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
+      (i) =>
+        new TestCountryModel({
+          age: Math.floor(18 + (i - 1) / 3),
+          name: "user_name_" + i,
+          countryCode: "M" + i,
+          locale: "pt_PT",
+        })
+    );
+    created = await repo.createAll(models);
+    expect(created).toBeDefined();
+    expect(Array.isArray(created)).toEqual(true);
+    expect(created.every((el) => el instanceof TestCountryModel)).toEqual(true);
+    expect(created.every((el) => !el.hasErrors())).toEqual(true);
   });
 
   it("Sorts via defined property when there is an index", async () => {

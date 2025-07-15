@@ -8,9 +8,21 @@ import {
   prop,
   required,
 } from "@decaf-ts/decorator-validation";
-import { Cascade, index, oneToMany, oneToOne, pk } from "@decaf-ts/core";
+import {
+  Cascade,
+  column,
+  index,
+  oneToMany,
+  oneToOne,
+  pk,
+  table,
+  uses,
+} from "@decaf-ts/core";
 import { PGBaseModel } from "./baseModel";
+import { PostgresFlavour } from "../../src";
 
+@uses(PostgresFlavour)
+@table("tst_country")
 @model()
 export class TestCountryModel extends PGBaseModel {
   @pk()
@@ -20,6 +32,7 @@ export class TestCountryModel extends PGBaseModel {
   name!: string;
 
   @required()
+  @column("tst_country_code")
   countryCode!: string;
 
   @required()

@@ -50,6 +50,7 @@ import { Reflection } from "@decaf-ts/reflection";
 import { PostgresRepository } from "./PostgresRepository";
 import { Logging } from "@decaf-ts/logging";
 import { PostgresDispatch } from "./PostgresDispatch";
+import { convertJsRegexToPostgres } from "./utils";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -892,7 +893,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       case ValidationKeys.PATTERN:
       case ValidationKeys.URL:
       case ValidationKeys.EMAIL:
-        return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} ~ '${(options as PatternValidatorOptions)[ValidationKeys.PATTERN]}')`;
+        return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} ~ '${convertJsRegexToPostgres((options as PatternValidatorOptions)[ValidationKeys.PATTERN] as string)}')`;
       case ValidationKeys.TYPE:
       case ValidationKeys.DATE:
         return "";
