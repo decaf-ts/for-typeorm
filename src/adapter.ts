@@ -28,7 +28,9 @@ import {
   Decoration,
   DEFAULT_ERROR_MESSAGES,
   MaxLengthValidatorOptions,
+  MaxValidatorOptions,
   MinLengthValidatorOptions,
+  MinValidatorOptions,
   Model,
   ModelKeys,
   PatternValidatorOptions,
@@ -894,6 +896,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       case ValidationKeys.TYPE:
       case ValidationKeys.DATE:
         return "";
+      case ValidationKeys.MIN:
+        return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} >= ${(options as MinValidatorOptions)[ValidationKeys.MIN]})`;
+      case ValidationKeys.MAX:
+        return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} <= ${(options as MaxValidatorOptions)[ValidationKeys.MAX]})`;
       case ValidationKeys.PASSWORD:
       default:
         throw new InternalError(`Unsupported type: ${key}`);

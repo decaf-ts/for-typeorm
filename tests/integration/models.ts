@@ -8,18 +8,12 @@ import {
   prop,
   required,
 } from "@decaf-ts/decorator-validation";
-import {
-  BaseModel,
-  Cascade,
-  index,
-  oneToMany,
-  oneToOne,
-  pk,
-} from "@decaf-ts/core";
+import { Cascade, index, oneToMany, oneToOne, pk } from "@decaf-ts/core";
+import { PGBaseModel } from "./baseModel";
 
 @model()
-export class TestCountryModel extends BaseModel {
-  @pk({ type: "Number" })
+export class TestCountryModel extends PGBaseModel {
+  @pk()
   id!: number;
 
   @required()
@@ -38,8 +32,8 @@ export class TestCountryModel extends BaseModel {
 }
 
 @model()
-export class TestAddressModel extends BaseModel {
-  @pk({ type: "Number" })
+export class TestAddressModel extends PGBaseModel {
+  @pk()
   id!: number;
 
   @required()
@@ -70,8 +64,8 @@ export class TestAddressModel extends BaseModel {
 }
 
 @model()
-export class TestPhoneModel extends BaseModel {
-  @pk({ type: "Number" })
+export class TestPhoneModel extends PGBaseModel {
+  @pk()
   id!: number;
 
   @required()
@@ -86,8 +80,8 @@ export class TestPhoneModel extends BaseModel {
 }
 
 @model()
-export class TestUserModel extends BaseModel {
-  @pk({ type: "Number" })
+export class TestUserModel extends PGBaseModel {
+  @pk()
   id!: number;
 
   @required()
@@ -125,8 +119,8 @@ export class TestUserModel extends BaseModel {
 }
 
 @model()
-export class TestDummyCountry extends BaseModel {
-  @pk({ type: "Number" })
+export class TestDummyCountry extends PGBaseModel {
+  @pk()
   id!: number;
 
   @required()
@@ -141,8 +135,8 @@ export class TestDummyCountry extends BaseModel {
 }
 
 @model()
-export class NoPopulateOnceModel extends BaseModel {
-  @pk({ type: "Number" })
+export class NoPopulateOnceModel extends PGBaseModel {
+  @pk()
   id!: number;
 
   @oneToOne(
@@ -159,8 +153,8 @@ export class NoPopulateOnceModel extends BaseModel {
 }
 
 @model()
-export class TestDummyPhone extends BaseModel {
-  @pk({ type: "Number" })
+export class TestDummyPhone extends PGBaseModel {
+  @pk()
   id!: number;
   @required()
   areaCode!: string;
@@ -173,8 +167,8 @@ export class TestDummyPhone extends BaseModel {
 }
 
 @model()
-export class NoPopulateManyModel extends BaseModel {
-  @pk({ type: "Number" })
+export class NoPopulateManyModel extends PGBaseModel {
+  @pk()
   id!: number;
 
   @required()

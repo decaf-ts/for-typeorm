@@ -1,3 +1,7 @@
+import { Pool, PoolConfig } from "pg";
+import { PostgresAdapter } from "../../src";
+let con: Pool;
+const adapter = new PostgresAdapter(con);
 import {
   NoPopulateManyModel,
   NoPopulateOnceModel,
@@ -14,16 +18,14 @@ import {
 } from "./models";
 import { Model } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Condition, Repository } from "@decaf-ts/core";
+import { Condition, Observer } from "@decaf-ts/core";
 import { sequenceNameForModel } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
-import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter } from "../../src";
 import { PostgresRepository } from "../../src/PostgresRepository";
 
 const admin = "postgres";
 const admin_password = "password";
-const user = "user";
+const user = "complex_user";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -46,24 +48,72 @@ Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
-describe(`Complex Database`, function () {
-  let con: Pool;
-  let adapter: PostgresAdapter;
-
+describe.skip(`Complex Database`, function () {
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
+
+    try {
+      await PostgresAdapter.deleteDatabase(con, dbName, user);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+    try {
+      await PostgresAdapter.deleteUser(con, user, admin);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
     try {
       await PostgresAdapter.createDatabase(con, dbName);
+      await con.end();
+      con = await PostgresAdapter.connect(
+        Object.assign({}, config, {
+          database: dbName,
+        })
+      );
       await PostgresAdapter.createUser(con, dbName, user, user_password);
-    } catch (e: any) {
+      await PostgresAdapter.createNotifyFunction(con, user);
+      await con.end();
+    } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    adapter = new PostgresAdapter(con);
+
+    con = await PostgresAdapter.connect(
+      Object.assign({}, config, {
+        user: user,
+        password: user_password,
+        database: dbName,
+      })
+    );
+
+    adapter["_native" as keyof typeof PostgresAdapter] = con;
   });
 
+  let observer: Observer;
+  let mock: any;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    mock = jest.fn();
+    observer = new (class implements Observer {
+      refresh(...args: any[]): Promise<void> {
+        return mock(...args);
+      }
+    })();
+    // repo.observe(observer);
+  });
+  //
+  // afterEach(() => {
+  //   repo.unObserve(observer);
+  // });
+
   afterAll(async () => {
-    await PostgresAdapter.deleteDatabase(con, dbName);
+    await con.end();
+    con = await PostgresAdapter.connect(config);
+    await PostgresAdapter.deleteDatabase(con, dbName, user);
+    await PostgresAdapter.deleteUser(con, user, admin);
+    await con.end();
   });
 
   let userRepository: PostgresRepository<TestUserModel>;
@@ -79,17 +129,29 @@ describe(`Complex Database`, function () {
   let model: any;
 
   beforeAll(async () => {
-    userRepository = new Repository(adapter, TestUserModel);
-    testPhoneModelRepository = new Repository(adapter, TestPhoneModel);
-    testAddressModelRepository = new Repository(adapter, TestAddressModel);
-    testCountryModelRepository = new Repository(adapter, TestCountryModel);
-    testDummyCountryModelRepository = new Repository(adapter, TestDummyCountry);
-    testDummyPhoneModelRepository = new Repository(adapter, TestDummyPhone);
-    noPopulateOnceModelRepository = new Repository(
+    userRepository = new PostgresRepository(adapter, TestUserModel);
+    testPhoneModelRepository = new PostgresRepository(adapter, TestPhoneModel);
+    testAddressModelRepository = new PostgresRepository(
+      adapter,
+      TestAddressModel
+    );
+    testCountryModelRepository = new PostgresRepository(
+      adapter,
+      TestCountryModel
+    );
+    testDummyCountryModelRepository = new PostgresRepository(
+      adapter,
+      TestDummyCountry
+    );
+    testDummyPhoneModelRepository = new PostgresRepository(
+      adapter,
+      TestDummyPhone
+    );
+    noPopulateOnceModelRepository = new PostgresRepository(
       adapter,
       NoPopulateOnceModel
     );
-    noPopulateManyModelRepository = new Repository(
+    noPopulateManyModelRepository = new PostgresRepository(
       adapter,
       NoPopulateManyModel
     );

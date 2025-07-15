@@ -2,6 +2,7 @@ import {
   Condition,
   GroupOperator,
   Operator,
+  OrderDirection,
   Paginator,
   Repository,
   Sequence,
@@ -12,7 +13,6 @@ import { translateOperators } from "./translate";
 import { PostgreSQLQueryLimit } from "./constants";
 import { PostgresPaginator } from "./Paginator";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
-import { PostgresKeys } from "../constants";
 import { PostgresQuery } from "../types";
 import { PostgresAdapter } from "../adapter";
 
@@ -91,47 +91,40 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    */
   protected build(): PostgresQuery {
     const tableName = Repository.table(this.fromSelector);
-    let valueCounter = 2;
-
-    const q: string[] = [`SELECT $1 from $2 as t`];
-
-    const values: any[] = [
-      this.selectSelector
-        ? this.selectSelector.map((k) => `t.${k.toString()}`).join(", ")
-        : "*",
-      tableName,
+    const m = new this.fromSelector();
+    const q: string[] = [
+      `SELECT ${
+        this.selectSelector
+          ? this.selectSelector.map((k) => `${k.toString()}`).join(", ")
+          : "*"
+      } from ${tableName}`,
     ];
 
+    const values: any[] = [];
     if (this.whereCondition) {
-      const { query, values, valueCount } = this.parseCondition(
-        this.whereCondition
-      );
-      q.push(query);
-      values.push(...values);
-      valueCounter = valueCount as number;
+      const parsed = this.parseCondition(this.whereCondition, tableName);
+      const { query } = parsed;
+      q.push(` WHERE ${query}`);
+      values.push(...parsed.values);
     }
 
-    if (this.orderBySelector) {
-      q.push(` ORDER BY $${++valueCounter} $${++valueCounter}`);
-      values.push(this.orderBySelector[0], this.orderBySelector[1]);
-    }
+    if (!this.orderBySelector)
+      this.orderBySelector = [findPrimaryKey(m).id, OrderDirection.ASC];
+    q.push(
+      ` ORDER BY ${tableName}.${this.orderBySelector[0] as string} ${this.orderBySelector[1].toUpperCase()}`
+    );
 
     if (this.limitSelector) {
-      q.push(` LIMIT $${++valueCounter}`);
-      values.push(this.limitSelector);
+      q.push(` LIMIT ${this.limitSelector}`);
     } else {
       console.warn(
         `No limit selector defined. Using default limit of ${PostgreSQLQueryLimit}`
       );
-      q.push(` LIMIT $${++valueCounter}`);
-      values.push(PostgreSQLQueryLimit);
+      q.push(` LIMIT ${PostgreSQLQueryLimit}`);
     }
 
     // Add offset
-    if (this.offsetSelector) {
-      q.push(` OFFSET $${++valueCounter}`);
-      values.push(this.limitSelector);
-    }
+    if (this.offsetSelector) q.push(` OFFSET ${this.offsetSelector}`);
 
     q.push(";");
     return {
@@ -170,18 +163,9 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    * @param {"Number" | "BigInt" | undefined} sequenceType - The type of the sequence
    * @return {any} The processed record
    */
-  private processRecord(
-    r: any,
-    pkAttr: keyof M,
-    sequenceType: "Number" | "BigInt" | undefined
-  ) {
-    if (r[pkAttr]) {
-      return this.adapter.revert(
-        r,
-        this.fromSelector,
-        pkAttr,
-        Sequence.parseValue(sequenceType, r[pkAttr])
-      );
+  private processRecord(r: any, pkAttr: keyof M) {
+    if (typeof r[pkAttr] !== "undefined") {
+      return this.adapter.revert(r, this.fromSelector, pkAttr, r[pkAttr]);
     }
     return r;
   }
@@ -198,10 +182,9 @@ export class PostgresStatement<M extends Model, R> extends Statement<
 
     const pkDef = findPrimaryKey(new this.fromSelector());
     const pkAttr = pkDef.id;
-    const type = pkDef.props.type;
 
     if (!this.selectSelector)
-      return results.map((r) => this.processRecord(r, pkAttr, type)) as R;
+      return results.map((r) => this.processRecord(r, pkAttr)) as R;
     return results as R;
   }
 
@@ -209,7 +192,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    * @description Parses a condition into PostgreSQL conditions
    * @summary Converts a Condition object into PostgreSQL condition structures
    * @param {Condition<M>} condition - The condition to parse
-   * @param {number} [valueCount=0] - the positional index of the arguments
+   * @param {string} [tableName] - the positional index of the arguments
    * @return {PostgresQuery} The PostgresSQL condition
    * @mermaid
    * sequenceDiagram
@@ -238,8 +221,9 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    */
   protected parseCondition(
     condition: Condition<M>,
-    valueCount: number = 0
+    tableName: string
   ): PostgresQuery {
+    let valueCount = 0;
     const { attr1, operator, comparison } = condition as unknown as {
       attr1: string | Condition<M>;
       operator: Operator | GroupOperator;
@@ -255,7 +239,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
     ) {
       const sqlOperator = translateOperators(operator);
       postgresCondition = {
-        query: ` t.${attr1} ${sqlOperator} $${++valueCount}`,
+        query: ` ${tableName}.${attr1} ${sqlOperator} $${++valueCount}`,
         values: [comparison],
         valueCount: valueCount,
       };
@@ -273,12 +257,23 @@ export class PostgresStatement<M extends Model, R> extends Statement<
     }
     // For AND/OR operators
     else {
-      const leftConditions = this.parseCondition(attr1 as Condition<M>);
-      const rightConditions = this.parseCondition(comparison as Condition<M>);
+      const leftConditions = this.parseCondition(
+        attr1 as Condition<M>,
+        tableName
+      );
+      const rightConditions = this.parseCondition(
+        comparison as Condition<M>,
+        tableName
+      );
+
+      const updatedRightQuery = rightConditions.query.replace(
+        /\$(\d+)/g,
+        (_, num) => `$${Number(num) + leftConditions.values.length}`
+      );
+
       postgresCondition = {
-        query: ` ((${leftConditions.query}) ${operator} (${rightConditions.query}))`,
+        query: ` ((${leftConditions.query}) ${operator} (${updatedRightQuery}))`,
         values: [...leftConditions.values, ...rightConditions.values],
-        valueCount: valueCount,
       };
       return postgresCondition;
     }

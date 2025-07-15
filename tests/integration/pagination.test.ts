@@ -1,15 +1,20 @@
-import { Model } from "@decaf-ts/decorator-validation";
-import { ServerScope } from "nano";
-import { ConflictError, InternalError } from "@decaf-ts/db-decorators";
-import { OrderDirection, Paginator, Repository } from "@decaf-ts/core";
-import { TestCountryModel } from "./models";
 import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter } from "../../src";
-import { PostgresRepository } from "../../src/PostgresRepository";
+import { PostgresAdapter, PostgresRepository } from "../../src";
+let con: Pool;
+const adapter = new PostgresAdapter(con);
+
+import {
+  ConflictError,
+  InternalError,
+  NotFoundError,
+} from "@decaf-ts/db-decorators";
+import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
+import { TestCountryModel } from "./models";
+import { Repository } from "@decaf-ts/core";
 
 const admin = "postgres";
 const admin_password = "password";
-const user = "user";
+const user = "pagination_user";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -25,43 +30,79 @@ const config: PoolConfig = {
   connectionTimeoutMillis: 2000,
   statement_timeout: 10000,
 };
-
 const dbName = "pagination_db";
 
 jest.setTimeout(500000);
 
 describe(`Pagination`, function () {
-  let con: Pool;
-  let adapter: PostgresAdapter;
   let repo: PostgresRepository<TestCountryModel>;
 
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
+
+    try {
+      await PostgresAdapter.deleteDatabase(con, dbName, user);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+    try {
+      await PostgresAdapter.deleteUser(con, user, admin);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
     try {
       await PostgresAdapter.createDatabase(con, dbName);
+      await con.end();
+      con = await PostgresAdapter.connect(
+        Object.assign({}, config, {
+          database: dbName,
+        })
+      );
       await PostgresAdapter.createUser(con, dbName, user, user_password);
-    } catch (e: any) {
+      await PostgresAdapter.createNotifyFunction(con, user);
+      await con.end();
+    } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    adapter = new PostgresAdapter(con);
-    repo = new Repository(adapter, TestCountryModel);
-    const models = Object.keys(new Array(size).fill(0)).map(
-      (i) =>
-        new TestCountryModel({
-          name: "country" + (parseInt(i) + 1),
-          countryCode: "pt",
-          locale: "pt_PT",
-        })
+
+    con = await PostgresAdapter.connect(
+      Object.assign({}, config, {
+        user: user,
+        password: user_password,
+        database: dbName,
+      })
     );
 
-    created = await repo.createAll(models);
-    expect(created).toBeDefined();
-    expect(created.length).toEqual(size);
+    adapter["_native" as keyof typeof PostgresAdapter] = con;
+    repo = Repository.forModel(TestCountryModel);
   });
 
+  let observer: Observer;
+  let mock: any;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    mock = jest.fn();
+    observer = new (class implements Observer {
+      refresh(...args: any[]): Promise<void> {
+        return mock(...args);
+      }
+    })();
+    // repo.observe(observer);
+  });
+  //
+  // afterEach(() => {
+  //   repo.unObserve(observer);
+  // });
+
   afterAll(async () => {
-    await PostgresAdapter.deleteDatabase(con, dbName);
+    await con.end();
+    con = await PostgresAdapter.connect(config);
+    await PostgresAdapter.deleteDatabase(con, dbName, user);
+    await PostgresAdapter.deleteUser(con, user, admin);
+    await con.end();
   });
 
   let created: TestCountryModel[];

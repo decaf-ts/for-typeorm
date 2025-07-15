@@ -13,7 +13,7 @@ export const PostgresFlavour = "postgres";
  * @description Key constants used in PostgreSQL operations
  * @summary Collection of string constants for PostgreSQL database properties and operations
  * @const PostgresKeys
- * @type {PostgreSQLKeysType}
+ * @type {PostgrsKeysType}
  * @memberOf module:for-postgres
  */
 export const PostgresKeys = {

@@ -1,5 +1,5 @@
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { Repository } from "@decaf-ts/core";
+import { repository, Repository } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
