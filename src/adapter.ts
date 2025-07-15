@@ -495,47 +495,36 @@ RETURNING *;`;
     if (ids.length !== model.length) {
       throw new InternalError("Number of IDs must match number of records");
     }
-
-    // Get all column names from the first record (excluding the primary key)
-    const columns = Object.keys(model[0]).filter((col) => col !== pk);
-
-    // Create value arrays for each record
+    // Create values array and get column names from first record
+    const columns = Object.keys(model[0]);
     const values: any[] = [];
-    const valueParams: string[] = [];
+    let placeholderIndex = 1;
 
-    model.forEach((record, i) => {
-      // Add ID to values array
-      values.push(ids[i]);
+    // Generate value lists for each record
+    const valueLists = model
+      .map((record, i) => {
+        const recordValues = columns.map((col) => {
+          values.push(record[col]);
+          if (record[col] instanceof Date) {
+            return `$${placeholderIndex++}::timestamp`;
+          }
+          return `$${placeholderIndex++}`;
+        });
+        return `(${ids[i]}, ${recordValues.join(", ")})`;
+      })
+      .join(", ");
 
-      // Add record values in column order
-      columns.forEach((col) => {
-        values.push(record[col]);
-      });
-
-      // Create parameters string for this record
-      const paramIndexBase = i * (columns.length + 1);
-      const recordParams = [`$${paramIndexBase + 1}`]; // ID parameter
-      columns.forEach((_, j) => {
-        recordParams.push(`$${paramIndexBase + j + 2}`); // Column value parameters
-      });
-      valueParams.push(`(${recordParams.join(", ")})`);
-    });
-
-    // Construct the update query using UPDATE with JOIN
     const sql = `
-    WITH updated_values (${[pk, ...columns].join(", ")}) AS (
-      VALUES ${valueParams.join(", ")}
-    )
-    UPDATE ${tableName} t
-    SET ${columns.map((col) => `${col} = uv.${col}`).join(", ")}
-    FROM updated_values uv
-    WHERE t.${pk} = uv.${pk}
+    UPDATE ${tableName} AS t SET
+      ${columns.map((col) => `${col} = c.${col}`).join(",\n      ")}
+    FROM (VALUES ${valueLists}) AS c(id, ${columns.join(", ")})
+    WHERE t.${pk} = c.id
     RETURNING *`;
 
     const result: any = await this.raw(
       {
         query: sql,
-        values: values,
+        values,
       },
       false
     );
@@ -774,9 +763,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     }
   }
 
-  static async deleteDatabase(pool: Pool, dbName: string): Promise<void> {
+  static async deleteDatabase(
+    pool: Pool,
+    dbName: string,
+    user: string
+  ): Promise<void> {
     const client = await pool.connect();
     try {
+      await client.query({
+        name: `delete-owned-by`,
+        text: `DROP OWNED BY ${user} CASCADE;`,
+      });
       await client.query({
         name: `delete-database`,
         text: `DROP DATABASE ${dbName}`,
@@ -850,6 +847,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       await client.query(
         `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM ${user}`
       );
+      await client.query(`DROP OWNED BY ${user} CASCADE`);
       await client.query(`DROP USER IF EXISTS "${user}"`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -888,7 +886,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         if (!options || type.toLowerCase() !== "string") return "";
         return `(${(options as MaxLengthValidatorOptions)[ValidationKeys.MAX_LENGTH]})`;
       case ValidationKeys.MIN_LENGTH:
-        return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) = ${(options as MinLengthValidatorOptions)[ValidationKeys.MIN_LENGTH]})`;
+        return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) >= ${(options as MinLengthValidatorOptions)[ValidationKeys.MIN_LENGTH]})`;
       case ValidationKeys.PATTERN:
       case ValidationKeys.URL:
       case ValidationKeys.EMAIL:

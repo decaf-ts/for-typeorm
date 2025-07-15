@@ -4,7 +4,7 @@ let con: Pool;
 const adapter = new PostgresAdapter(con);
 
 import {
-  BaseModel,
+  Observer,
   PersistenceKeys,
   pk,
   Repository,
@@ -19,10 +19,11 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PostgresRepository } from "../../src/PostgresRepository";
+import { PGBaseModel } from "./baseModel";
 
 const admin = "postgres";
 const admin_password = "password";
-const user = "other_user";
+const user = "bulk_user";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -48,12 +49,28 @@ jest.setTimeout(50000);
 describe("Bulk operations", () => {
   let con: Pool;
 
+  @uses("postgres")
+  @table("tst_bulk_model")
+  @model()
+  class TestBulkModel extends PGBaseModel {
+    @pk()
+    id?: number = undefined;
+
+    @required()
+    @minlength(5)
+    attr1?: string = undefined;
+
+    constructor(arg?: ModelArg<TestBulkModel>) {
+      super(arg);
+    }
+  }
+
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName);
+      await PostgresAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
@@ -94,25 +111,28 @@ describe("Bulk operations", () => {
     }
   });
 
-  afterAll(async () => {
-    await PostgresAdapter.deleteDatabase(con, dbName);
+  let observer: Observer;
+  let mock: any;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    mock = jest.fn();
+    observer = new (class implements Observer {
+      refresh(...args: any[]): Promise<void> {
+        return mock(...args);
+      }
+    })();
+    // repo.observe(observer);
   });
 
-  @uses("postgres")
-  @table("tst_bulk_model")
-  @model()
-  class TestBulkModel extends BaseModel {
-    @pk()
-    id?: number = undefined;
-
-    @required()
-    @minlength(5)
-    attr1?: string = undefined;
-
-    constructor(arg?: ModelArg<TestBulkModel>) {
-      super(arg);
-    }
-  }
+  afterAll(async () => {
+    await con.end();
+    con = await PostgresAdapter.connect(config);
+    await PostgresAdapter.deleteDatabase(con, dbName, user);
+    await PostgresAdapter.deleteUser(con, user, admin);
+    await con.end();
+  });
 
   let created: TestBulkModel[];
   let updated: TestBulkModel[];
@@ -166,6 +186,7 @@ describe("Bulk operations", () => {
         attr1: "updated_name_" + i,
       });
     });
+    const c = created;
     updated = await repo.updateAll(toUpdate);
     expect(updated).toBeDefined();
     expect(Array.isArray(updated)).toEqual(true);

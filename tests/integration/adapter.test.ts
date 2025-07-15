@@ -2,7 +2,6 @@ import { PostgresAdapter } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 import {
-  BaseModel,
   column,
   Observer,
   pk,
@@ -20,6 +19,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
+import { PGBaseModel } from "./baseModel";
 
 const admin = "postgres";
 const admin_password = "password";
@@ -49,7 +49,7 @@ describe("Adapter Integration", () => {
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName);
+      await PostgresAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
@@ -87,7 +87,7 @@ describe("Adapter Integration", () => {
   describe("TestModel", () => {
     @table("tst_user")
     @model()
-    class TestModel extends BaseModel {
+    class TestModel extends PGBaseModel {
       @pk()
       id!: number;
 
@@ -101,12 +101,6 @@ describe("Adapter Integration", () => {
       @maxlength(9)
       @required()
       nif!: string;
-
-      @column("tst_created_on")
-      createdOn!: Date;
-
-      @column("tst_updated_on")
-      updatedOn!: Date;
 
       constructor(arg?: ModelArg<TestModel>) {
         super(arg);
@@ -146,7 +140,7 @@ describe("Adapter Integration", () => {
     afterAll(async () => {
       await con.end();
       con = await PostgresAdapter.connect(config);
-      await PostgresAdapter.deleteDatabase(con, dbName);
+      await PostgresAdapter.deleteDatabase(con, dbName, user);
       await PostgresAdapter.deleteUser(con, user, admin);
       await con.end();
     });
