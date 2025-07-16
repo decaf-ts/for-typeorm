@@ -1,21 +1,20 @@
 /**
- * @function complexFunction
- * @description This function takes an optional string argument and concatenates it with "Hello World".
- * @summary Concatenates "Hello World" with a given string. Despite its name, it's a simple string concatenation operation.
- *
- * @param {string} [arg1="default"] - The string to append to "Hello World". If not provided, defaults to "default".
- * @return {string} The resulting concatenated string
- *
- * @example
- * // returns "Hello Worlddefault"
- * complexFunction();
- *
- * @example
- * // returns "Hello World!"
- * complexFunction("!");
- *
- * @memberOf module:ts-workspace
+ * Converts a JavaScript RegExp pattern to a PostgreSQL POSIX pattern
+ * @param jsRegex JavaScript RegExp object or pattern string
+ * @returns PostgreSQL compatible regex pattern string
  */
-export function complexFunction(arg1: string = "default") {
-  return "Hello World" + arg1;
+export function convertJsRegexToPostgres(jsRegex: RegExp | string): string {
+  const rxp = new RegExp(/^\/(.+)\/(\w+)$/g);
+  if (typeof jsRegex === "string") {
+    const match = rxp.exec(jsRegex);
+    if (match) {
+      const [, p, flags] = match;
+      jsRegex = p;
+    }
+  }
+  const regex = typeof jsRegex === "string" ? new RegExp(jsRegex) : jsRegex;
+
+  const pattern = regex.source;
+
+  return pattern;
 }
