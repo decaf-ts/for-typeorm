@@ -45,6 +45,12 @@ jobs:
       - name: Build
         run: npm run build:prod
 
+      - name: Login to docker
+        run: echo ${{ secrets.GH_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
+      - name: Start database for testing
+        run: |
+          docker compose -f ./docker/docker-compose.yml up -d
+
       - name: Test
         run: npm run coverage
 

@@ -44,7 +44,13 @@ jobs:
             build-${{ runner.os }}-${{ matrix.node-version }}-
             
       - if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
-        run: npm run build:prod  # Replace with your build command 
+        run: npm run build:prod  # Replace with your build command
+
+      - name: Login to docker
+        run: echo ${{ secrets.GH_PAT }} | docker login ghcr.io -u USERNAME --password-stdin
+      - name: Start database for testing
+        run: |
+          docker compose -f ./docker/docker-compose.yml up -d
       - run: npm run test:all
       - run: npm publish --access public
         env:
