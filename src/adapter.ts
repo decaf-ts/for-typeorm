@@ -872,6 +872,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       case "bigint":
         return isPk ? "BIGINT PRIMARY KEY" : "BIGINT";
       default:
+        if (Model.get(type)) return "";
         throw new InternalError(`Unsupported type: ${type}`);
     }
   }
@@ -925,8 +926,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
   }
 
   static async createTable<M extends Model>(pool: Pool, model: Constructor<M>) {
-    const result: { [key: string]: PostgresQuery & { constraints: string[] } } =
-      {};
+    const result: {
+      [key: string]: PostgresQuery & {
+        constraints: string[];
+        foreignKeys: string[];
+      };
+    } = {};
     const m = new model();
     const tableName = Repository.table(model);
     const { id } = findPrimaryKey(m);
@@ -1045,6 +1050,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         query: query.join(" "),
         values: [],
         constraints: constraints,
+        foreignKeys: foreignKeys,
       };
     }
 
@@ -1055,12 +1061,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .filter((c) => !!c.constraints.length)
       .map((r) => r.constraints)
       .join(",\n");
-    const queryString = `CREATE TABLE "${tableName}" (${[query, constraints].join(",\n")})`;
+    const foreignKeys = values
+      .filter((c) => !!c.foreignKeys.length)
+      .map((r) => r.foreignKeys)
+      .join(",\n");
+    const vals = [query, constraints];
+    if (foreignKeys) {
+      vals.push(foreignKeys);
+    }
+    const queryString = `CREATE TABLE "${tableName}" (${vals.filter((v) => !!v).join(",\n")})`;
     try {
-      await client.query({
-        name: `create-table`,
-        text: queryString,
-      });
+      await client.query(queryString);
       await client.query(
         `CREATE TRIGGER notify_changes_${tableName}
 AFTER INSERT OR UPDATE OR DELETE ON ${tableName}

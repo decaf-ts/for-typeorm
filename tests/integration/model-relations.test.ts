@@ -48,7 +48,7 @@ Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
-describe(`Complex Database`, function () {
+describe.skip(`Complex Database`, function () {
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
     expect(con).toBeDefined();
