@@ -21,7 +21,7 @@ import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PostgresRepository } from "../../src/PostgresRepository";
 import { PGBaseModel } from "./baseModel";
 
-const admin = "postgres";
+const admin = "alfred";
 const admin_password = "password";
 const user = "bulk_user";
 const user_password = "password";
@@ -30,7 +30,7 @@ const dbHost = "localhost";
 const config: PoolConfig = {
   user: admin,
   password: admin_password,
-  database: "postgres",
+  database: "alfred",
   host: dbHost,
   port: 5432,
   ssl: false,

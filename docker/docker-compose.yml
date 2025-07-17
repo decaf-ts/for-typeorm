@@ -4,8 +4,8 @@ x-action-postgres: &postgres-action
   networks:
     - postgres_network
   environment:
-    POSTGRES_DB: postgres
-    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_DB: alfred
+    POSTGRES_USER: ${POSTGRES_USER:-alfred}
     POSTGRES_PASSWORD: ${POSTGRES_password:-password}
     TZ: ${TZ:-Europe/Lisbon}
   volumes:
