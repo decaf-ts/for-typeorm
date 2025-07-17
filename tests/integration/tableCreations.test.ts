@@ -18,6 +18,7 @@ const adapter = new PostgresAdapter(con);
 
 import { Logging, LogLevel } from "@decaf-ts/logging";
 import {
+  Constructor,
   list,
   min,
   minlength,
@@ -27,7 +28,14 @@ import {
   required,
   type,
 } from "@decaf-ts/decorator-validation";
-import { column, oneToMany, oneToOne, pk, table } from "@decaf-ts/core";
+import {
+  column,
+  oneToMany,
+  oneToOne,
+  pk,
+  Repository,
+  table,
+} from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 
 Logging.setConfig({ level: LogLevel.debug });
@@ -88,6 +96,21 @@ describe("table creations", () => {
     @oneToOne(AIFeature)
     @required()
     features!: AIFeature;
+
+    constructor(arg?: ModelArg<AIModelSimple>) {
+      super(arg);
+    }
+  }
+
+  @table("ai_models_less_simple")
+  @model()
+  class AIModelLessSimple extends Model {
+    @pk()
+    name!: string;
+
+    // @manyToMany(AIFeature)
+    @required()
+    features!: AIFeature[];
 
     constructor(arg?: ModelArg<AIModelSimple>) {
       super(arg);
@@ -155,6 +178,10 @@ describe("table creations", () => {
     @oneToMany(AIModel)
     models!: AIModel[];
 
+    @required()
+    @min(1)
+    subscriptionPrice!: number;
+
     constructor(arg?: ModelArg<AIVendor>) {
       super(arg);
     }
@@ -204,18 +231,18 @@ describe("table creations", () => {
     await con.end();
   });
 
-  it("creates from nested models", async () => {
-    try {
-      await PostgresAdapter.createTable(adapter.native, AIModelSimple);
-    } catch (e: unknown) {
-      console.log(e);
-      throw e;
-    }
-  });
-  //
-  // for (const m of [AIFeature, AIModel] as Constructor<Model>[]) {
-  //   it(`creates ${Repository.table(m)} table from model`, async () => {
-  //     await PostgresAdapter.createTable(adapter.native, m);
-  //   });
-  // }
+  // it("creates from nested models", async () => {
+  //   try {
+  //     await PostgresAdapter.createTable(adapter.native, AIModelSimple);
+  //   } catch (e: unknown) {
+  //     console.log(e);
+  //     throw e;
+  //   }
+  // });
+
+  for (const m of [AIFeature, AIModel] as Constructor<Model>[]) {
+    it(`creates ${Repository.table(m)} table from model`, async () => {
+      await PostgresAdapter.createTable(adapter.native, m);
+    });
+  }
 });
