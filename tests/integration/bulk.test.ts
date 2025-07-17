@@ -1,5 +1,5 @@
 import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter } from "../../src";
+import { PostgresAdapter, PostgresFlavour } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 
@@ -49,7 +49,7 @@ jest.setTimeout(50000);
 describe("Bulk operations", () => {
   let con: Pool;
 
-  @uses("alfred")
+  @uses(PostgresFlavour)
   @table("tst_bulk_model")
   @model()
   class TestBulkModel extends PGBaseModel {

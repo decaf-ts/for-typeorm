@@ -843,13 +843,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         `REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM ${user}`
       );
       await client.query(
-        `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM ${user}`
+        `ALTER DEFAULT PRIVILEGES FOR ROLE ${admin} IN SCHEMA public REVOKE ALL ON TABLES FROM ${user}`
       );
       await client.query(
-        `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM ${user};`
+        `ALTER DEFAULT PRIVILEGES FOR ROLE ${admin} IN SCHEMA public REVOKE ALL ON SEQUENCES FROM ${user};`
       );
       await client.query(
-        `ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM ${user}`
+        `ALTER DEFAULT PRIVILEGES FOR ROLE ${admin} IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM ${user}`
       );
       await client.query(`DROP OWNED BY ${user} CASCADE`);
       await client.query(`DROP USER IF EXISTS "${user}"`);
