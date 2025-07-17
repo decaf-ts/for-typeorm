@@ -8,7 +8,7 @@ import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
 import { TestCountryModel } from "./models";
 import { Repository } from "@decaf-ts/core";
 
-const admin = "postgres";
+const admin = "alfred";
 const admin_password = "password";
 const user = "pagination_user";
 const user_password = "password";
@@ -17,7 +17,7 @@ const dbHost = "localhost";
 const config: PoolConfig = {
   user: admin,
   password: admin_password,
-  database: "postgres",
+  database: "alfred",
   host: dbHost,
   port: 5432,
   ssl: false,

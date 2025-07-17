@@ -23,7 +23,7 @@ import { sequenceNameForModel } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
 import { PostgresRepository } from "../../src/PostgresRepository";
 
-const admin = "postgres";
+const admin = "alfred";
 const admin_password = "password";
 const user = "complex_user";
 const user_password = "password";
@@ -32,7 +32,7 @@ const dbHost = "localhost";
 const config: PoolConfig = {
   user: admin,
   password: admin_password,
-  database: "postgres",
+  database: "alfred",
   host: dbHost,
   port: 5432,
   ssl: false,

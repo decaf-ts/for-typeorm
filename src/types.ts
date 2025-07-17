@@ -45,3 +45,9 @@ export interface PostgresFlags extends RepositoryFlags {
    */
   user: string;
 }
+
+export type PostgresTableSpec = PostgresQuery & {
+  primaryKey: boolean;
+  constraints: string[];
+  foreignKeys: string[];
+};
