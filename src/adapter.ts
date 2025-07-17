@@ -45,7 +45,7 @@ import { PostgresStatement } from "./query";
 import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
 import { PostgresSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { PostgresFlags, type PostgresQuery } from "./types";
+import { PostgresFlags, type PostgresQuery, PostgresTableSpec } from "./types";
 import { Reflection } from "@decaf-ts/reflection";
 import { PostgresRepository } from "./PostgresRepository";
 import { Logging } from "@decaf-ts/logging";
@@ -769,14 +769,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
   static async deleteDatabase(
     pool: Pool,
     dbName: string,
-    user: string
+    user?: string
   ): Promise<void> {
     const client = await pool.connect();
     try {
-      await client.query({
-        name: `delete-owned-by`,
-        text: `DROP OWNED BY ${user} CASCADE;`,
-      });
+      if (user)
+        await client.query({
+          name: `delete-owned-by`,
+          text: `DROP OWNED BY ${user} CASCADE;`,
+        });
       await client.query({
         name: `delete-database`,
         text: `DROP DATABASE ${dbName}`,
@@ -859,27 +860,44 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     }
   }
 
-  private static parseTypeToPostgres(type: string, isPk: boolean) {
+  private static parseTypeToPostgres(
+    type: string,
+    isPk: boolean,
+    isFk = false
+  ) {
     switch (type.toLowerCase()) {
       case "string":
-        return isPk ? "TEXT PRIMARY KEY" : "VARCHAR";
+        return isPk ? "TEXT PRIMARY KEY" : isFk ? "TEXT" : "VARCHAR";
       case "number":
-        return isPk ? "SERIAL PRIMARY KEY" : "SERIAL";
+        return isPk ? "SERIAL PRIMARY KEY" : "INTEGER";
       case "boolean":
         return "BOOLEAN";
       case "date":
         return "TIMESTAMP";
       case "bigint":
         return isPk ? "BIGINT PRIMARY KEY" : "BIGINT";
-      default:
-        if (Model.get(type)) return "";
+      default: {
+        const m = Model.get(type);
+        if (m) {
+          const mm = new m();
+          const type = Reflection.getTypeFromDecorator(
+            mm,
+            findPrimaryKey(mm).id
+          );
+          return {
+            model: m,
+            pkType: type,
+          };
+        }
         throw new InternalError(`Unsupported type: ${type}`);
+      }
     }
   }
 
   private static parseValidationToPostgres(
     prop: string,
     type: string,
+    isPk: boolean,
     key: string,
     options: ValidatorOptions
   ) {
@@ -887,7 +905,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       case ValidationKeys.REQUIRED:
         return "NOT NULL";
       case ValidationKeys.MAX_LENGTH:
-        if (!options || type.toLowerCase() !== "string") return "";
+        if (isPk || !options || type.toLowerCase() !== "string") {
+          return "";
+        }
         return `(${(options as MaxLengthValidatorOptions)[ValidationKeys.MAX_LENGTH]})`;
       case ValidationKeys.MIN_LENGTH:
         return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) >= ${(options as MinLengthValidatorOptions)[ValidationKeys.MIN_LENGTH]})`;
@@ -910,28 +930,27 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
 
   private static parseRelationsToPostgres(
     prop: string,
-    tableName: string,
+    clazz: Constructor<Model>,
     pk: string,
     key: PersistenceKeys,
     options: RelationsMetadata
   ) {
+    const tableName = Repository.table(clazz);
     const { cascade } = options;
     const cascadeStr = `${cascade.update ? " ON UPDATE CASCADE" : ""}${cascade.delete ? " ON DELETE CASCADE" : ""}`;
-    switch (key) {
+    switch (`relations${key}`) {
       case PersistenceKeys.ONE_TO_ONE:
-        return `FOREIGN KEY (${prop}) REFERENCES ${tableName}(${pk}${cascadeStr}`;
+        return `FOREIGN KEY (${prop}) REFERENCES ${tableName}(${pk})${cascadeStr}`;
       default:
         throw new InternalError(`Unsupported operation: ${key}`);
     }
   }
 
-  static async createTable<M extends Model>(pool: Pool, model: Constructor<M>) {
-    const result: {
-      [key: string]: PostgresQuery & {
-        constraints: string[];
-        foreignKeys: string[];
-      };
-    } = {};
+  static async createTable<M extends Model>(
+    pool: Pool,
+    model: Constructor<M>
+  ): Promise<Record<string, PostgresTableSpec>> {
+    const result: Record<string, PostgresTableSpec> = {};
     const m = new model();
     const tableName = Repository.table(model);
     const { id } = findPrimaryKey(m);
@@ -976,65 +995,118 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         {}
       );
 
-      if (!Object.keys(decoratorData).length) {
-        continue;
-      }
+      const dbDecs = Reflection.getPropertyDecorators(
+        Repository.key("relations"),
+        m,
+        prop.toString(),
+        true,
+        true
+      );
 
       const query: string[] = [];
       const constraints: string[] = [];
       const foreignKeys: string[] = [];
+      let typeData: TypeMetadata | undefined = undefined;
+      let childClass: Constructor<Model> | undefined = undefined;
+      let childPk: any;
 
-      const typeData: TypeMetadata = decoratorData[
-        ValidationKeys.TYPE
-      ] as TypeMetadata;
+      if (Object.keys(decoratorData).length) {
+        typeData = decoratorData[ValidationKeys.TYPE] as TypeMetadata;
 
-      if (!typeData) {
-        throw new Error(`Missing type information`);
-      }
+        if (!typeData) {
+          throw new Error(`Missing type information`);
+        }
 
-      query.push(
-        `${column} ${this.parseTypeToPostgres(typeData.customTypes[0], isPk)}${this.parseValidationToPostgres(
+        let parsedType:
+          | string
+          | { model: Constructor<Model> | string; pkType?: string } =
+          this.parseTypeToPostgres(typeData.customTypes[0], isPk);
+        if (typeof parsedType === "string") {
+          parsedType = { model: parsedType };
+        }
+        let typeStr:
+          | string
+          | { model: Constructor<Model> | string; pkType?: string } =
+          parsedType.model as
+            | string
+            | { model: Constructor<Model> | string; pkType?: string };
+
+        if (typeof typeStr !== "string") {
+          if (Array.isArray(typeStr)) {
+            console.log(typeStr);
+          }
+
+          // continue;
+          // const res: Record<string, PostgresTableSpec> = await this.createTable(pool, typeStr);
+          try {
+            childClass = parsedType.model as Constructor<Model>;
+            const m = new childClass();
+            childPk = findPrimaryKey(m);
+            typeStr = this.parseTypeToPostgres(
+              parsedType.pkType as string,
+              false,
+              true
+            );
+            await this.createTable(pool, childClass);
+          } catch (e: unknown) {
+            throw new InternalError(
+              `Error creating table for ${typeStr}: ${e}`
+            );
+          }
+
+          // const tbl = Repository.table(typeStr);
+          // foreignKeys.push(`FOREIGN KEY (${prop as string}) REFERENCES ${tbl}(${pk as string})`);
+        }
+
+        const validationStr = this.parseValidationToPostgres(
           column,
           typeData.customTypes[0],
+          isPk,
           ValidationKeys.MAX_LENGTH,
           (decoratorData[
             ValidationKeys.MAX_LENGTH
           ] as MaxLengthValidatorOptions) || {
             [ValidationKeys.MAX_LENGTH]: 255,
           }
-        )}`
-      );
-
-      for (const [key, props] of Object.entries(decoratorData).filter(
-        ([k]) =>
-          ![ValidationKeys.TYPE, ValidationKeys.MAX_LENGTH].includes(k as any)
-      )) {
-        const validation = this.parseValidationToPostgres(
-          column,
-          typeData.customTypes[0],
-          key,
-          props
         );
-        if (validation.startsWith("CONSTRAINT")) {
-          constraints.push(validation);
-        } else {
-          if (validation) query.push(validation);
-        }
-      }
-      const dbDecs = Reflection.getPropertyDecorators(
-        DBKeys.REFLECT,
-        this,
-        prop.toString(),
-        true,
-        true
-      );
 
-      if (dbDecs && dbDecs.decorators.length) {
-        for (const [key, props] of Object.entries(dbDecs)) {
-          const validation = this.parseRelationsToPostgres(
+        const q = `${column} ${typeStr}${validationStr}`;
+
+        if (isPk) {
+          query.unshift(q);
+        } else {
+          query.push(q);
+        }
+
+        for (const [key, props] of Object.entries(decoratorData).filter(
+          ([k]) =>
+            ![ValidationKeys.TYPE, ValidationKeys.MAX_LENGTH].includes(k as any)
+        )) {
+          const validation = this.parseValidationToPostgres(
             column,
             typeData.customTypes[0],
-            id as string,
+            isPk,
+            key,
+            props
+          );
+          if (validation.startsWith("CONSTRAINT")) {
+            constraints.push(validation);
+          } else {
+            if (validation) {
+              query.push(validation);
+            }
+          }
+        }
+      }
+
+      if (dbDecs && dbDecs.decorators.length) {
+        if (!typeData) throw new Error(`Missing type information`);
+        for (const decorator of dbDecs.decorators) {
+          const { key, props } = decorator;
+          const validation = this.parseRelationsToPostgres(
+            column,
+            childClass as Constructor<Model>,
+            childPk.id,
             key as PersistenceKeys,
             props as unknown as RelationsMetadata
           );
@@ -1049,6 +1121,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       result[prop.toString()] = {
         query: query.join(" "),
         values: [],
+        primaryKey: isPk,
         constraints: constraints,
         foreignKeys: foreignKeys,
       };
@@ -1069,7 +1142,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     if (foreignKeys) {
       vals.push(foreignKeys);
     }
-    const queryString = `CREATE TABLE "${tableName}" (${vals.filter((v) => !!v).join(",\n")})`;
+    const queryString = `CREATE TABLE ${tableName} (${vals.filter((v) => !!v).join(",\n")})`;
     try {
       await client.query(queryString);
       await client.query(
@@ -1083,6 +1156,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     } finally {
       client.release();
     }
+    return result;
   }
 
   static async getCurrentUser(pool: Pool): Promise<string> {

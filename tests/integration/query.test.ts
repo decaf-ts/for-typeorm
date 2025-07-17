@@ -26,7 +26,6 @@ import {
 } from "@decaf-ts/decorator-validation";
 import {
   ConflictError,
-  InternalError,
   NotFoundError,
   readonly,
 } from "@decaf-ts/db-decorators";
