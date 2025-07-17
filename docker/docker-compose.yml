@@ -12,10 +12,10 @@ x-action-postgres: &postgres-action
     - postgres:/var/lib/postgresql/data
 
 services:
-  postgres:
+  postgres_db:
     <<: *postgres-action
     image: postgres:${POSTGRES_VECTOR-}${POSTGRES_VERSION:-latest}
-    container_name: postgres
+    container_name: postgres_db
     hostname: postgres
     restart: unless-stopped
     networks:
