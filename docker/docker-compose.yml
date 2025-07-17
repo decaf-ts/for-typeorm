@@ -5,17 +5,17 @@ x-action-postgres: &postgres-action
     - postgres_network
   environment:
     POSTGRES_DB: alfred
-    POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    POSTGRES_USER: ${POSTGRES_USER:-alfred}
     POSTGRES_PASSWORD: ${POSTGRES_password:-password}
     TZ: ${TZ:-Europe/Lisbon}
   volumes:
     - postgres:/var/lib/postgresql/data
 
 services:
-  postgres:
+  postgres_db:
     <<: *postgres-action
     image: postgres:${POSTGRES_VECTOR-}${POSTGRES_VERSION:-latest}
-    container_name: postgres
+    container_name: postgres_db
     hostname: postgres
     restart: unless-stopped
     networks:
