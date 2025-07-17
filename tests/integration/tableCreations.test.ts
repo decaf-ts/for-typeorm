@@ -231,18 +231,18 @@ describe("table creations", () => {
     await con.end();
   });
 
-  // it("creates from nested models", async () => {
-  //   try {
-  //     await PostgresAdapter.createTable(adapter.native, AIModelSimple);
-  //   } catch (e: unknown) {
-  //     console.log(e);
-  //     throw e;
-  //   }
-  // });
+  it("creates from nested models", async () => {
+    try {
+      await PostgresAdapter.createTable(adapter.native, AIModelSimple);
+    } catch (e: unknown) {
+      console.log(e);
+      throw e;
+    }
+  });
 
-  for (const m of [AIFeature, AIModel] as Constructor<Model>[]) {
-    it(`creates ${Repository.table(m)} table from model`, async () => {
-      await PostgresAdapter.createTable(adapter.native, m);
-    });
-  }
+  // for (const m of [AIFeature, AIModel] as Constructor<Model>[]) {
+  //   it(`creates ${Repository.table(m)} table from model`, async () => {
+  //     await PostgresAdapter.createTable(adapter.native, m);
+  //   });
+  // }
 });
