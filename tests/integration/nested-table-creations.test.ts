@@ -18,7 +18,6 @@ const adapter = new PostgresAdapter(con);
 
 import { Logging, LogLevel } from "@decaf-ts/logging";
 import {
-  Constructor,
   list,
   min,
   minlength,
@@ -26,20 +25,11 @@ import {
   Model,
   ModelArg,
   required,
-  type,
 } from "@decaf-ts/decorator-validation";
-import {
-  column,
-  oneToMany,
-  oneToOne,
-  pk,
-  Repository,
-  table,
-} from "@decaf-ts/core";
+import { column, oneToMany, oneToOne, pk, table } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 
 Logging.setConfig({ level: LogLevel.debug });
-const log = Logging.for("table creation");
 
 jest.setTimeout(50000);
 export enum AIFeatures {
@@ -72,12 +62,12 @@ export enum AIVendors {
   OLLAMA = "ollama",
 }
 
-describe("table creations", () => {
+describe("nested table creations", () => {
   @table("ai_features")
   @model()
   class AIFeature extends Model {
     @pk()
-    name!: string;
+    name!: AIFeatures;
 
     @required()
     description!: string;
@@ -104,6 +94,7 @@ describe("table creations", () => {
 
   @table("ai_models_less_simple")
   @model()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   class AIModelLessSimple extends Model {
     @pk()
     name!: string;
@@ -165,8 +156,8 @@ describe("table creations", () => {
 
   @table("ai_vendors")
   @model()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   class AIVendor extends Model {
-    @type(String.name)
     @pk()
     name!: AIVendors;
     /**

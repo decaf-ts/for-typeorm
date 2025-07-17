@@ -49,7 +49,7 @@ jest.setTimeout(50000);
 describe("Bulk operations", () => {
   let con: Pool;
 
-  @uses(PostgresFlavour)
+  @uses("postgres")
   @table("tst_bulk_model")
   @model()
   class TestBulkModel extends PGBaseModel {

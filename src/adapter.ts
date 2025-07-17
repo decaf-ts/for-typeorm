@@ -1049,13 +1049,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             );
             await this.createTable(pool, childClass);
           } catch (e: unknown) {
-            throw new InternalError(
-              `Error creating table for ${typeStr}: ${e}`
-            );
+            if (!(e instanceof ConflictError)) throw e;
           }
-
-          // const tbl = Repository.table(typeStr);
-          // foreignKeys.push(`FOREIGN KEY (${prop as string}) REFERENCES ${tbl}(${pk as string})`);
         }
 
         const validationStr = this.parseValidationToPostgres(
