@@ -51,6 +51,7 @@ import { PostgresRepository } from "./PostgresRepository";
 import { Logging } from "@decaf-ts/logging";
 import { PostgresDispatch } from "./PostgresDispatch";
 import { convertJsRegexToPostgres } from "./utils";
+import { createConnection } from "typeorm";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,

@@ -9,6 +9,8 @@ export const reservedAttributes =
 
 export const PostgresFlavour = "postgres";
 
+export const TypeORMFlavour = "type-orm";
+
 /**
  * @description Key constants used in PostgreSQL operations
  * @summary Collection of string constants for PostgreSQL database properties and operations
