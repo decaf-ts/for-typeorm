@@ -1,7 +1,7 @@
-import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter, TypeORMRepository } from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
+import { DataSource, DataSourceOptions } from "type";
+import { TypeORMAdapter, TypeORMRepository } from "../../src";
+let con: DataSource;
+const adapter = new TypeORMAdapter(con);
 
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
@@ -14,17 +14,13 @@ const user = "pagination_user";
 const user_password = "password";
 const dbHost = "localhost";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
   ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
 };
 const dbName = "pagination_db";
 
@@ -34,35 +30,35 @@ describe(`Pagination`, function () {
   let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
 
-    con = await PostgresAdapter.connect(
+    con = await TypeORMAdapter.connect(
       Object.assign({}, config, {
         user: user,
         password: user_password,
@@ -70,11 +66,11 @@ describe(`Pagination`, function () {
       })
     );
 
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
+    adapter["_native" as keyof typeof TypeORMAdapter] = con;
     repo = Repository.forModel(TestCountryModel);
 
     try {
-      await PostgresAdapter.createTable(con, TestCountryModel);
+      await TypeORMAdapter.createTable(con, TestCountryModel);
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
@@ -100,11 +96,11 @@ describe(`Pagination`, function () {
   // });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName, user);
-    await PostgresAdapter.deleteUser(con, user, admin);
-    await con.end();
+    await con.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
+    await con.destroy();
   });
 
   let created: TestCountryModel[];

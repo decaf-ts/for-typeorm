@@ -9,11 +9,7 @@ import {
   DefaultSequenceOptions,
   final,
 } from "@decaf-ts/core";
-import {
-  TypeORMFlavour,
-  reservedAttributes,
-  TypeORMFlavour,
-} from "./constants";
+import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
   BaseError,
   ConflictError,
@@ -46,7 +42,6 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
 import { TypeORMStatement } from "./query";
-import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
 import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
 import { TypeORMFlags, type TypeORMQuery, TypeORMTableSpec } from "./types";
@@ -56,6 +51,8 @@ import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
 import { DataSource } from "typeorm";
+import { QueryResult } from "./raw/postgres";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -198,12 +195,9 @@ export class TypeORMAdapter extends Adapter<
    * @summary Abstract method that must be implemented to execute raw SQL queries
    * @template R - The result type
    * @param {TypeORMQuery} q - The query to execute
-   * @param {boolean} rowsOnly - Whether to return only the rows or the full response
    * @return {Promise<R>} A promise that resolves to the query result
    */
-
-  @final()
-  override async raw<R>(q: TypeORMQuery, rowsOnly: boolean): Promise<R> {
+  override async raw<R>(q: TypeORMQuery): Promise<R> {
     try {
       if (!this.native.isInitialized) await this.native.initialize();
     } catch (e: unknown) {
@@ -211,8 +205,7 @@ export class TypeORMAdapter extends Adapter<
     }
     try {
       const { query, values } = q;
-      const response: QueryResult = await this.native.query(query, values);
-      if (rowsOnly) return response.rows as R;
+      const response = await this.native.query(query, values);
       return response as R;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -313,10 +306,10 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<Record<string, any>> {
     const values = Object.values(model);
     const sql = `INSERT INTO ${tableName} (${Object.keys(model)}) VALUES (${values.map((_, i) => `$${i + 1}`)}) RETURNING *`;
-    const response: QueryResult = await this.raw(
-      { query: sql, values: values },
-      false
-    );
+    const response: QueryResult = await this.raw({
+      query: sql,
+      values: values,
+    });
     const { rows } = response;
     return rows[0];
   }
@@ -335,12 +328,12 @@ export class TypeORMAdapter extends Adapter<
     pk: string
   ): Promise<Record<string, any>> {
     const sql = `SELECT * FROM ${tableName} as t WHERE t.${pk} = $1`;
-    const result: any = await this.raw({ query: sql, values: [id] }, false);
-    if (result.rowCount === 0)
+    const result: any = await this.raw({ query: sql, values: [id] });
+    if (!result.length)
       throw new NotFoundError(
         `Record with id: ${id} not found in table ${tableName}`
       );
-    return result.rows[0];
+    return result[0];
   }
 
   /**
@@ -368,19 +361,17 @@ SET ${Object.keys(model)
 WHERE id = $${values.length + 1}
 RETURNING *;`;
 
-    const response: QueryResult = await this.raw(
-      { query: sql, values: [...values, id] },
-      false
-    );
+    const response: any[] = await this.raw({
+      query: sql,
+      values: [...values, id],
+    });
 
-    if (response.rowCount === 0) {
+    if (!response.length)
       throw new NotFoundError(
         `Record with id: ${id} not found in table ${tableName}`
       );
-    }
 
-    const { rows } = response;
-    return rows[0];
+    return response[0];
   }
 
   /**
@@ -404,20 +395,17 @@ RETURNING *;`;
         RETURNING *
       `;
 
-    const result: QueryResult = await this.raw(
-      {
-        query: sql,
-        values: [id],
-      },
-      false
-    );
+    const result: any[] = await this.raw({
+      query: sql,
+      values: [id],
+    });
 
-    if (result.rowCount === 0) {
+    if (!result.length)
       throw new NotFoundError(
         `Record with id: ${id} not found in table ${tableName}`
       );
-    }
-    return result.rows[0];
+
+    return result[0];
   }
 
   override async createAll(
@@ -445,14 +433,11 @@ RETURNING *;`;
     VALUES ${valuePlaceholders}
     RETURNING *;
 `;
-    const result: any = await this.raw(
-      {
-        query: q,
-        values: values,
-      },
-      false
-    );
-    return result.rows;
+    const result: any = await this.raw({
+      query: q,
+      values: values,
+    });
+    return result;
   }
 
   override async readAll(
@@ -470,24 +455,21 @@ RETURNING *;`;
     WHERE ${pk} = ANY($1)
     ORDER BY array_position($1::${typeof id[0] === "number" ? "integer" : "text"}[], ${pk})`;
 
-    const result: any = await this.raw(
-      {
-        query: sql,
-        values: [id],
-      },
-      false
-    );
+    const result: any = await this.raw({
+      query: sql,
+      values: [id],
+    });
 
     // If we didn't find all requested records, throw an error
     if (result.rows.length !== id.length) {
-      const foundIds = result.rows.map((row: any) => row[pk]);
+      const foundIds = result.map((row: any) => row[pk]);
       const missingIds = id.filter((id) => !foundIds.includes(id));
       throw new NotFoundError(
         `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
       );
     }
 
-    return result.rows;
+    return result;
   }
 
   override async updateAll(
@@ -528,26 +510,24 @@ RETURNING *;`;
     WHERE t.${pk} = c.id
     RETURNING *`;
 
-    const result: any = await this.raw(
-      {
-        query: sql,
-        values,
-      },
-      false
-    );
+    const result: any = await this.raw({
+      query: sql,
+      values,
+    });
 
     // Verify all records were updated
-    if (result.rows.length !== ids.length) {
-      const foundIds = result.rows.map((row: any) => row[pk]);
+    if (result.length !== ids.length) {
+      const foundIds = result.map((row: any) => row[pk]);
       const missingIds = ids.filter((id) => !foundIds.includes(id));
       throw new NotFoundError(
         `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
       );
     }
 
+    // TODO map this to object first for oN behaviour
     // Return updated records in the same order as input
     return ids.map((id) =>
-      result.rows.find((row: any) => row[pk].toString() === id.toString())
+      result.find((row: any) => row[pk].toString() === id.toString())
     );
   }
 
@@ -567,16 +547,13 @@ RETURNING *;`;
     WHERE ${pk} = ANY($1)
     ORDER BY array_position($1::${typeof ids[0] === "number" ? "integer" : "text"}[], ${pk})`;
 
-    const fetchResult: any = await this.raw(
-      {
-        query: fetchSql,
-        values: [ids],
-      },
-      false
-    );
+    const fetchResult: any = await this.raw({
+      query: fetchSql,
+      values: [ids],
+    });
 
-    if (fetchResult.rows.length !== ids.length) {
-      const foundIds = fetchResult.rows.map((row: any) => row[pk]);
+    if (fetchResult.length !== ids.length) {
+      const foundIds = fetchResult.map((row: any) => row[pk]);
       const missingIds = ids.filter((id) => !foundIds.includes(id));
       throw new NotFoundError(
         `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
@@ -587,16 +564,13 @@ RETURNING *;`;
     DELETE FROM ${tableName} 
     WHERE ${pk} = ANY($1)`;
 
-    await this.raw(
-      {
-        query: deleteSql,
-        values: [ids],
-      },
-      false
-    );
+    await this.raw({
+      query: deleteSql,
+      values: [ids],
+    });
 
     return ids.map((id) =>
-      fetchResult.rows.find((row: any) => row[pk].toString() === id.toString())
+      fetchResult.find((row: any) => row[pk].toString() === id.toString())
     );
   }
 
@@ -608,7 +582,7 @@ RETURNING *;`;
    * @return {BaseError} The parsed error as a BaseError
    */
   parseError(err: Error | string, reason?: string): BaseError {
-    return PostgresAdapter.parseError(err, reason);
+    return TypeORMAdapter.parseError(err, reason);
   }
 
   /**
@@ -712,33 +686,34 @@ RETURNING *;`;
     }
   }
 
-  static async connect(config: PoolConfig): Promise<Pool> {
-    return new Pool(config);
+  static async connect(config: DataSourceOptions): Promise<DataSource> {
+    const con = new DataSource(config);
+    if (!con.isInitialized) await con.initialize();
+    return con;
   }
 
-  static async createDatabase(pool: Pool, dbName: string): Promise<void> {
+  static async createDatabase(
+    dataSource: DataSource,
+    dbName: string
+  ): Promise<void> {
     const log = Logging.for(this.createDatabase);
     log.verbose(`Creating database ${dbName}`);
-    const client = await pool.connect();
     try {
-      await client.query({
-        name: `create-database`,
-        text: `CREATE DATABASE ${dbName}`,
-      });
+      await dataSource.query(`CREATE DATABASE ${dbName}`);
       log.info(`Created database ${dbName}`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
-  static async createNotifyFunction(pool: Pool, user: string): Promise<void> {
+  static async createNotifyFunction(
+    dataSource: DataSource,
+    user: string
+  ): Promise<void> {
     const log = Logging.for(this.createNotifyFunction);
     log.verbose(`Creating notify function`);
-    const client = await pool.connect();
     try {
-      await client.query(
+      await dataSource.query(
         `CREATE OR REPLACE FUNCTION notify_table_changes()
 RETURNS trigger AS $$
 BEGIN
@@ -756,84 +731,68 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 ;`
       );
-      await client.query(
+      await dataSource.query(
         `ALTER FUNCTION notify_table_changes() OWNER TO ${user};`
       );
-      await client.query(`
+      await dataSource.query(`
             GRANT EXECUTE ON FUNCTION notify_table_changes() TO public;
         `);
       log.info(`Created notify function`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static async deleteDatabase(
-    pool: Pool,
+    dataSource: DataSource,
     dbName: string,
     user?: string
   ): Promise<void> {
-    const client = await pool.connect();
     try {
-      if (user)
-        await client.query({
-          name: `delete-owned-by`,
-          text: `DROP OWNED BY ${user} CASCADE;`,
-        });
-      await client.query({
-        name: `delete-database`,
-        text: `DROP DATABASE ${dbName}`,
-      });
+      if (user) await dataSource.query(`DROP OWNED BY ${user} CASCADE;`);
+      await dataSource.query(`DROP DATABASE ${dbName}`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static async createUser(
-    pool: Pool,
+    dataSource: DataSource,
     dbName: string,
     user: string,
     password: string
   ): Promise<void> {
-    const client = await pool.connect();
     try {
-      await client.query(`CREATE USER ${user} WITH PASSWORD '${password}'`);
-      await client.query(`GRANT CONNECT ON DATABASE ${dbName} TO ${user}`);
+      await dataSource.query(`CREATE USER ${user} WITH PASSWORD '${password}'`);
+      await dataSource.query(`GRANT CONNECT ON DATABASE ${dbName} TO ${user}`);
 
-      await client.query(`GRANT USAGE ON SCHEMA public TO ${user}`);
-      await client.query(`GRANT CREATE ON SCHEMA public TO ${user}`);
-      await client.query(
+      await dataSource.query(`GRANT USAGE ON SCHEMA public TO ${user}`);
+      await dataSource.query(`GRANT CREATE ON SCHEMA public TO ${user}`);
+      await dataSource.query(
         `GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO ${user}`
       );
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static async deleteUser(
-    pool: Pool,
+    client: DataSource,
     user: string,
     admin: string
   ): Promise<void> {
-    const client = await pool.connect();
     try {
       await client.query(`REASSIGN OWNED BY ${user} TO ${admin}`);
       await client.query(
@@ -859,8 +818,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       await client.query(`DROP USER IF EXISTS "${user}"`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
@@ -951,7 +908,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
   }
 
   static async createTable<M extends Model>(
-    pool: Pool,
+    client: DataSource,
     model: Constructor<M>
   ): Promise<Record<string, TypeORMTableSpec>> {
     const result: Record<string, TypeORMTableSpec> = {};
@@ -1051,7 +1008,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
               false,
               true
             );
-            await this.createTable(pool, childClass);
+            await this.createTable(client, childClass);
           } catch (e: unknown) {
             if (!(e instanceof ConflictError)) throw e;
           }
@@ -1128,7 +1085,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       };
     }
 
-    const client = await pool.connect();
     const values = Object.values(result);
     const query = values.map((r) => r.query).join(",\n");
     const constraints = values
@@ -1154,25 +1110,17 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       );
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
     return result;
   }
 
-  static async getCurrentUser(source: DataSource): Promise<string> {
-    const client = await souce.connect();
+  static async getCurrentUser(client: DataSource): Promise<string> {
     const queryString = `SELECT CURRENT_USER;`;
     try {
-      const result = await client.query({
-        name: `get-current-user`,
-        text: queryString,
-      });
-      return result.rows[0].current_user;
+      const result = await client.query(queryString);
+      return result[0].current_user;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 

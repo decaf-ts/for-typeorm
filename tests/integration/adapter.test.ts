@@ -1,6 +1,6 @@
-import { PostgresAdapter } from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
+import { TypeORMAdapter } from "../../src";
+let con: DataSource;
+const adapter = new TypeORMAdapter(con);
 import {
   column,
   Observer,
@@ -10,7 +10,6 @@ import {
   unique,
 } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Pool, PoolConfig } from "pg";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
@@ -20,6 +19,9 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { PGBaseModel } from "./baseModel";
+import { DataSource } from "typeorm";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -28,52 +30,48 @@ const user_password = "password";
 const dbName = "test_db";
 const dbHost = "localhost";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  type: "postgres",
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
-  ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
-};
+} as PostgresConnectionOptions;
 
 jest.setTimeout(50000);
 
 describe("Adapter Integration", () => {
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
 
-    con = await PostgresAdapter.connect(
+    con = await TypeORMAdapter.connect(
       Object.assign({}, config, {
         user: user,
         password: user_password,
@@ -81,7 +79,7 @@ describe("Adapter Integration", () => {
       })
     );
 
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
+    adapter["_native" as keyof typeof TypeORMAdapter] = con;
   });
 
   describe("TestModel", () => {
@@ -111,7 +109,7 @@ describe("Adapter Integration", () => {
 
     beforeAll(async () => {
       try {
-        await PostgresAdapter.createTable(con, TestModel);
+        await TypeORMAdapter.createTable(con, TestModel);
       } catch (e: unknown) {
         if (!(e instanceof ConflictError)) throw e;
       }
@@ -138,11 +136,11 @@ describe("Adapter Integration", () => {
     // });
 
     afterAll(async () => {
-      await con.end();
-      con = await PostgresAdapter.connect(config);
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
-      await PostgresAdapter.deleteUser(con, user, admin);
-      await con.end();
+      await con.destroy();
+      con = await TypeORMAdapter.connect(config);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteUser(con, user, admin);
+      await con.destroy();
     });
 
     it.skip("executes simple prepared statements", async () => {

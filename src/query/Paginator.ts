@@ -1,7 +1,7 @@
 import { Paginator } from "@decaf-ts/core";
 import { TypeORMQuery } from "../types";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { PostgresAdapter } from "../adapter";
+import { TypeORMAdapter } from "../TypeORMAdapter";
 
 /**
  * @description Paginator for PostgreSQL query results
@@ -51,13 +51,13 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
   /**
    * @description Creates a new PostgreSQLPaginator instance
    * @summary Initializes a paginator for PostgreSQL query results
-   * @param {PostgresAdapter} adapter - The PostgreSQL adapter
-   * @param {PostgreSQLQuery} query - The PostgreSQL query to paginate
+   * @param {TypeORMAdapter} adapter - The PostgreSQL adapter
+   * @param {TypeORMQuery} query - The PostgreSQL query to paginate
    * @param {number} size - The page size
    * @param {Constructor<M>} clazz - The model constructor
    */
   constructor(
-    adapter: PostgresAdapter,
+    adapter: TypeORMAdapter,
     query: TypeORMQuery,
     size: number,
     clazz: Constructor<M>
@@ -131,6 +131,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
    *     PostgreSQLPaginator-->>Client: Return results
    *   end
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async page(page: number = 1): Promise<R[]> {
     throw new Error(`Not implemented yet`);
     // const statement = { ...this.statement };

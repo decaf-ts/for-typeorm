@@ -1,20 +1,20 @@
-import { PostgresAdapter } from "../../src";
-import { Pool, PoolConfig } from "pg";
+import { TypeORMAdapter } from "../../src";
+import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
 const dbHost = "localhost";
 const dbName = "single_table_creation_db";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
 };
-let con: Pool = new Pool(config);
-const adapter = new PostgresAdapter(con);
+let con: DataSource = new DataSource(config);
+const adapter = new TypeORMAdapter(con);
 
 import { Logging, LogLevel } from "@decaf-ts/logging";
 import {
@@ -177,11 +177,11 @@ describe("single table creations", () => {
   }
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName);
+      await TypeORMAdapter.deleteDatabase(con, dbName);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) {
         throw e;
@@ -189,20 +189,20 @@ describe("single table creations", () => {
     }
 
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createNotifyFunction(con, admin);
-      await con.end();
+      await TypeORMAdapter.createNotifyFunction(con, admin);
+      await con.destroy();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
 
-    con = await PostgresAdapter.connect(
+    con = await TypeORMAdapter.connect(
       Object.assign({}, config, {
         user: admin,
         password: admin_password,
@@ -210,19 +210,19 @@ describe("single table creations", () => {
       })
     );
 
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
+    adapter["_native" as keyof typeof TypeORMAdapter] = con;
   });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName);
-    await con.end();
+    await con.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName);
+    await con.destroy();
   });
 
   it(`creates table for ${AIFeatureSingle.name}`, async () => {
     try {
-      await PostgresAdapter.createTable(adapter.native, AIFeatureSingle);
+      await TypeORMAdapter.createTable(adapter.native, AIFeatureSingle);
     } catch (e: unknown) {
       console.log(e);
       throw e;
@@ -231,7 +231,7 @@ describe("single table creations", () => {
 
   it(`creates table for ${AIModelSimple.name}`, async () => {
     try {
-      await PostgresAdapter.createTable(adapter.native, AIModelSimple);
+      await TypeORMAdapter.createTable(adapter.native, AIModelSimple);
     } catch (e: unknown) {
       console.log(e);
       throw e;
@@ -240,7 +240,7 @@ describe("single table creations", () => {
 
   it.skip(`creates table for ${AIModelLessSimple.name}`, async () => {
     try {
-      await PostgresAdapter.createTable(adapter.native, AIModelLessSimple);
+      await TypeORMAdapter.createTable(adapter.native, AIModelLessSimple);
     } catch (e: unknown) {
       console.log(e);
       throw e;

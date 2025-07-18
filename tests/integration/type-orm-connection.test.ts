@@ -1,13 +1,13 @@
-import { PostgresAdapter } from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
+import { TypeORMAdapter } from "../../src";
+let con: DataSource;
+const adapter = new TypeORMAdapter(con);
 
 import "../../src/type-orm";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { BaseModel, column, pk, table } from "@decaf-ts/core";
-import { Pool, PoolConfig } from "pg";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -16,18 +16,13 @@ const user_password = "password";
 const dbName = "test_db";
 const dbHost = "localhost";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
-  ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
-};
+} as PostgresConnectionOptions;
 
 jest.setTimeout(50000);
 
@@ -77,30 +72,30 @@ describe("TypeORM Decoration", () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }

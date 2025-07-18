@@ -1,7 +1,7 @@
-import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter } from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
+import { DataSource, DataSourceOptions } from "typeorm";
+import { TypeORMAdapter } from "../../src";
+let con: DataSource;
+const adapter = new TypeORMAdapter(con);
 import {
   NoPopulateManyModel,
   NoPopulateOnceModel,
@@ -29,17 +29,13 @@ const user = "complex_user";
 const user_password = "password";
 const dbHost = "localhost";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
   ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
 };
 
 const dbName = "complex_db";
@@ -50,35 +46,35 @@ jest.setTimeout(500000);
 
 describe.skip(`Complex Database`, function () {
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
 
-    con = await PostgresAdapter.connect(
+    con = await TypeORMAdapter.connect(
       Object.assign({}, config, {
         user: user,
         password: user_password,
@@ -86,18 +82,18 @@ describe.skip(`Complex Database`, function () {
       })
     );
 
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
-    await PostgresAdapter.createTable(con, TestDummyPhone);
-    await PostgresAdapter.createTable(con, TestDummyCountry);
-    await PostgresAdapter.createTable(con, TestPhoneModel);
+    adapter["_native" as keyof typeof TypeORMAdapter] = con;
+    await TypeORMAdapter.createTable(con, TestDummyPhone);
+    await TypeORMAdapter.createTable(con, TestDummyCountry);
+    await TypeORMAdapter.createTable(con, TestPhoneModel);
 
-    await PostgresAdapter.createTable(con, TestCountryModel);
-    await PostgresAdapter.createTable(con, TestAddressModel);
+    await TypeORMAdapter.createTable(con, TestCountryModel);
+    await TypeORMAdapter.createTable(con, TestAddressModel);
 
-    await PostgresAdapter.createTable(con, TestUserModel);
+    await TypeORMAdapter.createTable(con, TestUserModel);
 
-    await PostgresAdapter.createTable(con, NoPopulateOnceModel);
-    await PostgresAdapter.createTable(con, NoPopulateManyModel);
+    await TypeORMAdapter.createTable(con, NoPopulateOnceModel);
+    await TypeORMAdapter.createTable(con, NoPopulateManyModel);
   });
 
   let observer: Observer;
@@ -120,11 +116,11 @@ describe.skip(`Complex Database`, function () {
   // });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName, user);
-    await PostgresAdapter.deleteUser(con, user, admin);
-    await con.end();
+    await con.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
+    await con.destroy();
   });
 
   let userRepository: TypeORMRepository<TestUserModel>;
