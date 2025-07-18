@@ -1094,7 +1094,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         }
       }
 
-      if (dbDecs && dbDecs.decorators.length) {
+      // TODO ignore for now. this leaves foreign keys out
+      // eslint-disable-next-line no-constant-binary-expression
+      if (false || (dbDecs && dbDecs.decorators.length)) {
         if (!typeData) throw new Error(`Missing type information`);
         for (const decorator of dbDecs.decorators) {
           const { key, props } = decorator;
