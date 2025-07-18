@@ -1,9 +1,5 @@
 import { Pool, PoolConfig } from "pg";
-import {
-  PostgresAdapter,
-  PostgresFlavour,
-  PostgresRepository,
-} from "../../src";
+import { PostgresAdapter, TypeORMFlavour, TypeORMRepository } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 import {
@@ -56,7 +52,7 @@ const dbName = "queries_db";
 jest.setTimeout(50000);
 
 describe("Queries", () => {
-  @uses(PostgresFlavour)
+  @uses(TypeORMFlavour)
   @table("tst_query_user")
   @model()
   class QueryUser extends PGBaseModel {
@@ -158,9 +154,9 @@ describe("Queries", () => {
   let created: QueryUser[];
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
       (i) =>
@@ -178,7 +174,7 @@ describe("Queries", () => {
   });
 
   it("Performs simple queries - full object", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel(QueryUser);
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel(QueryUser);
     const selected = await repo.select().execute();
     expect(
       created.every((c) => c.equals(selected.find((s: any) => (s.id = c.id))))
@@ -186,9 +182,9 @@ describe("Queries", () => {
   });
 
   it("Performs simple queries - attributes only", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const selected = await repo.select(["age", "sex"]).execute();
     expect(selected).toEqual(
@@ -205,9 +201,9 @@ describe("Queries", () => {
   });
 
   it("Performs conditional queries - full object", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const condition = Condition.attribute<QueryUser>("age").eq(20);
     const selected = await repo.select().where(condition).execute();
@@ -215,9 +211,9 @@ describe("Queries", () => {
   });
 
   it("Performs conditional queries - selected attributes", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const condition = Condition.attribute<QueryUser>("age").eq(20);
     const selected = await repo
@@ -239,9 +235,9 @@ describe("Queries", () => {
   });
 
   it("Performs AND conditional queries - full object", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const condition = Condition.attribute<QueryUser>("age")
       .eq(20)
@@ -253,7 +249,7 @@ describe("Queries", () => {
   });
 
   it("Performs OR conditional queries - full object", async () => {
-    const repo = Repository.forModel<QueryUser, PostgresRepository<QueryUser>>(
+    const repo = Repository.forModel<QueryUser, TypeORMRepository<QueryUser>>(
       QueryUser
     );
     const condition = Condition.attribute<QueryUser>("age")
@@ -266,7 +262,7 @@ describe("Queries", () => {
   });
 
   it("Sorts attribute", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel(QueryUser);
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel(QueryUser);
     const sorted = await repo
       .select()
       .orderBy(["age", OrderDirection.DSC])

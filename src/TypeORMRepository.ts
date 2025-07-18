@@ -1,13 +1,13 @@
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { repository, Repository } from "@decaf-ts/core";
+import { Repository } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
   OperationKeys,
   ValidationError,
 } from "@decaf-ts/db-decorators";
-import { PostgresAdapter } from "./adapter";
-import { PostgresFlags, PostgresQuery } from "./types";
+import { TypeORMFlags, TypeORMQuery } from "./types";
+import { TypeORMAdapter } from "./TypeORMAdapter";
 
 /**
  * @description Type for PostgreSQL database repositories
@@ -16,14 +16,14 @@ import { PostgresFlags, PostgresQuery } from "./types";
  * @template M - Type extending Model that this repository will manage
  * @memberOf module:for-postgres
  */
-export class PostgresRepository<M extends Model> extends Repository<
+export class TypeORMRepository<M extends Model> extends Repository<
   M,
-  PostgresQuery,
-  PostgresAdapter,
-  PostgresFlags,
-  Context<PostgresFlags>
+  TypeORMQuery,
+  TypeORMAdapter,
+  TypeORMFlags,
+  Context<TypeORMFlags>
 > {
-  constructor(adapter: PostgresAdapter, model: Constructor<M>, ...args: any[]) {
+  constructor(adapter: TypeORMAdapter, model: Constructor<M>, ...args: any[]) {
     super(adapter, model, ...args);
   }
 
@@ -134,7 +134,7 @@ export class PostgresRepository<M extends Model> extends Repository<
       this.pk as string,
       ...args
     );
-    return records.map((r, i) =>
+    return records.map((r: Record<string, any>, i: number) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])
     );
   }
@@ -148,7 +148,7 @@ export class PostgresRepository<M extends Model> extends Repository<
       this.pk as string,
       ...args
     );
-    return updated.map((u, i) =>
+    return updated.map((u: Record<string, any>, i: number) =>
       this.adapter.revert(u, this.class, this.pk, records[i].id)
     );
   }
@@ -163,7 +163,7 @@ export class PostgresRepository<M extends Model> extends Repository<
       this.pk as string,
       ...args
     );
-    return results.map((r, i) =>
+    return results.map((r: Record<string, any>, i: number) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])
     );
   }

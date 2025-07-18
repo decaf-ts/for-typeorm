@@ -11,7 +11,7 @@ import {
 } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Pool, PoolConfig } from "pg";
-import { PostgresRepository } from "../../src/PostgresRepository";
+import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
   minlength,
@@ -107,7 +107,7 @@ describe("Adapter Integration", () => {
       }
     }
 
-    let repo: PostgresRepository<TestModel>;
+    let repo: TypeORMRepository<TestModel>;
 
     beforeAll(async () => {
       try {
@@ -115,7 +115,7 @@ describe("Adapter Integration", () => {
       } catch (e: unknown) {
         if (!(e instanceof ConflictError)) throw e;
       }
-      repo = new PostgresRepository(adapter, TestModel);
+      repo = new TypeORMRepository(adapter, TestModel);
     });
 
     let observer: Observer;

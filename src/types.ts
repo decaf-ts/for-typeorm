@@ -27,7 +27,7 @@ export enum SQLOperator {
   SOME = "SOME",
 }
 
-export interface PostgresQuery {
+export interface TypeORMQuery {
   query: string;
   values: any[];
   valueCount?: number;
@@ -36,17 +36,17 @@ export interface PostgresQuery {
 /**
  * @description Configuration flags for Postgres database operations
  * @summary Extended repository flags that include user authentication information for Postgres database connections
- * @interface PostgresFlags
+ * @interface TypeORMFlags
  * @memberOf module:for-postgres
  */
-export interface PostgresFlags extends RepositoryFlags {
+export interface TypeORMFlags extends RepositoryFlags {
   /**
    * @description User authentication information for Postgres database connections
    */
   user: string;
 }
 
-export type PostgresTableSpec = PostgresQuery & {
+export type TypeORMTableSpec = TypeORMQuery & {
   primaryKey: boolean;
   constraints: string[];
   foreignKeys: string[];

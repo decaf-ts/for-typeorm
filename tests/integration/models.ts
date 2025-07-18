@@ -19,9 +19,9 @@ import {
   uses,
 } from "@decaf-ts/core";
 import { PGBaseModel } from "./baseModel";
-import { PostgresFlavour } from "../../src";
+import { TypeORMFlavour } from "../../src";
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_country")
 @model()
 export class TestCountryModel extends PGBaseModel {
@@ -44,7 +44,7 @@ export class TestCountryModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_address")
 @model()
 export class TestAddressModel extends PGBaseModel {
@@ -81,7 +81,7 @@ export class TestAddressModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_phone")
 @model()
 export class TestPhoneModel extends PGBaseModel {
@@ -101,7 +101,7 @@ export class TestPhoneModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_user")
 @model()
 export class TestUserModel extends PGBaseModel {
@@ -142,7 +142,7 @@ export class TestUserModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_dummy_country")
 @model()
 export class TestDummyCountry extends PGBaseModel {
@@ -161,7 +161,7 @@ export class TestDummyCountry extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_no_populate_once")
 @model()
 export class NoPopulateOnceModel extends PGBaseModel {
@@ -181,7 +181,7 @@ export class NoPopulateOnceModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_dummy_phone")
 @model()
 export class TestDummyPhone extends PGBaseModel {
@@ -198,7 +198,7 @@ export class TestDummyPhone extends PGBaseModel {
     super(m);
   }
 }
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_no_populate_many")
 @model()
 export class NoPopulateManyModel extends PGBaseModel {

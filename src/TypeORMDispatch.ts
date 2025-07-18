@@ -1,6 +1,7 @@
 import { Dispatch } from "@decaf-ts/core";
-import { Pool, PoolClient, Notification } from "pg";
+import { PoolClient, Notification } from "pg";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import { DataSource } from "typeorm";
 
 /**
  * @description Dispatcher for PostgreSQL database change events
@@ -8,7 +9,7 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
  * notifying observers when records are created, updated, or deleted
  * @template Pool - The pg Pool type
  * @param {number} [timeout=5000] - Timeout in milliseconds for notification requests
- * @class PostgresDispatch
+ * @class TypeORMDispatch
  * @example
  * ```typescript
  * // Create a dispatcher for a PostgreSQL database
@@ -42,7 +43,7 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
  *   }
  *   Dispatch <|-- PostgreSQLDispatch
  */
-export class PostgresDispatch extends Dispatch<Pool> {
+export class TypeORMDispatch extends Dispatch<DataSource> {
   private observerLastUpdate?: string;
   private attemptCounter: number = 0;
   private client?: PoolClient;
@@ -148,19 +149,19 @@ export class PostgresDispatch extends Dispatch<Pool> {
   protected override async initialize(): Promise<void> {
     const log = this.log.for(this.initialize);
 
-    async function subscribeToPostgres(this: PostgresDispatch): Promise<void> {
+    async function subscribeToPostgres(this: TypeORMDispatch): Promise<void> {
       if (!this.adapter || !this.native) {
         throw new InternalError(`No adapter/native observed for dispatch`);
       }
 
       try {
-        this.client = await this.native.connect();
-
-        this.client.on("notification", this.notificationHandler.bind(this));
-
-        // Listen for table change notifications
-        // This assumes you have set up triggers in PostgreSQL to NOTIFY on table changes
-        const res = await this.client.query("LISTEN user_table_changes");
+        if (!this.native.isInitialized) await this.native.initialize();
+        //
+        // this.client.on("notification", this.notificationHandler.bind(this));
+        //
+        // // Listen for table change notifications
+        // // This assumes you have set up triggers in PostgreSQL to NOTIFY on table changes
+        // const res = await this.client.query("LISTEN user_table_changes");
 
         this.attemptCounter = 0;
       } catch (e: unknown) {

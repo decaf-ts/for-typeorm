@@ -1,5 +1,5 @@
 import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter, PostgresRepository } from "../../src";
+import { PostgresAdapter, TypeORMRepository } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 
@@ -31,7 +31,7 @@ const dbName = "pagination_db";
 jest.setTimeout(500000);
 
 describe(`Pagination`, function () {
-  let repo: PostgresRepository<TestCountryModel>;
+  let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {
     con = await PostgresAdapter.connect(config);
@@ -113,9 +113,9 @@ describe(`Pagination`, function () {
   let selected: TestCountryModel[];
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<TestCountryModel> = Repository.forModel<
+    const repo: TypeORMRepository<TestCountryModel> = Repository.forModel<
       TestCountryModel,
-      PostgresRepository<TestCountryModel>
+      TypeORMRepository<TestCountryModel>
     >(TestCountryModel);
     const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
       (i) =>

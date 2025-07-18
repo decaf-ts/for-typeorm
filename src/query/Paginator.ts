@@ -1,5 +1,5 @@
 import { Paginator } from "@decaf-ts/core";
-import { PostgresQuery } from "../types";
+import { TypeORMQuery } from "../types";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { PostgresAdapter } from "../adapter";
 
@@ -9,10 +9,10 @@ import { PostgresAdapter } from "../adapter";
  * @template M - The model type that extends Model
  * @template R - The result type
  * @param {PostgresAdapter<any, any, any>} adapter - The PostgreSQL adapter
- * @param {PostgresQuery} query - The PostgresSQL query to paginate
+ * @param {TypeORMQuery} query - The PostgresSQL query to paginate
  * @param {number} size - The page size
  * @param {Constructor<M>} clazz - The model constructor
- * @class PostgresPaginator
+ * @class TypeORMPaginator
  * @example
  * // Example of using PostgreSQLPaginator
  * const adapter = new MyPostgreSQLAdapter(pool);
@@ -25,10 +25,10 @@ import { PostgresAdapter } from "../adapter";
  * // Get the next page
  * const page2 = await paginator.page(2);
  */
-export class PostgresPaginator<M extends Model, R> extends Paginator<
+export class TypeORMPaginator<M extends Model, R> extends Paginator<
   M,
   R,
-  PostgresQuery
+  TypeORMQuery
 > {
   /**
    * @description Gets the total number of pages
@@ -58,7 +58,7 @@ export class PostgresPaginator<M extends Model, R> extends Paginator<
    */
   constructor(
     adapter: PostgresAdapter,
-    query: PostgresQuery,
+    query: TypeORMQuery,
     size: number,
     clazz: Constructor<M>
   ) {
@@ -68,11 +68,11 @@ export class PostgresPaginator<M extends Model, R> extends Paginator<
   /**
    * @description Prepares a query for pagination
    * @summary Modifies the raw query to include pagination parameters
-   * @param {PostgresQuery} rawStatement - The original PostgreSQL query
-   * @return {PostgresQuery} The prepared query with pagination parameters
+   * @param {TypeORMQuery} rawStatement - The original PostgreSQL query
+   * @return {TypeORMQuery} The prepared query with pagination parameters
    */
-  protected prepare(rawStatement: PostgresQuery): PostgresQuery {
-    const query: PostgresQuery = { ...rawStatement };
+  protected prepare(rawStatement: TypeORMQuery): TypeORMQuery {
+    const query: TypeORMQuery = { ...rawStatement };
     return query;
   }
 

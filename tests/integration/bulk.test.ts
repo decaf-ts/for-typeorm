@@ -1,5 +1,5 @@
 import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter, PostgresFlavour } from "../../src";
+import { PostgresAdapter, TypeORMFlavour } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 
@@ -18,7 +18,7 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { PostgresRepository } from "../../src/PostgresRepository";
+import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { PGBaseModel } from "./baseModel";
 
 const admin = "alfred";
@@ -138,7 +138,7 @@ describe("Bulk operations", () => {
   let updated: TestBulkModel[];
 
   it.skip("creates one", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
+    const repo: TypeORMRepository<TestBulkModel> =
       Repository.forModel(TestBulkModel);
     const created = await repo.create(
       new TestBulkModel({
@@ -149,7 +149,7 @@ describe("Bulk operations", () => {
   });
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
+    const repo: TypeORMRepository<TestBulkModel> =
       Repository.forModel(TestBulkModel);
     const models = [1, 2, 3, 4, 5].map(
       (i) =>
@@ -165,7 +165,7 @@ describe("Bulk operations", () => {
   });
 
   it("Reads in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
+    const repo: TypeORMRepository<TestBulkModel> =
       Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id) as number[];
     const read = await repo.readAll(ids);
@@ -178,7 +178,7 @@ describe("Bulk operations", () => {
   });
 
   it("Updates in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
+    const repo: TypeORMRepository<TestBulkModel> =
       Repository.forModel(TestBulkModel);
     const toUpdate = created.map((c, i) => {
       return new TestBulkModel({
@@ -196,7 +196,7 @@ describe("Bulk operations", () => {
   });
 
   it("Deletes in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
+    const repo: TypeORMRepository<TestBulkModel> =
       Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id);
     const deleted = await repo.deleteAll(ids as number[]);

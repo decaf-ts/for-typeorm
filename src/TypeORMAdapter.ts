@@ -9,7 +9,11 @@ import {
   DefaultSequenceOptions,
   final,
 } from "@decaf-ts/core";
-import { PostgresFlavour, reservedAttributes } from "./constants";
+import {
+  TypeORMFlavour,
+  reservedAttributes,
+  TypeORMFlavour,
+} from "./constants";
 import {
   BaseError,
   ConflictError,
@@ -41,25 +45,25 @@ import {
   ValidatorOptions,
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
-import { PostgresStatement } from "./query";
+import { TypeORMStatement } from "./query";
 import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
-import { PostgresSequence } from "./sequences";
+import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { PostgresFlags, type PostgresQuery, PostgresTableSpec } from "./types";
+import { TypeORMFlags, type TypeORMQuery, TypeORMTableSpec } from "./types";
 import { Reflection } from "@decaf-ts/reflection";
-import { PostgresRepository } from "./PostgresRepository";
+import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
-import { PostgresDispatch } from "./PostgresDispatch";
+import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { createConnection } from "typeorm";
+import { DataSource } from "typeorm";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
-  R extends PostgresRepository<M>,
+  R extends TypeORMRepository<M>,
   V extends RelationsMetadata,
 >(
   this: R,
-  context: Context<PostgresFlags>,
+  context: Context<TypeORMFlags>,
   data: V,
   key: keyof M,
   model: M
@@ -86,24 +90,24 @@ export async function createdByOnPostgresCreateUpdate<
  * @param {string} [alias] - Optional alias for the adapter
  * @class PostgresAdapter
  */
-export class PostgresAdapter extends Adapter<
-  Pool,
-  PostgresQuery,
-  PostgresFlags,
-  Context<PostgresFlags>
+export class TypeORMAdapter extends Adapter<
+  DataSource,
+  TypeORMQuery,
+  TypeORMFlags,
+  Context<TypeORMFlags>
 > {
-  constructor(pool: Pool, alias?: string) {
-    super(pool, PostgresFlavour, alias);
+  constructor(source: DataSource, alias?: string) {
+    super(source, TypeORMFlavour, alias);
   }
 
   protected override async flags<M extends Model>(
     operation: OperationKeys,
     model: Constructor<M>,
-    flags: Partial<PostgresFlags>
-  ): Promise<PostgresFlags> {
+    flags: Partial<TypeORMFlags>
+  ): Promise<TypeORMFlags> {
     const f = await super.flags(operation, model, flags);
     const newObj: any = {
-      user: (await PostgresAdapter.getCurrentUser(this.native)) as string,
+      user: (await TypeORMAdapter.getCurrentUser(this.native)) as string,
     };
     if (operation === "create" || operation === "update") {
       const pk = findPrimaryKey(new model()).id;
@@ -111,34 +115,34 @@ export class PostgresAdapter extends Adapter<
         f.ignoredValidationProperties ? f.ignoredValidationProperties : []
       ).concat(pk as string);
     }
-    return Object.assign(f, newObj) as PostgresFlags;
+    return Object.assign(f, newObj) as TypeORMFlags;
   }
 
-  protected override Dispatch(): PostgresDispatch {
-    return new PostgresDispatch();
+  protected override Dispatch(): TypeORMDispatch {
+    return new TypeORMDispatch();
   }
 
   override repository<M extends Model>(): Constructor<
     Repository<
       M,
-      PostgresQuery,
-      PostgresAdapter,
-      PostgresFlags,
-      Context<PostgresFlags>
+      TypeORMQuery,
+      TypeORMAdapter,
+      TypeORMFlags,
+      Context<TypeORMFlags>
     >
   > {
-    return PostgresRepository;
+    return TypeORMRepository;
   }
 
   /**
    * @description Creates a new Postgres statement for querying
    * @summary Factory method that creates a new PostgresStatement instance for building queries
    * @template M - The model type
-   * @return {PostgresStatement<M, any>} A new PostgresStatement instance
+   * @return {TypeORMStatement<M, any>} A new PostgresStatement instance
    */
   @final()
-  Statement<M extends Model>(): PostgresStatement<M, any> {
-    return new PostgresStatement(this);
+  Statement<M extends Model>(): TypeORMStatement<M, any> {
+    return new TypeORMStatement(this);
   }
 
   /**
@@ -149,7 +153,7 @@ export class PostgresAdapter extends Adapter<
    */
   @final()
   async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new PostgresSequence(options, this);
+    return new TypeORMSequence(options, this);
   }
 
   /**
@@ -173,22 +177,19 @@ export class PostgresAdapter extends Adapter<
   protected async index<M extends Model>(
     ...models: Constructor<M>[]
   ): Promise<void> {
-    const indexes: PostgresQuery[] = generateIndexes(models);
-    const client = await this.native.connect();
+    const indexes: TypeORMQuery[] = generateIndexes(models);
 
     try {
-      await client.query("BEGIN");
+      await this.native.query("BEGIN");
 
       for (const index of indexes) {
-        await client.query(index.query, index.values);
+        await this.native.query(index.query, index.values);
       }
 
-      await client.query("COMMIT");
+      await this.native.query("COMMIT");
     } catch (e: unknown) {
-      await client.query("ROLLBACK");
+      await this.native.query("ROLLBACK");
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
@@ -196,23 +197,25 @@ export class PostgresAdapter extends Adapter<
    * @description Executes a raw SQL query against the database
    * @summary Abstract method that must be implemented to execute raw SQL queries
    * @template R - The result type
-   * @param {PostgresQuery} q - The query to execute
+   * @param {TypeORMQuery} q - The query to execute
    * @param {boolean} rowsOnly - Whether to return only the rows or the full response
    * @return {Promise<R>} A promise that resolves to the query result
    */
 
   @final()
-  override async raw<R>(q: PostgresQuery, rowsOnly: boolean): Promise<R> {
-    const client: PoolClient = await this.native.connect();
+  override async raw<R>(q: TypeORMQuery, rowsOnly: boolean): Promise<R> {
+    try {
+      if (!this.native.isInitialized) await this.native.initialize();
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
     try {
       const { query, values } = q;
-      const response: QueryResult = await client.query(query, values);
+      const response: QueryResult = await this.native.query(query, values);
       if (rowsOnly) return response.rows as R;
       return response as R;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
@@ -950,8 +953,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
   static async createTable<M extends Model>(
     pool: Pool,
     model: Constructor<M>
-  ): Promise<Record<string, PostgresTableSpec>> {
-    const result: Record<string, PostgresTableSpec> = {};
+  ): Promise<Record<string, TypeORMTableSpec>> {
+    const result: Record<string, TypeORMTableSpec> = {};
     const m = new model();
     const tableName = Repository.table(model);
     const { id } = findPrimaryKey(m);
@@ -1157,8 +1160,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     return result;
   }
 
-  static async getCurrentUser(pool: Pool): Promise<string> {
-    const client = await pool.connect();
+  static async getCurrentUser(source: DataSource): Promise<string> {
+    const client = await souce.connect();
     const queryString = `SELECT CURRENT_USER;`;
     try {
       const result = await client.query({
@@ -1179,7 +1182,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     const pkKey = Repository.key(DBKeys.ID);
     const uniqueKey = Repository.key(DBKeys.UNIQUE);
 
-    Decoration.flavouredAs(PostgresFlavour)
+    Decoration.flavouredAs(TypeORMFlavour)
       .for(pkKey)
       .define(
         required(),
@@ -1188,12 +1191,12 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       )
       .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
+    Decoration.flavouredAs(TypeORMFlavour)
       .for(uniqueKey)
       .define(propMetadata(uniqueKey, {}))
       .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
+    Decoration.flavouredAs(TypeORMFlavour)
       .for(createdByKey)
       .define(
         onCreate(createdByOnPostgresCreateUpdate),
@@ -1201,7 +1204,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       )
       .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
+    Decoration.flavouredAs(TypeORMFlavour)
       .for(updatedByKey)
       .define(
         onCreate(createdByOnPostgresCreateUpdate),

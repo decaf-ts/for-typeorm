@@ -21,7 +21,7 @@ import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Condition, Observer } from "@decaf-ts/core";
 import { sequenceNameForModel } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
-import { PostgresRepository } from "../../src/PostgresRepository";
+import { TypeORMRepository } from "../../src/TypeORMRepository";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -127,42 +127,42 @@ describe.skip(`Complex Database`, function () {
     await con.end();
   });
 
-  let userRepository: PostgresRepository<TestUserModel>;
-  let testDummyCountryModelRepository: PostgresRepository<TestDummyCountry>;
-  let testPhoneModelRepository: PostgresRepository<TestPhoneModel>;
+  let userRepository: TypeORMRepository<TestUserModel>;
+  let testDummyCountryModelRepository: TypeORMRepository<TestDummyCountry>;
+  let testPhoneModelRepository: TypeORMRepository<TestPhoneModel>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let testDummyPhoneModelRepository: PostgresRepository<TestDummyPhone>;
-  let testAddressModelRepository: PostgresRepository<TestAddressModel>;
-  let testCountryModelRepository: PostgresRepository<TestCountryModel>;
-  let noPopulateOnceModelRepository: PostgresRepository<NoPopulateOnceModel>;
-  let noPopulateManyModelRepository: PostgresRepository<NoPopulateManyModel>;
+  let testDummyPhoneModelRepository: TypeORMRepository<TestDummyPhone>;
+  let testAddressModelRepository: TypeORMRepository<TestAddressModel>;
+  let testCountryModelRepository: TypeORMRepository<TestCountryModel>;
+  let noPopulateOnceModelRepository: TypeORMRepository<NoPopulateOnceModel>;
+  let noPopulateManyModelRepository: TypeORMRepository<NoPopulateManyModel>;
 
   let model: any;
 
   beforeAll(async () => {
-    userRepository = new PostgresRepository(adapter, TestUserModel);
-    testPhoneModelRepository = new PostgresRepository(adapter, TestPhoneModel);
-    testAddressModelRepository = new PostgresRepository(
+    userRepository = new TypeORMRepository(adapter, TestUserModel);
+    testPhoneModelRepository = new TypeORMRepository(adapter, TestPhoneModel);
+    testAddressModelRepository = new TypeORMRepository(
       adapter,
       TestAddressModel
     );
-    testCountryModelRepository = new PostgresRepository(
+    testCountryModelRepository = new TypeORMRepository(
       adapter,
       TestCountryModel
     );
-    testDummyCountryModelRepository = new PostgresRepository(
+    testDummyCountryModelRepository = new TypeORMRepository(
       adapter,
       TestDummyCountry
     );
-    testDummyPhoneModelRepository = new PostgresRepository(
+    testDummyPhoneModelRepository = new TypeORMRepository(
       adapter,
       TestDummyPhone
     );
-    noPopulateOnceModelRepository = new PostgresRepository(
+    noPopulateOnceModelRepository = new TypeORMRepository(
       adapter,
       NoPopulateOnceModel
     );
-    noPopulateManyModelRepository = new PostgresRepository(
+    noPopulateManyModelRepository = new TypeORMRepository(
       adapter,
       NoPopulateManyModel
     );

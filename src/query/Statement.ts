@@ -5,16 +5,15 @@ import {
   OrderDirection,
   Paginator,
   Repository,
-  Sequence,
   Statement,
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
-import { PostgreSQLQueryLimit } from "./constants";
-import { PostgresPaginator } from "./Paginator";
+import { TypeORMQueryLimit } from "./constants";
+import { TypeORMPaginator } from "./Paginator";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
-import { PostgresQuery } from "../types";
-import { PostgresAdapter } from "../adapter";
+import { TypeORMQuery } from "../types";
+import { TypeORMAdapter } from "../TypeORMAdapter";
 
 /**
  * @description Statement builder for PostgreSQL queries
@@ -22,7 +21,7 @@ import { PostgresAdapter } from "../adapter";
  * @template M - The model type that extends Model
  * @template R - The result type
  * @param adapter - The PostgreSQL adapter
- * @class PostgresStatement
+ * @class TypeORMStatement
  * @example
  * // Example of using PostgreSQLStatement
  * const adapter = new MyPostgreSQLAdapter(pool);
@@ -36,19 +35,19 @@ import { PostgresAdapter } from "../adapter";
  *   .limit(10)
  *   .execute();
  */
-export class PostgresStatement<M extends Model, R> extends Statement<
-  PostgresQuery,
+export class TypeORMStatement<M extends Model, R> extends Statement<
+  TypeORMQuery,
   M,
   R
 > {
-  constructor(adapter: PostgresAdapter) {
+  constructor(adapter: TypeORMAdapter) {
     super(adapter);
   }
 
   /**
    * @description Builds a PostgreSQL query from the statement
    * @summary Converts the statement's conditions, selectors, and options into a PostgreSQL query
-   * @return {PostgresQuery} The built PostgreSQL query
+   * @return {TypeORMQuery} The built PostgreSQL query
    * @throws {Error} If there are invalid query conditions
    * @mermaid
    * sequenceDiagram
@@ -89,7 +88,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    *
    *   Statement-->>Statement: Return query
    */
-  protected build(): PostgresQuery {
+  protected build(): TypeORMQuery {
     const tableName = Repository.table(this.fromSelector);
     const m = new this.fromSelector();
     const q: string[] = [
@@ -118,9 +117,9 @@ export class PostgresStatement<M extends Model, R> extends Statement<
       q.push(` LIMIT ${this.limitSelector}`);
     } else {
       console.warn(
-        `No limit selector defined. Using default limit of ${PostgreSQLQueryLimit}`
+        `No limit selector defined. Using default limit of ${TypeORMQueryLimit}`
       );
-      q.push(` LIMIT ${PostgreSQLQueryLimit}`);
+      q.push(` LIMIT ${TypeORMQueryLimit}`);
     }
 
     // Add offset
@@ -141,10 +140,10 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    * @return {Promise<Paginator<M, R, PostgreSQLQuery>>} A promise that resolves to a paginator
    * @throws {InternalError} If there's an error building the query
    */
-  async paginate<R>(size: number): Promise<Paginator<M, R, PostgresQuery>> {
+  async paginate<R>(size: number): Promise<Paginator<M, R, TypeORMQuery>> {
     try {
-      const query: PostgresQuery = this.build();
-      return new PostgresPaginator(
+      const query: TypeORMQuery = this.build();
+      return new TypeORMPaginator(
         this.adapter as any,
         query,
         size,
@@ -174,10 +173,10 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    * @description Executes a raw PostgreSQL query
    * @summary Sends a raw PostgreSQL query to the database and processes the results
    * @template R - The result type
-   * @param {PostgresQuery} rawInput - The raw PostgreSQL query to execute
+   * @param {TypeORMQuery} rawInput - The raw PostgreSQL query to execute
    * @return {Promise<R>} A promise that resolves to the query results
    */
-  override async raw<R>(rawInput: PostgresQuery): Promise<R> {
+  override async raw<R>(rawInput: TypeORMQuery): Promise<R> {
     const results: any[] = await this.adapter.raw(rawInput, true);
 
     const pkDef = findPrimaryKey(new this.fromSelector());
@@ -193,7 +192,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
    * @summary Converts a Condition object into PostgreSQL condition structures
    * @param {Condition<M>} condition - The condition to parse
    * @param {string} [tableName] - the positional index of the arguments
-   * @return {PostgresQuery} The PostgresSQL condition
+   * @return {TypeORMQuery} The PostgresSQL condition
    * @mermaid
    * sequenceDiagram
    *   participant Statement
@@ -222,7 +221,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
   protected parseCondition(
     condition: Condition<M>,
     tableName: string
-  ): PostgresQuery {
+  ): TypeORMQuery {
     let valueCount = 0;
     const { attr1, operator, comparison } = condition as unknown as {
       attr1: string | Condition<M>;
@@ -230,7 +229,7 @@ export class PostgresStatement<M extends Model, R> extends Statement<
       comparison: any;
     };
 
-    let postgresCondition: PostgresQuery;
+    let postgresCondition: TypeORMQuery;
     // For simple comparison operators
     if (
       [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(

@@ -1,7 +1,7 @@
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { SequenceOptions } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
-import { PostgresAdapter } from "../adapter";
+import { TypeORMAdapter } from "../TypeORMAdapter";
 
 /**
  * @summary Abstract implementation of a Sequence
@@ -9,13 +9,13 @@ import { PostgresAdapter } from "../adapter";
  *
  * @param {SequenceOptions} options
  *
- * @class PostgresSequence
+ * @class TypeORMSequence
  * @implements Sequence
  */
-export class PostgresSequence extends Sequence {
+export class TypeORMSequence extends Sequence {
   constructor(
     options: SequenceOptions,
-    protected adapter: PostgresAdapter
+    protected adapter: TypeORMAdapter
   ) {
     super(options);
   }

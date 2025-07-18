@@ -1,5 +1,5 @@
 import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter, PostgresFlavour } from "../../src";
+import { PostgresAdapter, TypeORMFlavour } from "../../src";
 let con: Pool;
 const adapter = new PostgresAdapter(con);
 
@@ -14,7 +14,7 @@ import {
   uses,
 } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { PostgresRepository } from "../../src/PostgresRepository";
+import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
   minlength,
@@ -143,7 +143,7 @@ describe("repositories", () => {
   });
 
   it("instantiates via constructor", () => {
-    const repo: PostgresRepository<TestModelRepo> = new PostgresRepository(
+    const repo: TypeORMRepository<TestModelRepo> = new TypeORMRepository(
       adapter as any,
       TestModelRepo
     );
@@ -152,7 +152,7 @@ describe("repositories", () => {
   });
 
   it("instantiates via Repository.get with @uses decorator on model", () => {
-    uses(PostgresFlavour)(TestModelRepo);
+    uses(TypeORMFlavour)(TestModelRepo);
     const repo = Repository.forModel(TestModelRepo);
     expect(repo).toBeDefined();
     expect(repo).toBeInstanceOf(Repository);
@@ -161,7 +161,7 @@ describe("repositories", () => {
   it("gets injected when using @repository", () => {
     class TestClass {
       @repository(TestModelRepo)
-      repo!: PostgresRepository<TestModelRepo>;
+      repo!: TypeORMRepository<TestModelRepo>;
     }
 
     const testClass = new TestClass();
