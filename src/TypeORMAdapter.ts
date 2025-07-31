@@ -1135,7 +1135,6 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     Decoration.flavouredAs(TypeORMFlavour)
       .for(tableKey)
       .extend(Entity())
-      // .define(Entity(), modelBaseDecorator)
       .apply();
 
     // @pk => @PrimaryGeneratedColumn()
@@ -1147,7 +1146,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         readonly(),
         propMetadata(pkKey, DefaultSequenceOptions)
       )
-      .extend(PrimaryGeneratedColumn())
+      .extend((original: any, key: any) =>
+        PrimaryGeneratedColumn()(original[ModelKeys.ANCHOR] | original, key)
+      )
       .apply();
 
     // @column => @Column()
