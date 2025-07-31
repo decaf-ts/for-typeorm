@@ -38,7 +38,7 @@ const typeOrmCfg = {
 };
 
 @Entity()
-class TypeORMVanilla {
+class TypeORMVanilla extends Model {
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -51,6 +51,7 @@ class TypeORMVanilla {
   lastName!: string;
 
   constructor(arg?: ModelArg<TypeORMVanilla>) {
+    super();
     Model.fromModel(this as any, arg);
   }
 }

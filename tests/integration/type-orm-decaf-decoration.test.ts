@@ -6,6 +6,7 @@ import {
   model,
   Model,
   ModelArg,
+  ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
@@ -92,7 +93,7 @@ describe("TypeORM Decaf decoration", () => {
     }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
-        entities: [TypeORMDecaf],
+        entities: [TypeORMDecaf[ModelKeys.ANCHOR]],
       }) as DataSourceOptions
     );
   });
@@ -111,11 +112,11 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   it("creates a record decaf", async () => {
-    const repo = dataSource.getRepository(TypeORMDecaf);
+    const repo = dataSource.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecaf({
-      firstName: "John",
-      lastName: "Doe",
+      firstName: "John2",
+      lastName: "Doe2",
     });
     const record = await repo.save(toCreate);
     expect(record).toBeDefined();

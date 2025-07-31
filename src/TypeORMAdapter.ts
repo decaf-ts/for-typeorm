@@ -1134,7 +1134,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     const tableKey = Adapter.key(PersistenceKeys.TABLE);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(tableKey)
-      .extend(Entity())
+      .extend((original: any) =>
+        Entity()(original[ModelKeys.ANCHOR] || original)
+      )
       .apply();
 
     // @pk => @PrimaryGeneratedColumn()
@@ -1146,9 +1148,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         readonly(),
         propMetadata(pkKey, DefaultSequenceOptions)
       )
-      .extend((original: any, key: any) =>
-        PrimaryGeneratedColumn()(original[ModelKeys.ANCHOR] | original, key)
-      )
+      .extend(PrimaryGeneratedColumn())
       .apply();
 
     // @column => @Column()
