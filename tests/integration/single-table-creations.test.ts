@@ -7,6 +7,7 @@ const dbHost = "localhost";
 const dbName = "single_table_creation_db";
 
 const config: DataSourceOptions = {
+  type: "postgres",
   username: admin,
   password: admin_password,
   database: "alfred",

@@ -50,8 +50,7 @@ import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { DataSource } from "typeorm";
-import { QueryResult } from "./raw/postgres";
+import { Column, DataSource, Entity, PrimaryGeneratedColumn } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 
 export async function createdByOnPostgresCreateUpdate<
@@ -304,14 +303,20 @@ export class TypeORMAdapter extends Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const values = Object.values(model);
-    const sql = `INSERT INTO ${tableName} (${Object.keys(model)}) VALUES (${values.map((_, i) => `$${i + 1}`)}) RETURNING *`;
-    const response: QueryResult = await this.raw({
-      query: sql,
-      values: values,
-    });
-    const { rows } = response;
-    return rows[0];
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      return this.native.getRepository(m).create(model);
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
+
+    // const values = Object.values(model);
+    // const sql = `INSERT INTO ${tableName} (${Object.keys(model)}) VALUES (${values.map((_, i) => `$${i + 1}`)}) RETURNING *`;
+    // const response: any = await this.raw({
+    //   query: sql,
+    //   values: values,
+    // });
+    // return response[0];
   }
 
   /**
@@ -371,7 +376,7 @@ RETURNING *;`;
         `Record with id: ${id} not found in table ${tableName}`
       );
 
-    return response[0];
+    return response[0][0];
   }
 
   /**
@@ -405,7 +410,7 @@ RETURNING *;`;
         `Record with id: ${id} not found in table ${tableName}`
       );
 
-    return result[0];
+    return result[0][0];
   }
 
   override async createAll(
@@ -461,7 +466,7 @@ RETURNING *;`;
     });
 
     // If we didn't find all requested records, throw an error
-    if (result.rows.length !== id.length) {
+    if (result.length !== id.length) {
       const foundIds = result.map((row: any) => row[pk]);
       const missingIds = id.filter((id) => !foundIds.includes(id));
       throw new NotFoundError(
@@ -1125,11 +1130,16 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
   }
 
   static decoration() {
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
-    const pkKey = Repository.key(DBKeys.ID);
-    const uniqueKey = Repository.key(DBKeys.UNIQUE);
+    // @table() => @Entity()
+    const tableKey = Adapter.key(PersistenceKeys.TABLE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(tableKey)
+      .extend(Entity())
+      // .define(Entity(), modelBaseDecorator)
+      .apply();
 
+    // @pk => @PrimaryGeneratedColumn()
+    const pkKey = Repository.key(DBKeys.ID);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(pkKey)
       .define(
@@ -1137,27 +1147,16 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         readonly(),
         propMetadata(pkKey, DefaultSequenceOptions)
       )
+      .extend(PrimaryGeneratedColumn())
       .apply();
 
+    // @column => @Column()
+    const columnKey = Adapter.key(PersistenceKeys.COLUMN);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(uniqueKey)
-      .define(propMetadata(uniqueKey, {}))
-      .apply();
-
-    Decoration.flavouredAs(TypeORMFlavour)
-      .for(createdByKey)
-      .define(
-        onCreate(createdByOnPostgresCreateUpdate),
-        propMetadata(createdByKey, {})
-      )
-      .apply();
-
-    Decoration.flavouredAs(TypeORMFlavour)
-      .for(updatedByKey)
-      .define(
-        onCreate(createdByOnPostgresCreateUpdate),
-        propMetadata(updatedByKey, {})
-      )
+      .for(columnKey)
+      .define(function column(type: string) {
+        return Column(type);
+      } as any)
       .apply();
   }
 }

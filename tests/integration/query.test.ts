@@ -26,7 +26,7 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 
-import { PGBaseModel } from "./baseModel";
+import { TypeORMBaseModel } from "./baseModel";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -35,6 +35,7 @@ const user_password = "password";
 const dbHost = "localhost";
 
 const config: DataSourceOptions = {
+  type: "postgres",
   username: admin,
   password: admin_password,
   database: "alfred",
@@ -51,7 +52,7 @@ describe("Queries", () => {
   @uses(TypeORMFlavour)
   @table("tst_query_user")
   @model()
-  class QueryUser extends PGBaseModel {
+  class QueryUser extends TypeORMBaseModel {
     @pk()
     id!: number;
 

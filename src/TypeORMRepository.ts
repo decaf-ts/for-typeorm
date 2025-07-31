@@ -1,4 +1,4 @@
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Constructor, model, Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "@decaf-ts/core";
 import {
   Context,
@@ -25,6 +25,21 @@ export class TypeORMRepository<M extends Model> extends Repository<
 > {
   constructor(adapter: TypeORMAdapter, model: Constructor<M>, ...args: any[]) {
     super(adapter, model, ...args);
+  }
+
+  override async create(model: M, ...args: any[]): Promise<M> {
+    // eslint-disable-next-line prefer-const
+    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    record = await this.adapter.create(this.class as any, id, record, ...args);
+    let c: Context<TypeORMFlags> | undefined = undefined;
+    if (args.length) c = args[args.length - 1] as Context<TypeORMFlags>;
+    return this.adapter.revert<M>(
+      record,
+      this.class,
+      this.pk,
+      id,
+      c && c.get("rebuildWithTransient") ? transient : undefined
+    );
   }
 
   /**

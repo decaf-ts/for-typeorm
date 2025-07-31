@@ -15,6 +15,7 @@ const user_password = "password";
 const dbHost = "localhost";
 
 const config: DataSourceOptions = {
+  type: "postgres",
   username: admin,
   password: admin_password,
   database: "alfred",

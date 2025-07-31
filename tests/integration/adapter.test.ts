@@ -18,7 +18,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { PGBaseModel } from "./baseModel";
+import { TypeORMBaseModel } from "./baseModel";
 import { DataSource } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
@@ -85,7 +85,7 @@ describe("Adapter Integration", () => {
   describe("TestModel", () => {
     @table("tst_user")
     @model()
-    class TestModel extends PGBaseModel {
+    class TestModel extends TypeORMBaseModel {
       @pk()
       id!: number;
 
@@ -169,13 +169,10 @@ describe("Adapter Integration", () => {
       const keys = Object.keys(tm)
         .filter((k, i) => indexes.includes(i))
         .map((k) => Repository.column(tm, k));
-      const response = await adapter.raw(
-        {
-          query: `INSERT INTO ${Repository.table(TestModel)} (${keys.join(", ")}) VALUES (${values.map((v, i) => `$${i + 1}`)}) RETURNING *;`,
-          values: values,
-        },
-        false
-      );
+      const response = await adapter.raw({
+        query: `INSERT INTO ${Repository.table(TestModel)} (${keys.join(", ")}) VALUES (${values.map((v, i) => `$${i + 1}`)}) RETURNING *;`,
+        values: values,
+      });
       expect(response).toBeDefined();
     });
 

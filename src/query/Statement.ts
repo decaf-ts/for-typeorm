@@ -177,7 +177,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @return {Promise<R>} A promise that resolves to the query results
    */
   override async raw<R>(rawInput: TypeORMQuery): Promise<R> {
-    const results: any[] = await this.adapter.raw(rawInput, true);
+    const results: any[] = await this.adapter.raw(rawInput);
 
     const pkDef = findPrimaryKey(new this.fromSelector());
     const pkAttr = pkDef.id;

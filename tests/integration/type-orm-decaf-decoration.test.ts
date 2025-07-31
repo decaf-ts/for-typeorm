@@ -2,11 +2,16 @@ import { TypeORMAdapter } from "../../src";
 let con: DataSource;
 const adapter = new TypeORMAdapter(con);
 
-import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
-import { BaseModel, column, pk, table } from "@decaf-ts/core";
+import {
+  model,
+  Model,
+  ModelArg,
+  required,
+} from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { pk, table } from "@decaf-ts/core";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -26,37 +31,6 @@ const config: DataSourceOptions = {
 
 jest.setTimeout(50000);
 
-//
-// @table("orm_phones")
-// @model()
-// class ORMPhone extends BaseModel {
-//   @pk()
-//   id!: number;
-//
-//   @column("orm_number")
-//   @required()
-//   number!: number;
-//
-//   constructor(arg?: ModelArg<ORMPhone>) {
-//     super(arg);
-//   }
-// }
-
-@table("orm_persons")
-@model()
-class ORMPerson extends BaseModel {
-  @pk()
-  id!: number;
-
-  @column("orm_name")
-  @required()
-  name!: number;
-
-  constructor(arg?: ModelArg<ORMPerson>) {
-    super(arg);
-  }
-}
-
 const typeOrmCfg = {
   type: "postgres",
   host: dbHost,
@@ -68,7 +42,24 @@ const typeOrmCfg = {
   logging: false,
 };
 
-describe("TypeORM Decoration", () => {
+@table("type_orm_decaf")
+@model()
+class TypeORMDecaf extends Model {
+  @pk()
+  id!: number;
+
+  @required()
+  firstName!: string;
+
+  @required()
+  lastName!: string;
+
+  constructor(arg?: ModelArg<TypeORMDecaf>) {
+    super(arg);
+  }
+}
+
+describe("TypeORM Decaf decoration", () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
@@ -101,12 +92,32 @@ describe("TypeORM Decoration", () => {
     }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
-        entities: [ORMPerson],
+        entities: [TypeORMDecaf],
       }) as DataSourceOptions
     );
   });
 
-  it("initializes", async () => {
+  afterAll(async () => {
+    await con.destroy();
+  });
+
+  it("Creates the table", async () => {
     await dataSource.initialize();
+    // expect(
+    //   await dataSource.query(
+    //     `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'type_orm_decaf' );`
+    //   )
+    // ).toEqual([{ exists: true }]);
+  });
+
+  it("creates a record decaf", async () => {
+    const repo = dataSource.getRepository(TypeORMDecaf);
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMDecaf({
+      firstName: "John",
+      lastName: "Doe",
+    });
+    const record = await repo.save(toCreate);
+    expect(record).toBeDefined();
   });
 });

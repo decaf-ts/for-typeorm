@@ -37,6 +37,4 @@ describe("TypeOrm Decoration", () => {
   it("calls type-orm decorators via extension", () => {
     expect(ORMPerson).toBeDefined();
   });
-
-  it();
 });

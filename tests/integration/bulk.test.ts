@@ -19,7 +19,7 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
-import { PGBaseModel } from "./baseModel";
+import { TypeORMBaseModel } from "./baseModel";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -46,10 +46,10 @@ jest.setTimeout(50000);
 describe("Bulk operations", () => {
   let con: DataSource;
 
-  @uses("postgres")
+  @uses("type-orm")
   @table("tst_bulk_model")
   @model()
-  class TestBulkModel extends PGBaseModel {
+  class TestBulkModel extends TypeORMBaseModel {
     @pk()
     id?: number = undefined;
 

@@ -1,5 +1,7 @@
-import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter, TypeORMFlavour } from "../../src";
+
+import { DataSource, DataSourceOptions } from "typeorm";
+
 let con: DataSource;
 const adapter = new TypeORMAdapter(con);
 
@@ -22,7 +24,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { PGBaseModel } from "./baseModel";
+import { TypeORMBaseModel } from "./baseModel";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -31,6 +33,7 @@ const user_password = "password";
 const dbHost = "localhost";
 
 const config: DataSourceOptions = {
+  type: "postgres",
   username: admin,
   password: admin_password,
   database: "alfred",
@@ -42,9 +45,10 @@ const dbName = "repository_db";
 
 jest.setTimeout(50000);
 
+@uses(TypeORMFlavour)
 @table("tst_user")
 @model()
-class TestModelRepo extends PGBaseModel {
+class TestModelRepo extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -164,5 +168,20 @@ describe("repositories", () => {
     expect(testClass).toBeDefined();
     expect(testClass.repo).toBeDefined();
     expect(testClass.repo).toBeInstanceOf(Repository);
+  });
+
+  let created: TestModelRepo | undefined;
+
+  it("creates a model", async () => {
+    const repo: TypeORMRepository<TestModelRepo> =
+      Repository.forModel(TestModelRepo);
+    created = await repo.create(
+      new TestModelRepo({
+        name: "test_name",
+        nif: "123456789",
+      })
+    );
+    expect(created).toBeDefined();
+    expect(created.hasErrors()).toBeUndefined();
   });
 });

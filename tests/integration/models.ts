@@ -18,13 +18,13 @@ import {
   table,
   uses,
 } from "@decaf-ts/core";
-import { PGBaseModel } from "./baseModel";
+import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 
 @uses(TypeORMFlavour)
 @table("tst_country")
 @model()
-export class TestCountryModel extends PGBaseModel {
+export class TestCountryModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -47,7 +47,7 @@ export class TestCountryModel extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_address")
 @model()
-export class TestAddressModel extends PGBaseModel {
+export class TestAddressModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -84,7 +84,7 @@ export class TestAddressModel extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_phone")
 @model()
-export class TestPhoneModel extends PGBaseModel {
+export class TestPhoneModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -104,7 +104,7 @@ export class TestPhoneModel extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_user")
 @model()
-export class TestUserModel extends PGBaseModel {
+export class TestUserModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -145,7 +145,7 @@ export class TestUserModel extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_dummy_country")
 @model()
-export class TestDummyCountry extends PGBaseModel {
+export class TestDummyCountry extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -164,7 +164,7 @@ export class TestDummyCountry extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_no_populate_once")
 @model()
-export class NoPopulateOnceModel extends PGBaseModel {
+export class NoPopulateOnceModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -184,7 +184,7 @@ export class NoPopulateOnceModel extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_dummy_phone")
 @model()
-export class TestDummyPhone extends PGBaseModel {
+export class TestDummyPhone extends TypeORMBaseModel {
   @pk()
   id!: number;
   @required()
@@ -201,7 +201,7 @@ export class TestDummyPhone extends PGBaseModel {
 @uses(TypeORMFlavour)
 @table("tst_no_populate_many")
 @model()
-export class NoPopulateManyModel extends PGBaseModel {
+export class NoPopulateManyModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
