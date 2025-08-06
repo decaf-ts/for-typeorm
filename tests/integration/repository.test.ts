@@ -2,30 +2,6 @@ import { TypeORMAdapter, TypeORMFlavour } from "../../src";
 
 import { DataSource, DataSourceOptions } from "typeorm";
 
-let con: DataSource;
-const adapter = new TypeORMAdapter(con);
-
-import {
-  column,
-  Observer,
-  pk,
-  repository,
-  Repository,
-  table,
-  unique,
-  uses,
-} from "@decaf-ts/core";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { TypeORMRepository } from "../../src/TypeORMRepository";
-import {
-  maxlength,
-  minlength,
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
-import { TypeORMBaseModel } from "./baseModel";
-
 const admin = "alfred";
 const admin_password = "password";
 const user = "repo_user";
@@ -43,6 +19,30 @@ const config: DataSourceOptions = {
 };
 const dbName = "repository_db";
 
+let con: DataSource;
+const adapter = new TypeORMAdapter(config);
+
+import {
+  column,
+  Observer,
+  pk,
+  repository,
+  Repository,
+  table,
+  uses,
+} from "@decaf-ts/core";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { TypeORMRepository } from "../../src/TypeORMRepository";
+import {
+  maxlength,
+  minlength,
+  model,
+  ModelArg,
+  ModelKeys,
+  required,
+} from "@decaf-ts/decorator-validation";
+import { TypeORMBaseModel } from "./baseModel";
+
 jest.setTimeout(50000);
 
 @uses(TypeORMFlavour)
@@ -57,7 +57,6 @@ class TestModelRepo extends TypeORMBaseModel {
   name!: string;
 
   @column("tst_nif")
-  @unique()
   @minlength(9)
   @maxlength(9)
   @required()
@@ -68,7 +67,20 @@ class TestModelRepo extends TypeORMBaseModel {
   }
 }
 
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
+
 describe("repositories", () => {
+  let dataSource: DataSource;
+
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -97,22 +109,13 @@ describe("repositories", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await TypeORMAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [TestModelRepo[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
 
-    adapter["_native" as keyof typeof TypeORMAdapter] = con;
-
-    try {
-      await TypeORMAdapter.createTable(con, TestModelRepo);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    adapter["_dataSource"] = dataSource;
   });
 
   let observer: Observer;
@@ -140,6 +143,16 @@ describe("repositories", () => {
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
+  });
+
+  it("instatiates the model", () => {
+    const m = new TestModelRepo({
+      name: "test_name",
+      nif: "123456789",
+    });
+    expect(m).toBeDefined();
+    expect(m.name).toEqual("test_name");
+    expect(m.nif).toEqual("123456789");
   });
 
   it("instantiates via constructor", () => {
@@ -173,14 +186,16 @@ describe("repositories", () => {
   let created: TestModelRepo | undefined;
 
   it("creates a model", async () => {
+    await dataSource.initialize();
     const repo: TypeORMRepository<TestModelRepo> =
       Repository.forModel(TestModelRepo);
-    created = await repo.create(
-      new TestModelRepo({
-        name: "test_name",
-        nif: "123456789",
-      })
-    );
+
+    const toCreate = new TestModelRepo({
+      name: "test_name",
+      nif: "123456789",
+    });
+
+    created = await repo.create(toCreate);
     expect(created).toBeDefined();
     expect(created.hasErrors()).toBeUndefined();
   });

@@ -1,7 +1,7 @@
 import { Dispatch } from "@decaf-ts/core";
-import { PoolClient, Notification } from "pg";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { DataSource } from "typeorm";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { TypeORMAdapter } from "./TypeORMAdapter";
 
 /**
  * @description Dispatcher for PostgreSQL database change events
@@ -43,10 +43,9 @@ import { DataSource } from "typeorm";
  *   }
  *   Dispatch <|-- PostgreSQLDispatch
  */
-export class TypeORMDispatch extends Dispatch<DataSource> {
+export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
   private observerLastUpdate?: string;
   private attemptCounter: number = 0;
-  private client?: PoolClient;
 
   constructor(private timeout = 5000) {
     super();
@@ -70,9 +69,7 @@ export class TypeORMDispatch extends Dispatch<DataSource> {
    *   D->>D: Update observerLastUpdate
    *   D->>L: Log successful dispatch
    */
-  protected async notificationHandler(
-    notification: Notification
-  ): Promise<void> {
+  protected async notificationHandler(notification: any): Promise<void> {
     const log = this.log.for(this.notificationHandler);
 
     try {
@@ -149,13 +146,16 @@ export class TypeORMDispatch extends Dispatch<DataSource> {
   protected override async initialize(): Promise<void> {
     const log = this.log.for(this.initialize);
 
-    async function subscribeToPostgres(this: TypeORMDispatch): Promise<void> {
+    async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
       if (!this.adapter || !this.native) {
         throw new InternalError(`No adapter/native observed for dispatch`);
       }
 
+      const adapter = this.adapter as TypeORMAdapter;
+
       try {
-        if (!this.native.isInitialized) await this.native.initialize();
+        if (!adapter.dataSource.isInitialized)
+          await adapter.dataSource.initialize();
         //
         // this.client.on("notification", this.notificationHandler.bind(this));
         //
@@ -165,34 +165,33 @@ export class TypeORMDispatch extends Dispatch<DataSource> {
 
         this.attemptCounter = 0;
       } catch (e: unknown) {
-        if (this.client) {
-          this.client.release();
-          this.client = undefined;
+        if (adapter.dataSource) {
+          await adapter.dataSource.destroy();
         }
 
         if (++this.attemptCounter > 3) {
           return log.error(
-            `Failed to subscribe to Postgres notifications: ${e}`
+            `Failed to subscribe to TypeORM notifications: ${e}`
           );
         }
 
         log.info(
-          `Failed to subscribe to Postgres notifications: ${e}. Retrying in ${this.timeout}ms...`
+          `Failed to subscribe to TypeORM notifications: ${e}. Retrying in ${this.timeout}ms...`
         );
 
         await new Promise((resolve) => setTimeout(resolve, this.timeout));
-        return subscribeToPostgres.call(this);
+        return subscribeToTypeORM.call(this);
       }
     }
 
-    subscribeToPostgres
+    subscribeToTypeORM
       .call(this)
       .then(() => {
-        this.log.info(`Subscribed to Postgres notifications`);
+        this.log.info(`Subscribed to TypeORM notifications`);
       })
       .catch((e: unknown) => {
         throw new InternalError(
-          `Failed to subscribe to Postgres notifications: ${e}`
+          `Failed to subscribe to TypeORM notifications: ${e}`
         );
       });
   }
@@ -201,9 +200,10 @@ export class TypeORMDispatch extends Dispatch<DataSource> {
    * Cleanup method to release resources when the dispatcher is no longer needed
    */
   public cleanup(): void {
-    if (this.client) {
-      this.client.release();
-      this.client = undefined;
-    }
+    // if (this.adapter) {
+    //
+    //   const adapter = this.adapter as TypeORMAdapter;
+    //   await adapter.dataSource.destroy();
+    // }
   }
 }

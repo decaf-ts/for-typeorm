@@ -1,4 +1,4 @@
-import "../../src/type-orm";
+import "../../src";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { BaseModel, column, pk, table } from "@decaf-ts/core";
 

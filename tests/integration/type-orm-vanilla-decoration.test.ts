@@ -1,13 +1,6 @@
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 import { TypeORMAdapter } from "../../src";
 let con: DataSource;
-const adapter = new TypeORMAdapter(con);
-
-import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { DataSource, DataSourceOptions } from "typeorm";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
-
 const admin = "alfred";
 const admin_password = "password";
 const user = "orm_decoration_user";
@@ -23,6 +16,13 @@ const config: DataSourceOptions = {
   host: dbHost,
   port: 5432,
 } as PostgresConnectionOptions;
+
+const adapter = new TypeORMAdapter(config);
+
+import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { DataSource, DataSourceOptions } from "typeorm";
 
 jest.setTimeout(50000);
 

@@ -18,7 +18,6 @@ import {
   findPrimaryKey,
   InternalError,
   NotFoundError,
-  onCreate,
   OperationKeys,
   readonly,
 } from "@decaf-ts/db-decorators";
@@ -37,6 +36,7 @@ import {
   propMetadata,
   required,
   TypeMetadata,
+  Validation,
   ValidationKeys,
   ValidatorOptions,
 } from "@decaf-ts/decorator-validation";
@@ -50,8 +50,9 @@ import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { Column, DataSource, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { DataSource, Entity, PrimaryGeneratedColumn } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { Column } from "./overrides/Column";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -87,13 +88,23 @@ export async function createdByOnPostgresCreateUpdate<
  * @class PostgresAdapter
  */
 export class TypeORMAdapter extends Adapter<
-  DataSource,
+  DataSourceOptions,
   TypeORMQuery,
   TypeORMFlags,
   Context<TypeORMFlags>
 > {
-  constructor(source: DataSource, alias?: string) {
-    super(source, TypeORMFlavour, alias);
+  private _dataSource?: DataSource;
+
+  get dataSource(): DataSource {
+    if (!this._dataSource) {
+      this._dataSource = new DataSource(this.native);
+    }
+    return this._dataSource;
+  }
+  // protected dataSou
+
+  constructor(options: DataSourceOptions, alias?: string) {
+    super(options, TypeORMFlavour, alias);
   }
 
   protected override async flags<M extends Model>(
@@ -103,7 +114,7 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<TypeORMFlags> {
     const f = await super.flags(operation, model, flags);
     const newObj: any = {
-      user: (await TypeORMAdapter.getCurrentUser(this.native)) as string,
+      user: (await TypeORMAdapter.getCurrentUser(this.dataSource)) as string,
     };
     if (operation === "create" || operation === "update") {
       const pk = findPrimaryKey(new model()).id;
@@ -114,19 +125,13 @@ export class TypeORMAdapter extends Adapter<
     return Object.assign(f, newObj) as TypeORMFlags;
   }
 
+  @final()
   protected override Dispatch(): TypeORMDispatch {
     return new TypeORMDispatch();
   }
 
-  override repository<M extends Model>(): Constructor<
-    Repository<
-      M,
-      TypeORMQuery,
-      TypeORMAdapter,
-      TypeORMFlags,
-      Context<TypeORMFlags>
-    >
-  > {
+  @final()
+  override repository<M extends Model>(): Constructor<TypeORMRepository<M>> {
     return TypeORMRepository;
   }
 
@@ -159,6 +164,7 @@ export class TypeORMAdapter extends Adapter<
    */
   async initialize(): Promise<void> {
     const managedModels = Adapter.models(this.flavour);
+
     return this.index(...managedModels);
   }
 
@@ -176,15 +182,15 @@ export class TypeORMAdapter extends Adapter<
     const indexes: TypeORMQuery[] = generateIndexes(models);
 
     try {
-      await this.native.query("BEGIN");
+      await this.dataSource.query("BEGIN");
 
       for (const index of indexes) {
-        await this.native.query(index.query, index.values);
+        await this.dataSource.query(index.query, index.values);
       }
 
-      await this.native.query("COMMIT");
+      await this.dataSource.query("COMMIT");
     } catch (e: unknown) {
-      await this.native.query("ROLLBACK");
+      await this.dataSource.query("ROLLBACK");
       throw this.parseError(e as Error);
     }
   }
@@ -198,13 +204,13 @@ export class TypeORMAdapter extends Adapter<
    */
   override async raw<R>(q: TypeORMQuery): Promise<R> {
     try {
-      if (!this.native.isInitialized) await this.native.initialize();
+      if (!this.dataSource.isInitialized) await this.dataSource.initialize();
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
     try {
       const { query, values } = q;
-      const response = await this.native.query(query, values);
+      const response = await this.dataSource.query(query, values);
       return response as R;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -305,7 +311,8 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<Record<string, any>> {
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
-      return this.native.getRepository(m).create(model);
+      const repo = this.dataSource.getRepository(m);
+      return repo.save(model);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
@@ -917,7 +924,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     model: Constructor<M>
   ): Promise<Record<string, TypeORMTableSpec>> {
     const result: Record<string, TypeORMTableSpec> = {};
-    const m = new model();
+    const m = new model({});
     const tableName = Repository.table(model);
     const { id } = findPrimaryKey(m);
 
@@ -1155,9 +1162,21 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     const columnKey = Adapter.key(PersistenceKeys.COLUMN);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(columnKey)
-      .define(function column(type: string) {
-        return Column(type);
-      } as any)
+      .extend(Column())
+      .apply();
+
+    // @unique => @Column({unique: true})
+    const uniqueKey = Adapter.key(PersistenceKeys.UNIQUE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(uniqueKey)
+      .extend(Column({ unique: true }))
+      .apply();
+
+    // @required => @Column({ nullable: false })
+    const requiredKey = Validation.key(ValidationKeys.REQUIRED);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(requiredKey)
+      .extend(Column({ nullable: false }))
       .apply();
   }
 }

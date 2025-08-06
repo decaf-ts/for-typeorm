@@ -1,18 +1,4 @@
-import { TypeORMAdapter } from "../../src";
-let con: DataSource;
-const adapter = new TypeORMAdapter(con);
-
-import {
-  model,
-  Model,
-  ModelArg,
-  ModelKeys,
-  required,
-} from "@decaf-ts/decorator-validation";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { DataSource, DataSourceOptions } from "typeorm";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
-import { pk, table } from "@decaf-ts/core";
+import { TypeORMAdapter, TypeORMFlavour } from "../../src";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -30,6 +16,21 @@ const config: DataSourceOptions = {
   port: 5432,
 } as PostgresConnectionOptions;
 
+let con: DataSource;
+const adapter = new TypeORMAdapter(config);
+
+import {
+  model,
+  Model,
+  ModelArg,
+  ModelKeys,
+  required,
+} from "@decaf-ts/decorator-validation";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { DataSource, DataSourceOptions } from "typeorm";
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { column, pk, Repository, table, uses } from "@decaf-ts/core";
+
 jest.setTimeout(50000);
 
 const typeOrmCfg = {
@@ -43,15 +44,18 @@ const typeOrmCfg = {
   logging: false,
 };
 
+@uses(TypeORMFlavour)
 @table("type_orm_decaf")
 @model()
 class TypeORMDecaf extends Model {
   @pk()
   id!: number;
 
+  @column()
   @required()
   firstName!: string;
 
+  @column()
   @required()
   lastName!: string;
 
@@ -96,9 +100,15 @@ describe("TypeORM Decaf decoration", () => {
         entities: [TypeORMDecaf[ModelKeys.ANCHOR]],
       }) as DataSourceOptions
     );
+
+    adapter["_dataSource"] = dataSource;
   });
 
   afterAll(async () => {
+    await con.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
   });
 
@@ -119,6 +129,31 @@ describe("TypeORM Decaf decoration", () => {
       lastName: "Doe2",
     });
     const record = await repo.save(toCreate);
+    expect(record).toBeDefined();
+    expect(record.hasErrors()).toBeUndefined();
+  });
+
+  it("creates a record decaf via adapter", async () => {
+    const repo = new (adapter.repository())(adapter, TypeORMDecaf);
+
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMDecaf({
+      firstName: "John3",
+      lastName: "Doe3",
+    });
+    const record = await repo.create(toCreate);
+    expect(record).toBeDefined();
+  });
+
+  it("creates a record decaf via Repository.forModel", async () => {
+    const repo = Repository.forModel(TypeORMDecaf);
+
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMDecaf({
+      firstName: "John4",
+      lastName: "Doe4",
+    });
+    const record = await repo.create(toCreate);
     expect(record).toBeDefined();
   });
 });

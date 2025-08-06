@@ -1,5 +1,9 @@
-import { Constructor, model, Model } from "@decaf-ts/decorator-validation";
-import { Repository } from "@decaf-ts/core";
+import {
+  type Constructor,
+  Model,
+  ModelKeys,
+} from "@decaf-ts/decorator-validation";
+import { Repository, uses } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
@@ -8,6 +12,7 @@ import {
 } from "@decaf-ts/db-decorators";
 import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMAdapter } from "./TypeORMAdapter";
+import { TypeORMFlavour } from "./constants";
 
 /**
  * @description Type for PostgreSQL database repositories
@@ -16,6 +21,7 @@ import { TypeORMAdapter } from "./TypeORMAdapter";
  * @template M - Type extending Model that this repository will manage
  * @memberOf module:for-postgres
  */
+@uses(TypeORMFlavour)
 export class TypeORMRepository<M extends Model> extends Repository<
   M,
   TypeORMQuery,
@@ -30,7 +36,12 @@ export class TypeORMRepository<M extends Model> extends Repository<
   override async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
-    record = await this.adapter.create(this.class as any, id, record, ...args);
+    record = await this.adapter.create(
+      (this.class as any)[ModelKeys.ANCHOR] as any,
+      id,
+      model as any,
+      ...args
+    );
     let c: Context<TypeORMFlags> | undefined = undefined;
     if (args.length) c = args[args.length - 1] as Context<TypeORMFlags>;
     return this.adapter.revert<M>(
