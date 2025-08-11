@@ -1,25 +1,5 @@
 import { DataSource, DataSourceOptions } from "typeorm";
-import { TypeORMAdapter } from "../../src";
-let con: DataSource;
-const adapter = new TypeORMAdapter(con);
-
-import {
-  Observer,
-  PersistenceKeys,
-  pk,
-  Repository,
-  table,
-  uses,
-} from "@decaf-ts/core";
-import {
-  minlength,
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { TypeORMRepository } from "../../src/TypeORMRepository";
-import { TypeORMBaseModel } from "./baseModel";
+import { TypeORMAdapter, TypeORMFlavour } from "../../src";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -36,31 +16,67 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
+let con: DataSource;
 
-jest.setTimeout(50000);
+const adapter = new TypeORMAdapter(config);
+
+import {
+  column,
+  Observer,
+  PersistenceKeys,
+  pk,
+  Repository,
+  table,
+  uses,
+} from "@decaf-ts/core";
+import {
+  minlength,
+  model,
+  ModelArg,
+  ModelKeys,
+  required,
+} from "@decaf-ts/decorator-validation";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { TypeORMRepository } from "../../src/TypeORMRepository";
+import { TypeORMBaseModel } from "./baseModel";
 
 const dbName = "bulk_db";
 
 jest.setTimeout(50000);
 
-describe("Bulk operations", () => {
-  let con: DataSource;
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
 
-  @uses("type-orm")
-  @table("tst_bulk_model")
-  @model()
-  class TestBulkModel extends TypeORMBaseModel {
-    @pk()
-    id?: number = undefined;
+@uses(TypeORMFlavour)
+@table("tst_bulk_model")
+@model()
+class TestBulkModel extends TypeORMBaseModel {
+  @column()
+  @pk()
+  id?: number = undefined;
 
-    @required()
-    @minlength(5)
-    attr1?: string = undefined;
+  @column()
+  @required()
+  @minlength(5)
+  attr1?: string = undefined;
 
-    constructor(arg?: ModelArg<TestBulkModel>) {
-      super(arg);
-    }
+  constructor(arg?: ModelArg<TestBulkModel>) {
+    super(arg);
   }
+}
+
+describe("Bulk operations", () => {
+  let dataSource: DataSource;
+
+  let repo: TypeORMRepository<TestBulkModel>;
 
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
@@ -90,22 +106,14 @@ describe("Bulk operations", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await TypeORMAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [TestBulkModel[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof TypeORMAdapter] = con;
-
-    try {
-      await TypeORMAdapter.createTable(con, TestBulkModel);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
+    repo = new TypeORMRepository(adapter, TestBulkModel);
   });
 
   let observer: Observer;
@@ -122,9 +130,14 @@ describe("Bulk operations", () => {
     })();
     // repo.observe(observer);
   });
+  //
+  // afterEach(() => {
+  //   repo.unObserve(observer);
+  // });
 
   afterAll(async () => {
     await con.destroy();
+    await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -134,9 +147,7 @@ describe("Bulk operations", () => {
   let created: TestBulkModel[];
   let updated: TestBulkModel[];
 
-  it.skip("creates one", async () => {
-    const repo: TypeORMRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
+  it("creates one", async () => {
     const created = await repo.create(
       new TestBulkModel({
         attr1: "attr1",
@@ -146,8 +157,6 @@ describe("Bulk operations", () => {
   });
 
   it("Creates in bulk", async () => {
-    const repo: TypeORMRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const models = [1, 2, 3, 4, 5].map(
       (i) =>
         new TestBulkModel({
@@ -162,8 +171,6 @@ describe("Bulk operations", () => {
   });
 
   it("Reads in Bulk", async () => {
-    const repo: TypeORMRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id) as number[];
     const read = await repo.readAll(ids);
     expect(read).toBeDefined();
@@ -175,8 +182,6 @@ describe("Bulk operations", () => {
   });
 
   it("Updates in Bulk", async () => {
-    const repo: TypeORMRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const toUpdate = created.map((c, i) => {
       return new TestBulkModel({
         id: c.id,
@@ -193,8 +198,6 @@ describe("Bulk operations", () => {
   });
 
   it("Deletes in Bulk", async () => {
-    const repo: TypeORMRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id);
     const deleted = await repo.deleteAll(ids as number[]);
     expect(deleted).toBeDefined();
@@ -202,7 +205,7 @@ describe("Bulk operations", () => {
     expect(deleted.every((el) => el instanceof TestBulkModel)).toEqual(true);
     expect(deleted.every((el) => !el.hasErrors())).toEqual(true);
     expect(deleted.every((el, i) => el.equals(updated[i]))).toEqual(true);
-    for (const k in created.map((c) => c.id)) {
+    for (const k in deleted.map((c) => c.id)) {
       await expect(repo.read(k)).rejects.toThrowError(NotFoundError);
     }
   });

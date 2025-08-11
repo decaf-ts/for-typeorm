@@ -156,7 +156,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
     records = await this.adapter.createAll(
       (this.class as any)[ModelKeys.ANCHOR] as any,
       ids as (string | number)[],
-      records,
+      models,
       ...args
     );
     return records.map((r, i) =>
@@ -184,7 +184,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
     const updated = await this.adapter.updateAll(
       (this.class as any)[ModelKeys.ANCHOR] as any,
       records.map((r) => r.id),
-      records.map((r) => r.record),
+      models,
       this.pk as string,
       ...args
     );

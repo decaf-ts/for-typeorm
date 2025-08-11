@@ -54,7 +54,7 @@ import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { DataSource } from "typeorm";
+import { DataSource, In, InsertResult } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
 import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
@@ -274,17 +274,6 @@ export class TypeORMAdapter extends Adapter<
     transient?: Record<string, any>
   ): M {
     const log = this.log.for(this.revert);
-    // const ob: Record<string, any> = {};
-    // ob[pk as string] = id || obj[pk as string];
-    // const m = (
-    //   typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
-    // ) as M;
-    // log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
-    // const result = Object.keys(m).reduce((accum: M, key) => {
-    //   (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
-    //   return accum;
-    // }, m);
-
     if (transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
@@ -292,7 +281,7 @@ export class TypeORMAdapter extends Adapter<
       Object.entries(transient).forEach(([key, val]) => {
         if (key in obj)
           throw new InternalError(
-            `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
+            `Transient property ${key} already exists on model ${typeof clazz === "string" ? clazz : clazz.name}. should be impossible`
           );
         (obj as M)[key as keyof M] = val;
       });
@@ -407,24 +396,6 @@ export class TypeORMAdapter extends Adapter<
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
-    //
-    // const sql = `
-    //     DELETE FROM ${tableName}
-    //     WHERE ${pk} = $1
-    //     RETURNING *
-    //   `;
-    //
-    // const result: any[] = await this.raw({
-    //   query: sql,
-    //   values: [id],
-    // });
-    //
-    // if (!result.length)
-    //   throw new NotFoundError(
-    //     `Record with id: ${id} not found in table ${tableName}`
-    //   );
-    //
-    // return result[0][0];
   }
 
   override async createAll(
@@ -434,29 +405,18 @@ export class TypeORMAdapter extends Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    const columns = Object.keys(model[0]);
-
-    const valuePlaceholders = model
-      .map(
-        (_, recordIndex) =>
-          `(${columns
-            .map(
-              (_, colIndex) => `$${recordIndex * columns.length + colIndex + 1}`
-            )
-            .join(", ")})`
-      )
-      .join(", ");
-
-    const values = model.flatMap((record) => Object.values(record));
-    const q = `INSERT INTO ${tableName} (${columns.join(", ")})
-    VALUES ${valuePlaceholders}
-    RETURNING *;
-`;
-    const result: any = await this.raw({
-      query: q,
-      values: values,
-    });
-    return result;
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const result: InsertResult = await repo.insert(model);
+      return this.readAll(
+        tableName,
+        result.identifiers.map((id) => id.id),
+        "id"
+      );
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
   }
 
   override async readAll(
@@ -468,27 +428,13 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<Record<string, any>[]> {
     if (!id.length) return [];
 
-    const sql = `
-    SELECT * 
-    FROM ${tableName} 
-    WHERE ${pk} = ANY($1)
-    ORDER BY array_position($1::${typeof id[0] === "number" ? "integer" : "text"}[], ${pk})`;
-
-    const result: any = await this.raw({
-      query: sql,
-      values: [id],
-    });
-
-    // If we didn't find all requested records, throw an error
-    if (result.length !== id.length) {
-      const foundIds = result.map((row: any) => row[pk]);
-      const missingIds = id.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError(
-        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
-      );
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      return repo.findBy({ [pk]: In(id) });
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
     }
-
-    return result;
   }
 
   override async updateAll(
@@ -496,58 +442,13 @@ export class TypeORMAdapter extends Adapter<
     ids: string[] | number[],
     model: Record<string, any>[],
     pk: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    if (!ids.length) return [];
-    if (ids.length !== model.length) {
-      throw new InternalError("Number of IDs must match number of records");
+    const result = [];
+    for (const m of model) {
+      result.push(await this.update(tableName, m[pk], m, ...args));
     }
-    // Create values array and get column names from first record
-    const columns = Object.keys(model[0]);
-    const values: any[] = [];
-    let placeholderIndex = 1;
-
-    // Generate value lists for each record
-    const valueLists = model
-      .map((record, i) => {
-        const recordValues = columns.map((col) => {
-          values.push(record[col]);
-          if (record[col] instanceof Date) {
-            return `$${placeholderIndex++}::timestamp`;
-          }
-          return `$${placeholderIndex++}`;
-        });
-        return `(${ids[i]}, ${recordValues.join(", ")})`;
-      })
-      .join(", ");
-
-    const sql = `
-    UPDATE ${tableName} AS t SET
-      ${columns.map((col) => `${col} = c.${col}`).join(",\n      ")}
-    FROM (VALUES ${valueLists}) AS c(id, ${columns.join(", ")})
-    WHERE t.${pk} = c.id
-    RETURNING *`;
-
-    const result: any = await this.raw({
-      query: sql,
-      values,
-    });
-
-    // Verify all records were updated
-    if (result.length !== ids.length) {
-      const foundIds = result.map((row: any) => row[pk]);
-      const missingIds = ids.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError(
-        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
-      );
-    }
-
-    // TODO map this to object first for oN behaviour
-    // Return updated records in the same order as input
-    return ids.map((id) =>
-      result.find((row: any) => row[pk].toString() === id.toString())
-    );
+    return result;
   }
 
   override async deleteAll(
@@ -558,39 +459,15 @@ export class TypeORMAdapter extends Adapter<
     ...args: any[]
   ): Promise<Record<string, any>[]> {
     if (!ids.length) return [];
-
-    // First fetch the records that will be deleted (for returning them later)
-    const fetchSql = `
-    SELECT * 
-    FROM ${tableName} 
-    WHERE ${pk} = ANY($1)
-    ORDER BY array_position($1::${typeof ids[0] === "number" ? "integer" : "text"}[], ${pk})`;
-
-    const fetchResult: any = await this.raw({
-      query: fetchSql,
-      values: [ids],
-    });
-
-    if (fetchResult.length !== ids.length) {
-      const foundIds = fetchResult.map((row: any) => row[pk]);
-      const missingIds = ids.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError(
-        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
-      );
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const models = await this.readAll(tableName, ids, pk);
+      const res = await repo.delete(ids);
+      return models;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
     }
-
-    const deleteSql = `
-    DELETE FROM ${tableName} 
-    WHERE ${pk} = ANY($1)`;
-
-    await this.raw({
-      query: deleteSql,
-      values: [ids],
-    });
-
-    return ids.map((id) =>
-      fetchResult.find((row: any) => row[pk].toString() === id.toString())
-    );
   }
 
   /**
