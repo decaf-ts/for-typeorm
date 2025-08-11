@@ -99,6 +99,8 @@ describe("TypeORM Decaf decoration", () => {
         entities: [TypeORMDecaf[ModelKeys.ANCHOR]],
       }) as DataSourceOptions
     );
+
+    adapter["_dataSource"] = dataSource;
   });
 
   afterAll(async () => {
