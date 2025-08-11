@@ -22,6 +22,7 @@ import { ColumnHstoreOptions } from "typeorm/decorator/options/ColumnHstoreOptio
 import { ColumnEmbeddedOptions } from "typeorm/decorator/options/ColumnEmbeddedOptions";
 import { EmbeddedMetadataArgs } from "typeorm/metadata-args/EmbeddedMetadataArgs";
 import { ColumnMetadataArgs } from "typeorm/metadata-args/ColumnMetadataArgs";
+import { aggregateOrNewColumn } from "./utils";
 
 /**
  * Column decorator is used to mark a specific class property as a table column. Only properties decorated with this
@@ -197,25 +198,7 @@ export function Column(
         });
 
       const columns = getMetadataArgsStorage().columns;
-      const existing = columns.find(
-        (r) =>
-          r.target === object.constructor && r.propertyName === propertyName
-      );
-      if (existing) {
-        Object.defineProperty(existing, "options", {
-          value: { ...existing.options, ...options },
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        });
-      } else {
-        columns.push({
-          target: object.constructor,
-          propertyName: propertyName,
-          mode: "regular",
-          options: options,
-        } as ColumnMetadataArgs);
-      }
+      aggregateOrNewColumn(object.constructor, propertyName, columns, options);
 
       if (options.generated) {
         getMetadataArgsStorage().generations.push({

@@ -15,17 +15,21 @@ import {
   ConflictError,
   Context,
   DBKeys,
+  DEFAULT_TIMESTAMP_FORMAT,
   findPrimaryKey,
   InternalError,
   NotFoundError,
   OperationKeys,
+  DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
   readonly,
+  UpdateValidationKeys,
 } from "@decaf-ts/db-decorators";
 import "reflect-metadata";
 import {
   type Constructor,
-  Decoration,
+  date,
   DEFAULT_ERROR_MESSAGES,
+  Decoration,
   MaxLengthValidatorOptions,
   MaxValidatorOptions,
   MinLengthValidatorOptions,
@@ -50,9 +54,13 @@ import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { DataSource, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { DataSource } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
+import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
+import { CreateDateColumn } from "./overrides/CreateDateColumn";
+import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
+import { Entity } from "./overrides/Entity";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -1155,20 +1163,33 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         readonly(),
         propMetadata(pkKey, DefaultSequenceOptions)
       )
-      .extend(PrimaryGeneratedColumn())
+      .extend((original: any, prop: any) =>
+        PrimaryGeneratedColumn()(original, prop)
+      )
       .apply();
 
-    // @column => @Column()
+    // @column("columnName") => @Column({name: "columnName"})
     const columnKey = Adapter.key(PersistenceKeys.COLUMN);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(columnKey)
-      .extend(Column())
+      .extend({
+        decorator: Column,
+        transform: (args: any[]) => {
+          const columnName = args[0];
+          return [
+            {
+              name: columnName,
+            },
+          ];
+        },
+      })
       .apply();
 
     // @unique => @Column({unique: true})
     const uniqueKey = Adapter.key(PersistenceKeys.UNIQUE);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(uniqueKey)
+      .define(propMetadata(uniqueKey, {}))
       .extend(Column({ unique: true }))
       .apply();
 
@@ -1177,6 +1198,32 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     Decoration.flavouredAs(TypeORMFlavour)
       .for(requiredKey)
       .extend(Column({ nullable: false }))
+      .apply();
+
+    function ValidationUpdateKey(key: string) {
+      return UpdateValidationKeys.REFLECT + key;
+    }
+
+    // @timestamp(op) => @CreateDateColumn() || @UpdateDateColumn()
+    const timestampKey = ValidationUpdateKey(DBKeys.TIMESTAMP);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(timestampKey)
+      .define(
+        date(
+          DEFAULT_TIMESTAMP_FORMAT,
+          DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.DATE
+        ),
+        required(DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.REQUIRED)
+      )
+      .extend({
+        decorator: function timestamp(op: OperationKeys[]) {
+          return function timestamp(obj: any, prop: any) {
+            if (op.indexOf(OperationKeys.UPDATE) !== -1)
+              return UpdateDateColumn()(obj, prop);
+            return CreateDateColumn()(obj, prop);
+          };
+        },
+      })
       .apply();
   }
 }

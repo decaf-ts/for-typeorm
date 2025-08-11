@@ -44,7 +44,6 @@ const typeOrmCfg = {
   logging: false,
 };
 
-@uses(TypeORMFlavour)
 @table("type_orm_decaf")
 @model()
 class TypeORMDecaf extends Model {
@@ -100,8 +99,6 @@ describe("TypeORM Decaf decoration", () => {
         entities: [TypeORMDecaf[ModelKeys.ANCHOR]],
       }) as DataSourceOptions
     );
-
-    adapter["_dataSource"] = dataSource;
   });
 
   afterAll(async () => {
