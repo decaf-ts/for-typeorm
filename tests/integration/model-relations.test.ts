@@ -1,7 +1,23 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter } from "../../src";
+const admin = "alfred";
+const admin_password = "password";
+const user = "complex_user";
+const user_password = "password";
+const dbHost = "localhost";
+
+const config: DataSourceOptions = {
+  type: "postgres",
+  username: admin,
+  password: admin_password,
+  database: "alfred",
+  host: dbHost,
+  port: 5432,
+  ssl: false,
+};
 let con: DataSource;
-const adapter = new TypeORMAdapter(con);
+const adapter = new TypeORMAdapter(config);
+
 import {
   NoPopulateManyModel,
   NoPopulateOnceModel,
@@ -16,27 +32,12 @@ import {
   testUser,
   TestUserModel,
 } from "./models";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Condition, Observer } from "@decaf-ts/core";
 import { sequenceNameForModel } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
-
-const admin = "alfred";
-const admin_password = "password";
-const user = "complex_user";
-const user_password = "password";
-const dbHost = "localhost";
-
-const config: DataSourceOptions = {
-  username: admin,
-  password: admin_password,
-  database: "alfred",
-  host: dbHost,
-  port: 5432,
-  ssl: false,
-};
 
 const dbName = "complex_db";
 
@@ -44,7 +45,20 @@ Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
-describe.skip(`Complex Database`, function () {
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
+
+describe(`Complex Database`, function () {
+  let dataSource: DataSource;
+
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -73,27 +87,21 @@ describe.skip(`Complex Database`, function () {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await TypeORMAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [
+          TestCountryModel[ModelKeys.ANCHOR],
+          TestUserModel[ModelKeys.ANCHOR],
+          TestAddressModel[ModelKeys.ANCHOR],
+          TestDummyCountry[ModelKeys.ANCHOR],
+          TestDummyPhone[ModelKeys.ANCHOR],
+          NoPopulateOnceModel[ModelKeys.ANCHOR],
+          NoPopulateManyModel[ModelKeys.ANCHOR],
+        ],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof TypeORMAdapter] = con;
-    await TypeORMAdapter.createTable(con, TestDummyPhone);
-    await TypeORMAdapter.createTable(con, TestDummyCountry);
-    await TypeORMAdapter.createTable(con, TestPhoneModel);
-
-    await TypeORMAdapter.createTable(con, TestCountryModel);
-    await TypeORMAdapter.createTable(con, TestAddressModel);
-
-    await TypeORMAdapter.createTable(con, TestUserModel);
-
-    await TypeORMAdapter.createTable(con, NoPopulateOnceModel);
-    await TypeORMAdapter.createTable(con, NoPopulateManyModel);
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
   });
 
   let observer: Observer;
@@ -117,6 +125,7 @@ describe.skip(`Complex Database`, function () {
 
   afterAll(async () => {
     await con.destroy();
+    await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -170,10 +179,10 @@ describe.skip(`Complex Database`, function () {
     };
   });
 
-  describe("basic test", () => {
+  describe.only("basic test", () => {
     let cached: TestCountryModel;
 
-    it("creates a new record", async () => {
+    it.only("creates a new record", async () => {
       const record = new TestCountryModel(model);
       const created = await testCountryModelRepository.create(record);
       expect(created).toBeDefined();

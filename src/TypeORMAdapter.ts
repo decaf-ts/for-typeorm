@@ -309,7 +309,7 @@ export class TypeORMAdapter extends Adapter<
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
       const repo = this.dataSource.getRepository(m);
-      return repo.save(model);
+      return await repo.save(model);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
