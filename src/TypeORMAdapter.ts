@@ -274,31 +274,31 @@ export class TypeORMAdapter extends Adapter<
     transient?: Record<string, any>
   ): M {
     const log = this.log.for(this.revert);
-    const ob: Record<string, any> = {};
-    ob[pk as string] = id || obj[pk as string];
-    const m = (
-      typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
-    ) as M;
-    log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
-    const result = Object.keys(m).reduce((accum: M, key) => {
-      (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
-      return accum;
-    }, m);
+    // const ob: Record<string, any> = {};
+    // ob[pk as string] = id || obj[pk as string];
+    // const m = (
+    //   typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
+    // ) as M;
+    // log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
+    // const result = Object.keys(m).reduce((accum: M, key) => {
+    //   (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
+    //   return accum;
+    // }, m);
 
     if (transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
       Object.entries(transient).forEach(([key, val]) => {
-        if (key in result)
+        if (key in obj)
           throw new InternalError(
             `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
           );
-        result[key as keyof M] = val;
+        (obj as M)[key as keyof M] = val;
       });
     }
 
-    return result;
+    return obj as M;
   }
 
   /**
@@ -324,14 +324,6 @@ export class TypeORMAdapter extends Adapter<
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
-
-    // const values = Object.values(model);
-    // const sql = `INSERT INTO ${tableName} (${Object.keys(model)}) VALUES (${values.map((_, i) => `$${i + 1}`)}) RETURNING *`;
-    // const response: any = await this.raw({
-    //   query: sql,
-    //   values: values,
-    // });
-    // return response[0];
   }
 
   /**
@@ -347,13 +339,23 @@ export class TypeORMAdapter extends Adapter<
     id: string | number,
     pk: string
   ): Promise<Record<string, any>> {
-    const sql = `SELECT * FROM ${tableName} as t WHERE t.${pk} = $1`;
-    const result: any = await this.raw({ query: sql, values: [id] });
-    if (!result.length)
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    let result: any;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      result = (await repo.findOne({
+        where: {
+          [pk]: id,
+        },
+      })) as Record<string, any>;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
+    if (!result)
       throw new NotFoundError(
-        `Record with id: ${id} not found in table ${tableName}`
+        `Record with id: ${id} not found in table ${typeof tableName === "string" ? tableName : Repository.table(tableName)}`
       );
-    return result[0];
+    return result;
   }
 
   /**
@@ -372,26 +374,13 @@ export class TypeORMAdapter extends Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const values = Object.values(model);
-
-    const sql = `UPDATE ${tableName} 
-SET ${Object.keys(model)
-      .map((f, i) => `${f} = $${i + 1}`)
-      .join(", ")}
-WHERE id = $${values.length + 1}
-RETURNING *;`;
-
-    const response: any[] = await this.raw({
-      query: sql,
-      values: [...values, id],
-    });
-
-    if (!response.length)
-      throw new NotFoundError(
-        `Record with id: ${id} not found in table ${tableName}`
-      );
-
-    return response[0][0];
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      return repo.save(model);
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
   }
 
   /**
@@ -409,23 +398,33 @@ RETURNING *;`;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const sql = `
-        DELETE FROM ${tableName}
-        WHERE ${pk} = $1
-        RETURNING *
-      `;
-
-    const result: any[] = await this.raw({
-      query: sql,
-      values: [id],
-    });
-
-    if (!result.length)
-      throw new NotFoundError(
-        `Record with id: ${id} not found in table ${tableName}`
-      );
-
-    return result[0][0];
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const model = await this.read(tableName, id, pk);
+      await repo.delete(id);
+      return model;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
+    //
+    // const sql = `
+    //     DELETE FROM ${tableName}
+    //     WHERE ${pk} = $1
+    //     RETURNING *
+    //   `;
+    //
+    // const result: any[] = await this.raw({
+    //   query: sql,
+    //   values: [id],
+    // });
+    //
+    // if (!result.length)
+    //   throw new NotFoundError(
+    //     `Record with id: ${id} not found in table ${tableName}`
+    //   );
+    //
+    // return result[0][0];
   }
 
   override async createAll(
@@ -1218,12 +1217,15 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         required(DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.REQUIRED)
       )
       .extend({
-        decorator: function timestamp(op: OperationKeys[]) {
+        decorator: function timestamp(...ops: OperationKeys[]) {
           return function timestamp(obj: any, prop: any) {
-            if (op.indexOf(OperationKeys.UPDATE) !== -1)
+            if (ops.indexOf(OperationKeys.UPDATE) !== -1)
               return UpdateDateColumn()(obj, prop);
             return CreateDateColumn()(obj, prop);
           };
+        },
+        transform: (args: any[]) => {
+          return args[0];
         },
       })
       .apply();

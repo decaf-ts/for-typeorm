@@ -29,7 +29,7 @@ import {
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
-import { column, pk, Repository, table, uses } from "@decaf-ts/core";
+import { column, pk, Repository, table, unique } from "@decaf-ts/core";
 
 jest.setTimeout(50000);
 
@@ -51,6 +51,7 @@ class TypeORMDecaf extends Model {
   id!: number;
 
   @column()
+  @unique()
   @required()
   firstName!: string;
 
@@ -105,6 +106,7 @@ describe("TypeORM Decaf decoration", () => {
 
   afterAll(async () => {
     await con.destroy();
+    await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -142,6 +144,7 @@ describe("TypeORM Decaf decoration", () => {
     });
     const record = await repo.create(toCreate);
     expect(record).toBeDefined();
+    expect(record.hasErrors()).toBeUndefined();
   });
 
   it("creates a record decaf via Repository.forModel", async () => {
@@ -154,5 +157,6 @@ describe("TypeORM Decaf decoration", () => {
     });
     const record = await repo.create(toCreate);
     expect(record).toBeDefined();
+    expect(record.hasErrors()).toBeUndefined();
   });
 });

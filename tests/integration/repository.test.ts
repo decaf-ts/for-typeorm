@@ -139,6 +139,7 @@ describe("repositories", () => {
 
   afterAll(async () => {
     await con.destroy();
+    await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

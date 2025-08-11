@@ -1,5 +1,6 @@
 import {
   type Constructor,
+  model,
   Model,
   ModelKeys,
 } from "@decaf-ts/decorator-validation";
@@ -8,6 +9,7 @@ import {
   Context,
   enforceDBDecorators,
   OperationKeys,
+  transient,
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { TypeORMFlags, TypeORMQuery } from "./types";
@@ -66,11 +68,23 @@ export class TypeORMRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M> {
     const m = await this.adapter.read(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       id as string,
       this.pk as string
     );
     return this.adapter.revert<M>(m, this.class, this.pk, id);
+  }
+
+  override async update(model: M, ...args: any[]): Promise<M> {
+    // eslint-disable-next-line prefer-const
+    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    record = await this.adapter.update(
+      (this.class as any)[ModelKeys.ANCHOR] as any,
+      id,
+      model,
+      ...args
+    );
+    return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
   }
 
   /**
@@ -85,7 +99,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M> {
     const m = await this.adapter.delete(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       id as string,
       this.pk as string,
       ...args
@@ -140,7 +154,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       ids as (string | number)[],
       records,
       ...args
@@ -155,7 +169,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M[]> {
     const records = await this.adapter.readAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       keys,
       this.pk as string,
       ...args
@@ -168,7 +182,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
     const updated = await this.adapter.updateAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       records.map((r) => r.id),
       records.map((r) => r.record),
       this.pk as string,
@@ -184,7 +198,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M[]> {
     const results = await this.adapter.deleteAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       keys,
       this.pk as string,
       ...args
