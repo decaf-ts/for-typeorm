@@ -1,27 +1,15 @@
-import { ColumnMetadataArgs } from "typeorm/metadata-args/ColumnMetadataArgs";
 import { ColumnOptions, getMetadataArgsStorage } from "typeorm";
+import { aggregateOrNewColumn } from "./utils";
 
 export function CreateDateColumn(options?: ColumnOptions): PropertyDecorator {
   return function (object: any, propertyName: any) {
     const columns = getMetadataArgsStorage().columns;
-    const existing = columns.find(
-      (r) => r.target === object.constructor && r.propertyName === propertyName
+    aggregateOrNewColumn(
+      object.constructor,
+      propertyName,
+      columns,
+      options || {},
+      "createDate"
     );
-    if (existing) {
-      if (options)
-        Object.defineProperty(existing, "options", {
-          value: { ...existing.options, ...options },
-          writable: true,
-          enumerable: true,
-          configurable: true,
-        });
-    } else {
-      columns.push({
-        target: object.constructor,
-        propertyName: propertyName,
-        mode: "createDate",
-        options: options || {},
-      } as ColumnMetadataArgs);
-    }
   };
 }

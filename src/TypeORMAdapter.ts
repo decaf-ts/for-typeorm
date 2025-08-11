@@ -1173,14 +1173,16 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     Decoration.flavouredAs(TypeORMFlavour)
       .for(columnKey)
       .extend({
-        decorator: Column,
+        decorator: function columm(name: string) {
+          return function column(obj: any, prop: any) {
+            return Column({
+              name: name || prop,
+            })(obj, prop);
+          };
+        },
         transform: (args: any[]) => {
-          const columnName = args[0];
-          return [
-            {
-              name: columnName,
-            },
-          ];
+          const columnName = args[1];
+          return [columnName];
         },
       })
       .apply();

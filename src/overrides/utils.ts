@@ -7,17 +7,17 @@ export function aggregateOrNewColumn(
   options: any = {},
   mode: string = "regular"
 ) {
-  columns = columns.filter(
+  const cols = columns.filter(
     (c: ColumnMetadataArgs) =>
       c.target === target && c.propertyName === property
   );
 
-  if (columns.length > 1)
+  if (cols.length > 1)
     throw new Error(
       `Multiple columns for ${property} found for given target: ${columns.map((c) => c.propertyName).join(", ")}`
     );
 
-  if (columns.length === 0) {
+  if (cols.length === 0) {
     columns.push({
       target: target,
       propertyName: property,
@@ -27,7 +27,7 @@ export function aggregateOrNewColumn(
     return;
   }
 
-  const column = columns[0];
+  const column = cols[0];
   Object.defineProperty(column, "options", {
     value: { ...column.options, ...options },
     writable: true,

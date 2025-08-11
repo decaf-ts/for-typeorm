@@ -4,6 +4,7 @@ import { PrimaryGeneratedColumnUUIDOptions } from "typeorm/decorator/options/Pri
 import { PrimaryGeneratedColumnIdentityOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnIdentityOptions";
 import { ColumnOptions, getMetadataArgsStorage } from "typeorm";
 import { GeneratedMetadataArgs } from "typeorm/metadata-args/GeneratedMetadataArgs";
+import { aggregateOrNewColumn } from "./utils";
 
 /**
  * Column decorator is used to mark a specific class property as a table column.
@@ -101,18 +102,8 @@ export function PrimaryGeneratedColumn(
     options.primary = true;
 
     const columns = getMetadataArgsStorage().columns;
-    const existing = columns.find(
-      (r) => r.target === object.constructor && r.propertyName === propertyName
-    );
-
-    // register column metadata args
-    getMetadataArgsStorage().columns.push({
-      target: object.constructor,
-      propertyName: propertyName,
-      mode: "regular",
-      options: options,
-    });
-
+    aggregateOrNewColumn(object.constructor, propertyName, columns, options);
+    const columns2 = getMetadataArgsStorage().columns;
     // register generated metadata args
     getMetadataArgsStorage().generations.push({
       target: object.constructor,
