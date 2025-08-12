@@ -51,15 +51,17 @@ export class TestCountryRepoModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
+  @column("tst_name")
   @required()
   name!: string;
 
-  @required()
   @column("tst_country_code")
+  @required()
   countryCode!: string;
 
+  @column("tst_locale")
   @required()
-  @pattern(/[a-z]{2}(?:_[A-Z]{2})?/g)
+  @pattern(/^[a-z]{2}_[A-Z]{2}$/)
   locale!: string;
 
   constructor(m?: ModelArg<TestCountryRepoModel>) {

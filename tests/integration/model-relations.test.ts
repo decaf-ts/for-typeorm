@@ -182,7 +182,7 @@ describe(`Complex Database`, function () {
   describe.only("basic test", () => {
     let cached: TestCountryModel;
 
-    it.only("creates a new record", async () => {
+    it("creates a new record", async () => {
       const record = new TestCountryModel(model);
       const created = await testCountryModelRepository.create(record);
       expect(created).toBeDefined();

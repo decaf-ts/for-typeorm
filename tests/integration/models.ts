@@ -28,13 +28,15 @@ export class TestCountryModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
+  @column("tst_name")
   @required()
   name!: string;
 
-  @required()
   @column("tst_country_code")
+  @required()
   countryCode!: string;
 
+  @column("tst_locale")
   @required()
   @pattern(/[a-z]{2}(?:_[A-Z]{2})?/g)
   locale!: string;
@@ -54,16 +56,16 @@ export class TestAddressModel extends TypeORMBaseModel {
   @required()
   street!: string;
 
-  @required()
   @column("tst_door_number")
+  @required()
   doorNumber!: string;
 
-  @prop()
   @column("tst_apartment_number")
+  @prop()
   apartmentNumber?: string;
 
-  @required()
   @column("tst_area_code")
+  @required()
   areaCode!: string;
 
   @required()
@@ -88,12 +90,12 @@ export class TestPhoneModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
-  @required()
   @column("tst_area_code")
+  @required()
   areaCode!: string;
 
-  @required()
   @column("tst_phone_number")
+  @required()
   phoneNumber!: string;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
@@ -152,8 +154,8 @@ export class TestDummyCountry extends TypeORMBaseModel {
   @required()
   name!: string;
 
-  @required()
   @column("tst_country_code")
+  @required()
   countryCode!: string;
 
   constructor(m?: ModelArg<TestDummyCountry>) {
@@ -187,11 +189,11 @@ export class NoPopulateOnceModel extends TypeORMBaseModel {
 export class TestDummyPhone extends TypeORMBaseModel {
   @pk()
   id!: number;
-  @required()
   @column("tst_area_code")
-  areaCode!: string;
   @required()
+  areaCode!: string;
   @column("tst_phone_number")
+  @required()
   phoneNumber!: string;
 
   constructor(m?: ModelArg<TestDummyPhone>) {

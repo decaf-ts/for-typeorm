@@ -30,6 +30,7 @@ import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 import { column, pk, Repository, table, unique } from "@decaf-ts/core";
+import { TypeORMBaseModel } from "./baseModel";
 
 jest.setTimeout(50000);
 
@@ -46,7 +47,7 @@ const typeOrmCfg = {
 
 @table("type_orm_decaf")
 @model()
-class TypeORMDecaf extends Model {
+class TypeORMDecaf extends TypeORMBaseModel {
   @pk()
   id!: number;
 
