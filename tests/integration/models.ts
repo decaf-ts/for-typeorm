@@ -53,6 +53,7 @@ export class TestAddressModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
+  @column("tst_street")
   @required()
   street!: string;
 
@@ -68,14 +69,11 @@ export class TestAddressModel extends TypeORMBaseModel {
   @required()
   areaCode!: string;
 
+  @column("tst_city")
   @required()
   city!: string;
 
-  @oneToOne(TestCountryModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  @required()
+  @oneToOne(TestCountryModel)
   country!: TestCountryModel;
 
   constructor(m?: ModelArg<TestAddressModel>) {
@@ -170,6 +168,7 @@ export class NoPopulateOnceModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
+  @column("tst_country")
   @oneToOne(
     TestDummyCountry,
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },

@@ -43,18 +43,20 @@ import {
   Validation,
   ValidationKeys,
   ValidatorOptions,
+  type,
+  prop,
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
 import { TypeORMStatement } from "./query";
 import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
 import { TypeORMFlags, TypeORMQuery, TypeORMTableSpec } from "./types";
-import { Reflection } from "@decaf-ts/reflection";
+import { apply, Reflection } from "@decaf-ts/reflection";
 import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { DataSource, In, InsertResult } from "typeorm";
+import { DataSource, In, InsertResult, JoinColumn, OneToOne } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
 import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
@@ -227,7 +229,8 @@ export class TypeORMAdapter extends Adapter<
 
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M
+    pk: keyof M,
+    child = false
   ): {
     record: Record<string, any>;
     id: string;
@@ -237,11 +240,7 @@ export class TypeORMAdapter extends Adapter<
 
     prepared.record = Object.entries(prepared.record).reduce(
       (accum: Record<string, any>, [key, value]) => {
-        if (
-          key === PersistenceKeys.METADATA ||
-          this.isReserved(key) ||
-          key === pk
-        )
+        if (key === PersistenceKeys.METADATA || this.isReserved(key))
           return accum;
         if (value === undefined) {
           return accum;
@@ -249,6 +248,8 @@ export class TypeORMAdapter extends Adapter<
 
         if (value instanceof Date) {
           value = new Date(value.getTime());
+        } else if (Model.isModel(value)) {
+          value = this.prepare(value, findPrimaryKey(value).id, true).record;
         } else {
           switch (typeof value) {
             case "string":
@@ -263,6 +264,27 @@ export class TypeORMAdapter extends Adapter<
       },
       {}
     );
+    const constr: Constructor<any> | undefined = Model.get(
+      model.constructor.name
+    );
+    if (!constr)
+      throw new InternalError(
+        `Model ${model.constructor.name} not found in registry`
+      );
+    const result = child
+      ? new (constr as any)[ModelKeys.ANCHOR as keyof typeof constr]()
+      : new constr();
+    if (child)
+      Object.defineProperty(result, "constructor", {
+        configurable: false,
+        enumerable: false,
+        value: (constr as any)[ModelKeys.ANCHOR as keyof typeof constr],
+        writable: false,
+      });
+    Object.entries(prepared.record).forEach(
+      ([key, val]) => (result[key as keyof typeof result] = val)
+    );
+    prepared.record = result;
     return prepared;
   }
 
@@ -1103,6 +1125,32 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         },
         transform: (args: any[]) => {
           return args[0];
+        },
+      })
+      .apply();
+
+    // @oneToOne(clazz) => @OneToOne(() => clazz)
+    const oneToOneKey = Repository.key(PersistenceKeys.ONE_TO_ONE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(oneToOneKey)
+      .define({
+        decorator: function oneToOne(
+          clazz: Constructor<any>,
+          metadata: RelationsMetadata
+        ) {
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            type([clazz.name, String.name, Number.name, BigInt.name]),
+            propMetadata(oneToOneKey, metadata),
+            OneToOne(() => {
+              if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                throw new InternalError(
+                  "Original Model not found in constructor"
+                );
+              return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+            }),
+            JoinColumn()
+          );
         },
       })
       .apply();

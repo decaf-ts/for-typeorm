@@ -20,7 +20,13 @@ const config: DataSourceOptions = {
 const adapter = new TypeORMAdapter(config);
 
 import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 
@@ -38,6 +44,25 @@ const typeOrmCfg = {
 };
 
 @Entity()
+class TypeORMVanillaChild extends Model {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @Column()
+  @prop()
+  firstName!: string;
+
+  @Column()
+  @prop()
+  lastName!: string;
+
+  constructor(arg?: ModelArg<TypeORMVanilla>) {
+    super();
+    Model.fromModel(this as any, arg);
+  }
+}
+
+@Entity()
 class TypeORMVanilla extends Model {
   @PrimaryGeneratedColumn()
   id!: number;
@@ -49,6 +74,16 @@ class TypeORMVanilla extends Model {
   @Column()
   @prop()
   lastName!: string;
+
+  @OneToOne(() => TypeORMVanillaChild, {
+    cascade: true,
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+    nullable: true,
+  })
+  @JoinColumn()
+  @prop()
+  child!: TypeORMVanillaChild;
 
   constructor(arg?: ModelArg<TypeORMVanilla>) {
     super();
@@ -89,7 +124,7 @@ describe("TypeORM Vanilla decoration", () => {
     }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
-        entities: [TypeORMVanilla],
+        entities: [TypeORMVanilla, TypeORMVanillaChild],
       }) as DataSourceOptions
     );
   });
@@ -112,12 +147,45 @@ describe("TypeORM Vanilla decoration", () => {
     // ).toEqual([{ exists: true }]);
   });
 
-  it("creates a record vanilla", async () => {
+  let child: TypeORMVanillaChild;
+
+  it("creates a record child vanilla", async () => {
+    const repo = dataSource.getRepository(TypeORMVanillaChild);
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMVanillaChild({
+      firstName: "JohnChild2",
+      lastName: "DoeChild2",
+    });
+
+    child = await repo.save(toCreate);
+    expect(child).toBeDefined();
+  });
+
+  it("creates a record parent vanilla with previous created child", async () => {
     const repo = dataSource.getRepository(TypeORMVanilla);
     expect(repo).toBeDefined();
-    const toCreate = new TypeORMVanilla();
-    toCreate.firstName = "John";
-    toCreate.lastName = "Doe";
+    const toCreate = new TypeORMVanilla({
+      firstName: "John2",
+      lastName: "Doe2",
+      child: child,
+    });
+
+    const record = await repo.save(toCreate);
+    expect(record).toBeDefined();
+  });
+
+  it("creates a record vanilla nested", async () => {
+    const repo = dataSource.getRepository(TypeORMVanilla);
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMVanilla({
+      firstName: "John3",
+      lastName: "Doe3",
+      child: new TypeORMVanillaChild({
+        firstName: "JohnChild3",
+        lastName: "DoeChild3",
+      }),
+    });
+
     const record = await repo.save(toCreate);
     expect(record).toBeDefined();
   });
