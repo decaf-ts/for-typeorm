@@ -35,6 +35,13 @@ export class TypeORMRepository<M extends Model> extends Repository<
     super(adapter, model, ...args);
   }
 
+  queryBuilder() {
+    const repo = this.adapter.dataSource.getRepository(
+      this.class[ModelKeys.ANCHOR as keyof typeof this.class]
+    );
+    return repo.createQueryBuilder();
+  }
+
   override async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);

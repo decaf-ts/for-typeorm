@@ -1,4 +1,5 @@
 import { RepositoryFlags } from "@decaf-ts/db-decorators";
+import { QueryBuilder } from "typeorm";
 
 /**
  * @description SQL operators available in PostgreSQL queries
@@ -28,9 +29,12 @@ export enum SQLOperator {
 }
 
 export interface TypeORMQuery {
+  query: QueryBuilder<any>;
+}
+
+export interface TypeORMCondition {
   query: string;
-  values: any[];
-  valueCount?: number;
+  values: Record<string, any>;
 }
 
 /**

@@ -1,32 +1,5 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter, TypeORMFlavour, TypeORMRepository } from "../../src";
-let con: DataSource;
-const adapter = new TypeORMAdapter(con);
-import {
-  Condition,
-  index,
-  Observer,
-  OrderDirection,
-  pk,
-  Repository,
-  table,
-  uses,
-} from "@decaf-ts/core";
-import {
-  min,
-  minlength,
-  model,
-  ModelArg,
-  required,
-  type,
-} from "@decaf-ts/decorator-validation";
-import {
-  ConflictError,
-  NotFoundError,
-  readonly,
-} from "@decaf-ts/db-decorators";
-
-import { TypeORMBaseModel } from "./baseModel";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -43,37 +16,84 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
+let con: DataSource;
+const adapter = new TypeORMAdapter(config);
+import {
+  column,
+  Condition,
+  index,
+  Observer,
+  OrderDirection,
+  pk,
+  Repository,
+  table,
+  uses,
+} from "@decaf-ts/core";
+import {
+  min,
+  minlength,
+  model,
+  ModelArg,
+  ModelKeys,
+  required,
+  type,
+} from "@decaf-ts/decorator-validation";
+import {
+  ConflictError,
+  NotFoundError,
+  readonly,
+} from "@decaf-ts/db-decorators";
+
+import { TypeORMBaseModel } from "./baseModel";
 
 const dbName = "queries_db";
 
 jest.setTimeout(50000);
 
-describe("Queries", () => {
-  @uses(TypeORMFlavour)
-  @table("tst_query_user")
-  @model()
-  class QueryUser extends TypeORMBaseModel {
-    @pk()
-    id!: number;
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
 
-    @required()
-    @min(18)
-    @index([OrderDirection.DSC, OrderDirection.ASC])
-    age!: number;
+@uses(TypeORMFlavour)
+@table("tst_query_user")
+@model()
+class QueryUser extends TypeORMBaseModel {
+  @pk()
+  id!: number;
 
-    @required()
-    @minlength(5)
-    name!: string;
+  @column("tst_age")
+  @required()
+  @min(18)
+  @index([OrderDirection.DSC, OrderDirection.ASC])
+  age!: number;
 
-    @required()
-    @readonly()
-    @type([String.name])
-    sex!: "M" | "F";
+  @column("tst_name")
+  @required()
+  @minlength(5)
+  name!: string;
 
-    constructor(arg?: ModelArg<QueryUser>) {
-      super(arg);
-    }
+  @column("tst_sex")
+  @required()
+  @readonly()
+  @type([String.name])
+  sex!: "M" | "F";
+
+  constructor(arg?: ModelArg<QueryUser>) {
+    super(arg);
   }
+}
+
+describe("Queries", () => {
+  let dataSource: DataSource;
+
+  let repo: TypeORMRepository<QueryUser>;
 
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
@@ -103,22 +123,14 @@ describe("Queries", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await TypeORMAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [QueryUser[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof TypeORMAdapter] = con;
-
-    try {
-      await TypeORMAdapter.createTable(con, QueryUser);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
+    repo = new TypeORMRepository(adapter, QueryUser);
   });
 
   let observer: Observer;
@@ -142,6 +154,7 @@ describe("Queries", () => {
 
   afterAll(async () => {
     await con.destroy();
+    await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -252,7 +265,17 @@ describe("Queries", () => {
     const condition = Condition.attribute<QueryUser>("age")
       .eq(20)
       .or(Condition.attribute<QueryUser>("age").eq(19));
+
+    const tableName = Repository.table(QueryUser);
+
     const selected = await repo.select().where(condition).execute();
+    // const selected = await repo
+    //   .queryBuilder()
+    //   .select(tableName)
+    //   .from(QueryUser[ModelKeys.ANCHOR], tableName)
+    //   .where(`${tableName}.age = :age1`, { age1: 20 })
+    //   .orWhere(`${tableName}.age = :age2`, { age2: 19 })
+    //   .getMany();
     expect(selected.length).toEqual(
       created.filter((c) => c.age === 20 || c.age === 19).length
     );

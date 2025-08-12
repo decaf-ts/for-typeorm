@@ -7,13 +7,14 @@ import {
   Repository,
   Statement,
 } from "@decaf-ts/core";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
 import { TypeORMQueryLimit } from "./constants";
 import { TypeORMPaginator } from "./Paginator";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
 import { TypeORMAdapter } from "../TypeORMAdapter";
+import { QueryBuilder, SelectQueryBuilder } from "typeorm";
 
 /**
  * @description Statement builder for PostgreSQL queries
@@ -40,6 +41,8 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   M,
   R
 > {
+  protected override adapter!: TypeORMAdapter;
+
   constructor(adapter: TypeORMAdapter) {
     super(adapter);
   }
@@ -91,45 +94,60 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   protected build(): TypeORMQuery {
     const tableName = Repository.table(this.fromSelector);
     const m = new this.fromSelector();
-    const q: string[] = [
-      `SELECT ${
-        this.selectSelector
-          ? this.selectSelector.map((k) => `${k.toString()}`).join(", ")
-          : "*"
-      } from ${tableName}`,
-    ];
 
-    const values: any[] = [];
-    if (this.whereCondition) {
-      const parsed = this.parseCondition(this.whereCondition, tableName);
-      const { query } = parsed;
-      q.push(` WHERE ${query}`);
-      values.push(...parsed.values);
-    }
+    const q: TypeORMQuery = {
+      query: this.adapter.dataSource
+        .getRepository(
+          this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector]
+        )
+        .createQueryBuilder(),
+    };
 
-    if (!this.orderBySelector)
-      this.orderBySelector = [findPrimaryKey(m).id, OrderDirection.ASC];
-    q.push(
-      ` ORDER BY ${tableName}.${this.orderBySelector[0] as string} ${this.orderBySelector[1].toUpperCase()}`
+    if (this.selectSelector)
+      q.query = q.query.select(
+        this.selectSelector.map((s) => `${tableName}.${s as string}`)
+      );
+    else q.query = q.query.select(tableName);
+
+    q.query = (q.query as SelectQueryBuilder<any>).from(
+      this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector],
+      tableName
     );
 
+    if (this.whereCondition)
+      q.query = this.parseCondition(
+        this.whereCondition,
+        tableName,
+        q.query as SelectQueryBuilder<any>
+      ).query;
+
+    let orderByArgs: [string, "DESC" | "ASC"];
+    if (!this.orderBySelector)
+      orderByArgs = [
+        `${tableName}.${findPrimaryKey(m).id as string}`,
+        OrderDirection.ASC.toUpperCase() as "ASC",
+      ];
+    else
+      orderByArgs = [
+        `${tableName}.${this.orderBySelector[0] as string}`,
+        this.orderBySelector[1].toUpperCase() as "DESC" | "ASC",
+      ];
+
+    q.query = (q.query as SelectQueryBuilder<any>).orderBy(...orderByArgs);
     if (this.limitSelector) {
-      q.push(` LIMIT ${this.limitSelector}`);
+      q.query = (q.query as SelectQueryBuilder<any>).limit(this.limitSelector);
     } else {
       console.warn(
         `No limit selector defined. Using default limit of ${TypeORMQueryLimit}`
       );
-      q.push(` LIMIT ${TypeORMQueryLimit}`);
+      q.query = (q.query as SelectQueryBuilder<any>).limit(TypeORMQueryLimit);
     }
 
     // Add offset
-    if (this.offsetSelector) q.push(` OFFSET ${this.offsetSelector}`);
+    if (this.offsetSelector)
+      q.query = (q.query as SelectQueryBuilder<any>).skip(this.offsetSelector);
 
-    q.push(";");
-    return {
-      query: q.join(""),
-      values: values,
-    };
+    return q;
   }
 
   /**
@@ -177,14 +195,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @return {Promise<R>} A promise that resolves to the query results
    */
   override async raw<R>(rawInput: TypeORMQuery): Promise<R> {
-    const results: any[] = await this.adapter.raw(rawInput);
-
-    const pkDef = findPrimaryKey(new this.fromSelector());
-    const pkAttr = pkDef.id;
-
-    if (!this.selectSelector)
-      return results.map((r) => this.processRecord(r, pkAttr)) as R;
-    return results as R;
+    return (await (rawInput.query as SelectQueryBuilder<any>).getMany()) as R;
   }
 
   /**
@@ -220,61 +231,64 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    */
   protected parseCondition(
     condition: Condition<M>,
-    tableName: string
+    tableName: string,
+    qb: SelectQueryBuilder<any>,
+    counter = 0,
+    conditionalOp?: GroupOperator | Operator
   ): TypeORMQuery {
-    let valueCount = 0;
     const { attr1, operator, comparison } = condition as unknown as {
       attr1: string | Condition<M>;
       operator: Operator | GroupOperator;
       comparison: any;
     };
 
-    let postgresCondition: TypeORMQuery;
-    // For simple comparison operators
+    function parse() {
+      const sqlOperator = translateOperators(operator);
+      const attrRef = `${attr1}${counter}`;
+      const queryStr = `${tableName}.${attr1} ${sqlOperator} :${attrRef}`;
+      const values = {
+        [attrRef]: comparison,
+      };
+      switch (conditionalOp) {
+        case GroupOperator.AND:
+          return {
+            query: qb.andWhere(queryStr, values),
+          };
+        case GroupOperator.OR:
+          return {
+            query: qb.orWhere(queryStr, values),
+          };
+        case Operator.NOT:
+          throw new Error("NOT operator not implemented");
+        default:
+          return {
+            query: qb.where(queryStr, values),
+          };
+      }
+    }
+
     if (
       [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(
         operator as GroupOperator
       ) === -1
     ) {
-      const sqlOperator = translateOperators(operator);
-      postgresCondition = {
-        query: ` ${tableName}.${attr1} ${sqlOperator} $${++valueCount}`,
-        values: [comparison],
-        valueCount: valueCount,
-      };
-      return postgresCondition;
+      return parse();
     }
     // For NOT operator
     else if (operator === Operator.NOT) {
       throw new Error("NOT operator not implemented");
-      // const nestedConditions = this.parseCondition(attr1 as Condition<M>);
-      // // Apply NOT to each condition
-      // return nestedConditions.map((cond) => ({
-      //   ...cond,
-      //   operator: `NOT ${cond.operator}`,
-      // }));
     }
     // For AND/OR operators
     else {
-      const leftConditions = this.parseCondition(
-        attr1 as Condition<M>,
-        tableName
+      qb = this.parseCondition(attr1 as Condition<M>, tableName, qb, ++counter)
+        .query as SelectQueryBuilder<any>;
+      return this.parseCondition(
+        comparison,
+        tableName,
+        qb,
+        ++counter,
+        operator
       );
-      const rightConditions = this.parseCondition(
-        comparison as Condition<M>,
-        tableName
-      );
-
-      const updatedRightQuery = rightConditions.query.replace(
-        /\$(\d+)/g,
-        (_, num) => `$${Number(num) + leftConditions.values.length}`
-      );
-
-      postgresCondition = {
-        query: ` ((${leftConditions.query}) ${operator} (${updatedRightQuery}))`,
-        values: [...leftConditions.values, ...rightConditions.values],
-      };
-      return postgresCondition;
     }
   }
 }
