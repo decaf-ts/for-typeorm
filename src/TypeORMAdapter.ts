@@ -48,7 +48,7 @@ import { IndexError } from "./errors";
 import { TypeORMStatement } from "./query";
 import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { TypeORMFlags, type TypeORMQuery, TypeORMTableSpec } from "./types";
+import { TypeORMFlags, TypeORMQuery, TypeORMTableSpec } from "./types";
 import { Reflection } from "@decaf-ts/reflection";
 import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
@@ -463,7 +463,7 @@ export class TypeORMAdapter extends Adapter<
     try {
       const repo = this.dataSource.getRepository(m);
       const models = await this.readAll(tableName, ids, pk);
-      const res = await repo.delete(ids);
+      await repo.delete(ids);
       return models;
     } catch (e: unknown) {
       throw this.parseError(e as Error);

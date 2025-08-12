@@ -179,7 +179,7 @@ describe(`Complex Database`, function () {
     };
   });
 
-  describe.only("basic test", () => {
+  describe("basic test", () => {
     let cached: TestCountryModel;
 
     it("creates a new record", async () => {
@@ -241,11 +241,11 @@ describe(`Complex Database`, function () {
     });
   });
 
-  describe("Complex relations Test", () => {
+  describe.only("Complex relations Test", () => {
     let sequenceModel: Sequence;
     let sequenceCountry: Sequence;
 
-    describe("One to one relations", () => {
+    describe.only("One to one relations", () => {
       let created: TestAddressModel;
       let updated: TestAddressModel;
       it("Ensure no population when populate is disabled in a one-to-one relation", async () => {

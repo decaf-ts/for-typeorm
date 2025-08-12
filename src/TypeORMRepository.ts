@@ -1,6 +1,5 @@
 import {
   type Constructor,
-  model,
   Model,
   ModelKeys,
 } from "@decaf-ts/decorator-validation";
@@ -9,7 +8,6 @@ import {
   Context,
   enforceDBDecorators,
   OperationKeys,
-  transient,
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { TypeORMFlags, TypeORMQuery } from "./types";
@@ -26,7 +24,7 @@ import { TypeORMFlavour } from "./constants";
 @uses(TypeORMFlavour)
 export class TypeORMRepository<M extends Model> extends Repository<
   M,
-  TypeORMQuery,
+  TypeORMQuery<M, any>,
   TypeORMAdapter,
   TypeORMFlags,
   Context<TypeORMFlags>

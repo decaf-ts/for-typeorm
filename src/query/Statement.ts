@@ -14,7 +14,7 @@ import { TypeORMPaginator } from "./Paginator";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
 import { TypeORMAdapter } from "../TypeORMAdapter";
-import { QueryBuilder, SelectQueryBuilder } from "typeorm";
+import { SelectQueryBuilder } from "typeorm";
 
 /**
  * @description Statement builder for PostgreSQL queries
@@ -37,7 +37,7 @@ import { QueryBuilder, SelectQueryBuilder } from "typeorm";
  *   .execute();
  */
 export class TypeORMStatement<M extends Model, R> extends Statement<
-  TypeORMQuery,
+  TypeORMQuery<M>,
   M,
   R
 > {
@@ -91,16 +91,16 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    *
    *   Statement-->>Statement: Return query
    */
-  protected build(): TypeORMQuery {
+  protected build(): TypeORMQuery<M> {
     const tableName = Repository.table(this.fromSelector);
     const m = new this.fromSelector();
 
-    const q: TypeORMQuery = {
+    const q: TypeORMQuery<M, SelectQueryBuilder<M>> = {
       query: this.adapter.dataSource
         .getRepository(
           this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector]
         )
-        .createQueryBuilder(),
+        .createQueryBuilder() as SelectQueryBuilder<M>,
     };
 
     if (this.selectSelector)
@@ -119,7 +119,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
         this.whereCondition,
         tableName,
         q.query as SelectQueryBuilder<any>
-      ).query;
+      ).query as unknown as SelectQueryBuilder<M>;
 
     let orderByArgs: [string, "DESC" | "ASC"];
     if (!this.orderBySelector)
@@ -147,7 +147,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     if (this.offsetSelector)
       q.query = (q.query as SelectQueryBuilder<any>).skip(this.offsetSelector);
 
-    return q;
+    return q as any;
   }
 
   /**
@@ -194,8 +194,10 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @param {TypeORMQuery} rawInput - The raw PostgreSQL query to execute
    * @return {Promise<R>} A promise that resolves to the query results
    */
-  override async raw<R>(rawInput: TypeORMQuery): Promise<R> {
-    return (await (rawInput.query as SelectQueryBuilder<any>).getMany()) as R;
+  override async raw<R>(rawInput: TypeORMQuery<M>): Promise<R> {
+    return (await (
+      rawInput.query as unknown as SelectQueryBuilder<M>
+    ).getMany()) as R;
   }
 
   /**
@@ -235,14 +237,14 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     qb: SelectQueryBuilder<any>,
     counter = 0,
     conditionalOp?: GroupOperator | Operator
-  ): TypeORMQuery {
+  ): TypeORMQuery<M> {
     const { attr1, operator, comparison } = condition as unknown as {
       attr1: string | Condition<M>;
       operator: Operator | GroupOperator;
       comparison: any;
     };
 
-    function parse() {
+    function parse(): TypeORMQuery<M> {
       const sqlOperator = translateOperators(operator);
       const attrRef = `${attr1}${counter}`;
       const queryStr = `${tableName}.${attr1} ${sqlOperator} :${attrRef}`;
@@ -252,17 +254,17 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       switch (conditionalOp) {
         case GroupOperator.AND:
           return {
-            query: qb.andWhere(queryStr, values),
+            query: qb.andWhere(queryStr, values) as any,
           };
         case GroupOperator.OR:
           return {
-            query: qb.orWhere(queryStr, values),
+            query: qb.orWhere(queryStr, values) as any,
           };
         case Operator.NOT:
           throw new Error("NOT operator not implemented");
         default:
           return {
-            query: qb.where(queryStr, values),
+            query: qb.where(queryStr, values) as any,
           };
       }
     }
@@ -281,7 +283,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     // For AND/OR operators
     else {
       qb = this.parseCondition(attr1 as Condition<M>, tableName, qb, ++counter)
-        .query as SelectQueryBuilder<any>;
+        .query as unknown as SelectQueryBuilder<M>;
       return this.parseCondition(
         comparison,
         tableName,

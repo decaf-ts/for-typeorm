@@ -1,5 +1,6 @@
 import { RepositoryFlags } from "@decaf-ts/db-decorators";
-import { QueryBuilder } from "typeorm";
+import { QueryBuilder, SelectQueryBuilder } from "typeorm";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description SQL operators available in PostgreSQL queries
@@ -28,13 +29,12 @@ export enum SQLOperator {
   SOME = "SOME",
 }
 
-export interface TypeORMQuery {
-  query: QueryBuilder<any>;
-}
-
-export interface TypeORMCondition {
-  query: string;
-  values: Record<string, any>;
+export interface TypeORMQuery<
+  M extends Model = Model,
+  T extends string | SelectQueryBuilder<M> = string,
+> {
+  query: T;
+  values?: any[];
 }
 
 /**
