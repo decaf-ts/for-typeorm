@@ -138,6 +138,7 @@ describe("TypeORM Decaf decoration", () => {
     );
 
     adapter["_dataSource"] = dataSource;
+    await dataSource.initialize();
   });
 
   afterAll(async () => {
@@ -147,15 +148,6 @@ describe("TypeORM Decaf decoration", () => {
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
-  });
-
-  it("Creates the table", async () => {
-    await dataSource.initialize();
-    // expect(
-    //   await dataSource.query(
-    //     `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'type_orm_decaf' );`
-    //   )
-    // ).toEqual([{ exists: true }]);
   });
 
   let child: TypeORMDecafChild;
@@ -195,7 +187,6 @@ describe("TypeORM Decaf decoration", () => {
         lastName: "DoeChild23",
       },
     });
-    // toCreate = adapter.prepare(toCreate, "id").record as TypeORMDecaf;
     const record = await repo.save(toCreate);
     expect(record).toBeDefined();
     expect(record.hasErrors()).toBeUndefined();
@@ -226,8 +217,8 @@ describe("TypeORM Decaf decoration", () => {
       firstName: "John4",
       lastName: "Doe4",
       child: {
-        firstName: "JohnChild3",
-        lastName: "DoeChild3",
+        firstName: "JohnChild4",
+        lastName: "DoeChild4",
       },
     });
     const record = await repo.create(toCreate);

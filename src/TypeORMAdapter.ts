@@ -8,6 +8,7 @@ import {
   RelationsMetadata,
   DefaultSequenceOptions,
   final,
+  Cascade,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -56,13 +57,15 @@ import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { DataSource, In, InsertResult, JoinColumn, OneToOne } from "typeorm";
+import { DataSource, In, InsertResult } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
 import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
 import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { Entity } from "./overrides/Entity";
+import { OneToOne } from "./overrides/OneToOne";
+import { JoinColumn } from "./overrides/JoinColumn";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -1142,13 +1145,23 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             prop(PersistenceKeys.RELATIONS),
             type([clazz.name, String.name, Number.name, BigInt.name]),
             propMetadata(oneToOneKey, metadata),
-            OneToOne(() => {
-              if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
-                throw new InternalError(
-                  "Original Model not found in constructor"
-                );
-              return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
-            }),
+            OneToOne(
+              () => {
+                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  throw new InternalError(
+                    "Original Model not found in constructor"
+                  );
+                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+              },
+              {
+                cascade:
+                  metadata.cascade.update === Cascade.CASCADE ||
+                  metadata.cascade.delete === Cascade.CASCADE,
+                onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
+                onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+                nullable: true,
+              }
+            ),
             JoinColumn()
           );
         },

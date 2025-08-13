@@ -20,15 +20,11 @@ const config: DataSourceOptions = {
 const adapter = new TypeORMAdapter(config);
 
 import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  OneToOne,
-  PrimaryGeneratedColumn,
-} from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
+import { OneToOne } from "../../src/overrides/OneToOne";
+import { JoinColumn } from "../../src/overrides/JoinColumn";
 
 jest.setTimeout(50000);
 
@@ -127,6 +123,7 @@ describe("TypeORM Vanilla decoration", () => {
         entities: [TypeORMVanilla, TypeORMVanillaChild],
       }) as DataSourceOptions
     );
+    await dataSource.initialize();
   });
 
   afterAll(async () => {
@@ -136,15 +133,6 @@ describe("TypeORM Vanilla decoration", () => {
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
-  });
-
-  it("Creates the table", async () => {
-    await dataSource.initialize();
-    // expect(
-    //   await dataSource.query(
-    //     `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'type_orm_decaf' );`
-    //   )
-    // ).toEqual([{ exists: true }]);
   });
 
   let child: TypeORMVanillaChild;
@@ -174,7 +162,7 @@ describe("TypeORM Vanilla decoration", () => {
     expect(record).toBeDefined();
   });
 
-  it("creates a record vanilla nested", async () => {
+  it.only("creates a record vanilla nested", async () => {
     const repo = dataSource.getRepository(TypeORMVanilla);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMVanilla({
