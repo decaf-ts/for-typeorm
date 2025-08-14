@@ -34,4 +34,12 @@ export function aggregateOrNewColumn(
     enumerable: true,
     configurable: true,
   });
+
+  if (mode !== "regular")
+    Object.defineProperty(column, "mode", {
+      value: mode,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
 }

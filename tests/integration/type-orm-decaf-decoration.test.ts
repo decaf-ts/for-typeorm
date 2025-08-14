@@ -1,23 +1,5 @@
 import { TypeORMAdapter } from "../../src";
-import {
-  Model,
-  model,
-  ModelArg,
-  ModelKeys,
-  required,
-} from "@decaf-ts/decorator-validation";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
-import {
-  Cascade,
-  column,
-  oneToOne,
-  pk,
-  Repository,
-  table,
-  unique,
-} from "@decaf-ts/core";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -38,6 +20,26 @@ const config: DataSourceOptions = {
 let con: DataSource;
 const adapter = new TypeORMAdapter(config);
 
+import {
+  Model,
+  model,
+  ModelArg,
+  ModelKeys,
+  required,
+} from "@decaf-ts/decorator-validation";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import {
+  Cascade,
+  column,
+  oneToOne,
+  pk,
+  Repository,
+  table,
+  unique,
+} from "@decaf-ts/core";
+import { TypeORMBaseModel } from "./baseModel";
+
 jest.setTimeout(50000);
 
 const typeOrmCfg = {
@@ -53,7 +55,7 @@ const typeOrmCfg = {
 
 @table("type_orm_decaf_child")
 @model()
-class TypeORMDecafChild extends Model {
+class TypeORMDecafChild extends TypeORMBaseModel {
   @pk()
   id!: number;
 
@@ -73,7 +75,7 @@ class TypeORMDecafChild extends Model {
 
 @table("type_orm_decaf")
 @model()
-class TypeORMDecaf extends Model {
+class TypeORMDecaf extends TypeORMBaseModel {
   @pk()
   id!: number;
 

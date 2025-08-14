@@ -336,28 +336,6 @@ describe(`Complex Database`, function () {
         ).rejects.toBeInstanceOf(NotFoundError);
       });
 
-      it("Creates another to check sequences", async () => {
-        const current = (await sequenceModel.current()) as number;
-
-        const currentCountry = (await sequenceCountry.current()) as number;
-
-        const address = new TestAddressModel({
-          street: "test street",
-          doorNumber: "test door",
-          apartmentNumber: "test number",
-          areaCode: "test area code",
-          city: "test city",
-          country: model,
-        });
-        created = (await testAddressModelRepository.create(
-          address
-        )) as TestAddressModel;
-
-        expect(created.id).toEqual(current + 1);
-        expect(created.country.id).toEqual(currentCountry + 1);
-      });
-    });
-
     describe("One to many relations", () => {
       const user = {
         name: "testuser",

@@ -1,8 +1,8 @@
-import { BaseModel, column } from "@decaf-ts/core";
-import { ModelArg } from "@decaf-ts/decorator-validation";
+import { column } from "@decaf-ts/core";
+import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { OperationKeys, timestamp } from "@decaf-ts/db-decorators";
 
-export class TypeORMBaseModel extends BaseModel {
+export class TypeORMBaseModel extends Model {
   @column("created_on")
   @timestamp([OperationKeys.CREATE])
   createdOn!: Date;

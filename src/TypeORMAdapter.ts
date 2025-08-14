@@ -1,14 +1,14 @@
 import {
   Adapter,
-  Sequence,
-  type SequenceOptions,
-  PersistenceKeys,
+  Cascade,
   ConnectionError,
-  Repository,
-  RelationsMetadata,
   DefaultSequenceOptions,
   final,
-  Cascade,
+  PersistenceKeys,
+  RelationsMetadata,
+  Repository,
+  Sequence,
+  type SequenceOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -16,12 +16,11 @@ import {
   ConflictError,
   Context,
   DBKeys,
-  DEFAULT_TIMESTAMP_FORMAT,
+  DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
   findPrimaryKey,
   InternalError,
   NotFoundError,
   OperationKeys,
-  DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
   readonly,
   UpdateValidationKeys,
 } from "@decaf-ts/db-decorators";
@@ -29,8 +28,8 @@ import "reflect-metadata";
 import {
   type Constructor,
   date,
-  DEFAULT_ERROR_MESSAGES,
   Decoration,
+  DEFAULT_ERROR_MESSAGES,
   MaxLengthValidatorOptions,
   MaxValidatorOptions,
   MinLengthValidatorOptions,
@@ -38,14 +37,14 @@ import {
   Model,
   ModelKeys,
   PatternValidatorOptions,
+  prop,
   propMetadata,
   required,
+  type,
   TypeMetadata,
   Validation,
   ValidationKeys,
   ValidatorOptions,
-  type,
-  prop,
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
 import { TypeORMStatement } from "./query";
@@ -57,7 +56,13 @@ import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
-import { DataSource, In, InsertResult } from "typeorm";
+import {
+  DataSource,
+  FindOneOptions,
+  FindOptionsRelations,
+  In,
+  InsertResult,
+} from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
 import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
@@ -129,12 +134,51 @@ export class TypeORMAdapter extends Adapter<
     const newObj: any = {
       user: (await TypeORMAdapter.getCurrentUser(this.dataSource)) as string,
     };
-    if (operation === "create" || operation === "update") {
-      const pk = findPrimaryKey(new model()).id;
-      newObj.ignoredValidationProperties = (
-        f.ignoredValidationProperties ? f.ignoredValidationProperties : []
-      ).concat(pk as string);
+    const m = new model();
+
+    const exceptions: string[] = [];
+    if (operation === OperationKeys.CREATE) {
+      const pk = findPrimaryKey(m).id;
+      exceptions.push(pk as string);
     }
+
+    if (
+      operation === OperationKeys.CREATE ||
+      operation === OperationKeys.UPDATE
+    ) {
+      const decs = Object.keys(m).reduce((accum: Record<string, any>, key) => {
+        const decs = Reflection.getPropertyDecorators(
+          ValidationKeys.REFLECT,
+          m,
+          key,
+          true
+        );
+        const dec = decs.decorators.find(
+          (dec: any) => dec.key === DBKeys.TIMESTAMP
+        );
+        if (dec) {
+          accum[key] = dec.props;
+        }
+        return accum;
+      }, {});
+
+      exceptions.push(
+        ...Object.keys(
+          Object.entries(decs || {}).reduce(
+            (accum: Record<string, any>, el) => {
+              const ops = el[1].operation;
+              if (ops.indexOf(operation) !== -1) accum[el[0]] = true;
+              return accum;
+            },
+            {}
+          )
+        )
+      );
+    }
+
+    newObj.ignoredValidationProperties = (
+      f.ignoredValidationProperties ? f.ignoredValidationProperties : []
+    ).concat(...exceptions);
     return Object.assign(f, newObj) as TypeORMFlags;
   }
 
@@ -357,11 +401,32 @@ export class TypeORMAdapter extends Adapter<
     let result: any;
     try {
       const repo = this.dataSource.getRepository(m);
-      result = (await repo.findOne({
+      const q: FindOneOptions = {
         where: {
           [pk]: id,
         },
-      })) as Record<string, any>;
+      };
+      if (
+        m.prototype &&
+        m.prototype[PersistenceKeys.RELATIONS as keyof typeof m]
+      ) {
+        (
+          m.prototype[PersistenceKeys.RELATIONS as keyof typeof m] as string[]
+        ).forEach((s) => {
+          const decs = Reflection.getPropertyDecorators(
+            Repository.key(PersistenceKeys.RELATION) + ".",
+            new m(),
+            s,
+            true
+          );
+          const populate = decs.decorators[0].props.populate;
+          if (populate) {
+            q.relations = q.relations || {};
+            (q.relations as FindOptionsRelations<any>)[s as any] = true;
+          }
+        });
+      }
+      result = (await repo.findOne(q)) as Record<string, any>;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
@@ -1109,15 +1174,31 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
 
     // @timestamp(op) => @CreateDateColumn() || @UpdateDateColumn()
     const timestampKey = ValidationUpdateKey(DBKeys.TIMESTAMP);
+
+    function ts(operation: OperationKeys[], format: string) {
+      const decorators: any[] = [
+        date(format, DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.DATE),
+        required(DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.REQUIRED),
+        propMetadata(Validation.key(DBKeys.TIMESTAMP), {
+          operation: operation,
+          format: format,
+        }),
+      ];
+      if (operation.indexOf(OperationKeys.UPDATE) !== -1)
+        decorators.push(
+          propMetadata(timestampKey, {
+            message: DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.INVALID,
+          })
+        );
+      else decorators.push(readonly());
+      return apply(...decorators);
+    }
+
     Decoration.flavouredAs(TypeORMFlavour)
       .for(timestampKey)
-      .define(
-        date(
-          DEFAULT_TIMESTAMP_FORMAT,
-          DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.DATE
-        ),
-        required(DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.REQUIRED)
-      )
+      .define({
+        decorator: ts,
+      })
       .extend({
         decorator: function timestamp(...ops: OperationKeys[]) {
           return function timestamp(obj: any, prop: any) {

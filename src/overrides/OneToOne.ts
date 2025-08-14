@@ -1,0 +1,76 @@
+import { getMetadataArgsStorage, ObjectType, RelationOptions } from "typeorm";
+import { ObjectUtils } from "typeorm/util/ObjectUtils";
+import { RelationMetadataArgs } from "typeorm/metadata-args/RelationMetadataArgs";
+import { ModelKeys } from "@decaf-ts/decorator-validation";
+
+/**
+ * One-to-one relation allows the creation of a direct relation between two entities. Entity1 has only one Entity2.
+ * Entity1 is the owner of the relationship, and stores Entity2 id on its own side.
+ */
+export function OneToOne<T>(
+  typeFunctionOrTarget: string | ((type?: any) => ObjectType<T>),
+  options?: RelationOptions
+): PropertyDecorator;
+
+/**
+ * One-to-one relation allows the creation of a direct relation between two entities. Entity1 has only one Entity2.
+ * Entity1 is the owner of the relationship, and stores Entity2 id on its own side.
+ */
+export function OneToOne<T>(
+  typeFunctionOrTarget: string | ((type?: any) => ObjectType<T>),
+  inverseSide?: string | ((object: T) => any),
+  options?: RelationOptions
+): PropertyDecorator;
+
+/**
+ * One-to-one relation allows the creation of a direct relation between two entities. Entity1 has only one Entity2.
+ * Entity1 is the owner of the relationship, and stores Entity2 id on its own side.
+ */
+export function OneToOne<T>(
+  typeFunctionOrTarget: string | ((type?: any) => ObjectType<T>),
+  inverseSideOrOptions?: string | ((object: T) => any) | RelationOptions,
+  options?: RelationOptions
+): PropertyDecorator {
+  // normalize parameters
+  let inverseSideProperty: string | ((object: T) => any);
+  if (ObjectUtils.isObject(inverseSideOrOptions)) {
+    options = <RelationOptions>inverseSideOrOptions;
+  } else {
+    inverseSideProperty = inverseSideOrOptions as any;
+  }
+
+  return function (object: any, propertyName: any) {
+    if (!options) options = {} as RelationOptions;
+
+    // now try to determine it its lazy relation
+    let isLazy = options && options.lazy === true ? true : false;
+    if (!isLazy && Reflect && (Reflect as any).getMetadata) {
+      // automatic determination
+      let reflectedType = (Reflect as any).getMetadata(
+        "design:type",
+        object,
+        propertyName
+      );
+
+      reflectedType = reflectedType[ModelKeys.ANCHOR] || reflectedType;
+
+      if (
+        reflectedType &&
+        typeof reflectedType.name === "string" &&
+        reflectedType.name.toLowerCase() === "promise"
+      )
+        isLazy = true;
+    }
+
+    getMetadataArgsStorage().relations.push({
+      target: object.constructor,
+      propertyName: propertyName,
+      // propertyType: reflectedType,
+      isLazy: isLazy,
+      relationType: "one-to-one",
+      type: typeFunctionOrTarget,
+      inverseSideProperty: inverseSideProperty,
+      options: options,
+    } as RelationMetadataArgs);
+  };
+}

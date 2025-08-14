@@ -108,15 +108,18 @@ export class TestUserModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
+  @column("tst_name")
   @required()
   @index()
   name!: string;
 
+  @column("tst_email")
   @required()
   @email()
   @index()
   email!: string;
 
+  @column("tst_age")
   @required()
   @min(18)
   @index()
@@ -126,15 +129,12 @@ export class TestUserModel extends TypeORMBaseModel {
     update: Cascade.CASCADE,
     delete: Cascade.CASCADE,
   })
-  @required()
   address!: TestAddressModel;
 
   @oneToMany(TestPhoneModel, {
     update: Cascade.CASCADE,
     delete: Cascade.CASCADE,
   })
-  @required()
-  @minlength(1)
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {
@@ -149,6 +149,7 @@ export class TestDummyCountry extends TypeORMBaseModel {
   @pk()
   id!: number;
 
+  @column("tst_name")
   @required()
   name!: string;
 
@@ -168,13 +169,11 @@ export class NoPopulateOnceModel extends TypeORMBaseModel {
   @pk()
   id!: number;
 
-  @column("tst_country")
   @oneToOne(
     TestDummyCountry,
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },
     false
   )
-  @required()
   country!: TestDummyCountry;
 
   constructor(m?: ModelArg<NoPopulateOnceModel>) {

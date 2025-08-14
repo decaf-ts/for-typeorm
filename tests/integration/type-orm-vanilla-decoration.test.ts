@@ -20,7 +20,13 @@ const config: DataSourceOptions = {
 const adapter = new TypeORMAdapter(config);
 
 import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { OneToOne } from "../../src/overrides/OneToOne";
@@ -39,8 +45,19 @@ const typeOrmCfg = {
   logging: false,
 };
 
+class BaseModel extends Model {
+  @CreateDateColumn()
+  createdOn!: Date;
+  @UpdateDateColumn()
+  updateOn!: Date;
+
+  constructor(arg?: ModelArg<BaseModel>) {
+    super(arg);
+  }
+}
+
 @Entity()
-class TypeORMVanillaChild extends Model {
+class TypeORMVanillaChild extends BaseModel {
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -59,7 +76,7 @@ class TypeORMVanillaChild extends Model {
 }
 
 @Entity()
-class TypeORMVanilla extends Model {
+class TypeORMVanilla extends BaseModel {
   @PrimaryGeneratedColumn()
   id!: number;
 
@@ -137,7 +154,7 @@ describe("TypeORM Vanilla decoration", () => {
 
   let child: TypeORMVanillaChild;
 
-  it("creates a record child vanilla", async () => {
+  it.only("creates a record child vanilla", async () => {
     const repo = dataSource.getRepository(TypeORMVanillaChild);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMVanillaChild({
@@ -162,7 +179,7 @@ describe("TypeORM Vanilla decoration", () => {
     expect(record).toBeDefined();
   });
 
-  it.only("creates a record vanilla nested", async () => {
+  it("creates a record vanilla nested", async () => {
     const repo = dataSource.getRepository(TypeORMVanilla);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMVanilla({
