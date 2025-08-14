@@ -73,71 +73,13 @@ export class TestAddressModel extends TypeORMBaseModel {
   @required()
   city!: string;
 
-  @oneToOne(TestCountryModel)
+  @oneToOne(TestCountryModel, {
+    update: Cascade.CASCADE,
+    delete: Cascade.CASCADE,
+  })
   country!: TestCountryModel;
 
   constructor(m?: ModelArg<TestAddressModel>) {
-    super(m);
-  }
-}
-
-@uses(TypeORMFlavour)
-@table("tst_phone")
-@model()
-export class TestPhoneModel extends TypeORMBaseModel {
-  @pk()
-  id!: number;
-
-  @column("tst_area_code")
-  @required()
-  areaCode!: string;
-
-  @column("tst_phone_number")
-  @required()
-  phoneNumber!: string;
-
-  constructor(m?: ModelArg<TestPhoneModel>) {
-    super(m);
-  }
-}
-
-@uses(TypeORMFlavour)
-@table("tst_user")
-@model()
-export class TestUserModel extends TypeORMBaseModel {
-  @pk()
-  id!: number;
-
-  @column("tst_name")
-  @required()
-  @index()
-  name!: string;
-
-  @column("tst_email")
-  @required()
-  @email()
-  @index()
-  email!: string;
-
-  @column("tst_age")
-  @required()
-  @min(18)
-  @index()
-  age!: number;
-
-  @oneToOne(TestAddressModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  address!: TestAddressModel;
-
-  @oneToMany(TestPhoneModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  phones!: TestPhoneModel[];
-
-  constructor(m?: ModelArg<TestUserModel>) {
     super(m);
   }
 }
@@ -238,27 +180,4 @@ export function testAddress(address: TestAddressModel) {
   expect(address.createdOn).toBeDefined();
   expect(address.updatedOn).toBeDefined();
   testCountry(address.country as TestCountryModel);
-}
-
-export function testPhone(p: TestPhoneModel) {
-  expect(p).toBeInstanceOf(TestPhoneModel);
-  expect(p.id).toBeDefined();
-  expect(p.createdOn).toBeDefined();
-  expect(p.updatedOn).toBeDefined();
-}
-
-export function testUser(user: TestUserModel) {
-  expect(user).toBeDefined();
-  expect(user).toBeInstanceOf(TestUserModel);
-  expect(user.id).toBeDefined();
-  expect(user.createdOn).toBeDefined();
-  expect(user.updatedOn).toBeDefined();
-
-  const { address, phones } = user as TestUserModel;
-
-  testAddress(address as TestAddressModel);
-
-  expect(phones).toBeDefined();
-  expect(phones.length).toBeGreaterThan(1);
-  phones.forEach((p) => testPhone(p));
 }

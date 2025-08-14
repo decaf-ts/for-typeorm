@@ -30,6 +30,7 @@ import {
   date,
   Decoration,
   DEFAULT_ERROR_MESSAGES,
+  list,
   MaxLengthValidatorOptions,
   MaxValidatorOptions,
   MinLengthValidatorOptions,
@@ -62,6 +63,10 @@ import {
   FindOptionsRelations,
   In,
   InsertResult,
+  RelationOptions,
+  OneToOne,
+  JoinColumn,
+  ManyToMany,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -69,8 +74,10 @@ import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
 import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { Entity } from "./overrides/Entity";
-import { OneToOne } from "./overrides/OneToOne";
-import { JoinColumn } from "./overrides/JoinColumn";
+// import { OneToOne } from "./overrides/OneToOne";
+import { OneToMany } from "./overrides/OneToMany";
+import { ManyToOne } from "./overrides/ManyToOne";
+// import { JoinColumn } from "./overrides/JoinColumn";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -406,26 +413,6 @@ export class TypeORMAdapter extends Adapter<
           [pk]: id,
         },
       };
-      if (
-        m.prototype &&
-        m.prototype[PersistenceKeys.RELATIONS as keyof typeof m]
-      ) {
-        (
-          m.prototype[PersistenceKeys.RELATIONS as keyof typeof m] as string[]
-        ).forEach((s) => {
-          const decs = Reflection.getPropertyDecorators(
-            Repository.key(PersistenceKeys.RELATION) + ".",
-            new m(),
-            s,
-            true
-          );
-          const populate = decs.decorators[0].props.populate;
-          if (populate) {
-            q.relations = q.relations || {};
-            (q.relations as FindOptionsRelations<any>)[s as any] = true;
-          }
-        });
-      }
       result = (await repo.findOne(q)) as Record<string, any>;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -481,7 +468,7 @@ export class TypeORMAdapter extends Adapter<
     try {
       const repo = this.dataSource.getRepository(m);
       const model = await this.read(tableName, id, pk);
-      await repo.delete(id);
+      const res = await repo.delete(id);
       return model;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -1222,6 +1209,16 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           clazz: Constructor<any>,
           metadata: RelationsMetadata
         ) {
+          const pk = findPrimaryKey(new clazz()).id;
+          const ormMeta: RelationOptions = {
+            cascade:
+              metadata.cascade.update === Cascade.CASCADE ||
+              metadata.cascade.delete === Cascade.CASCADE,
+            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: metadata.populate,
+          };
           return apply(
             prop(PersistenceKeys.RELATIONS),
             type([clazz.name, String.name, Number.name, BigInt.name]),
@@ -1234,16 +1231,133 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                   );
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
-              {
-                cascade:
-                  metadata.cascade.update === Cascade.CASCADE ||
-                  metadata.cascade.delete === Cascade.CASCADE,
-                onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
-                onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
-                nullable: true,
-              }
+              (model: any) => model[pk],
+              ormMeta
             ),
             JoinColumn()
+          );
+        },
+      })
+      .apply();
+
+    // @oneToMany(clazz) => @OneToMany(() => clazz)
+    const oneToManyKey = Repository.key(PersistenceKeys.ONE_TO_MANY);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(oneToManyKey)
+      .define({
+        decorator: function oneToMany(
+          clazz: Constructor<any>,
+          metadata: RelationsMetadata
+        ) {
+          const pk = findPrimaryKey(new clazz()).id;
+          const ormMeta: RelationOptions = {
+            cascade:
+              metadata.cascade.update === Cascade.CASCADE ||
+              metadata.cascade.delete === Cascade.CASCADE,
+            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: metadata.populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            list([
+              clazz,
+              String,
+              Number,
+              // @ts-expect-error Bigint is not a constructor
+              BigInt,
+            ]),
+            propMetadata(oneToManyKey, metadata),
+            OneToMany(
+              () => {
+                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  throw new InternalError(
+                    "Original Model not found in constructor"
+                  );
+                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+              },
+              (model: any) => model[pk],
+              ormMeta
+            )
+          );
+        },
+      })
+      .apply();
+
+    // @manyToOne(clazz) => @ManyToOne(() => clazz)
+    const manyToOneKey = Repository.key(PersistenceKeys.MANY_TO_ONE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(manyToOneKey)
+      .define({
+        decorator: function manyToOne(
+          clazz: Constructor<any>,
+          metadata: RelationsMetadata
+        ) {
+          const pk = findPrimaryKey(new clazz()).id;
+          const ormMeta: RelationOptions = {
+            cascade:
+              metadata.cascade.update === Cascade.CASCADE ||
+              metadata.cascade.delete === Cascade.CASCADE,
+            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: metadata.populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            type([clazz.name, String.name, Number.name, BigInt.name]),
+            propMetadata(manyToOneKey, metadata),
+            ManyToOne(
+              () => {
+                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  throw new InternalError(
+                    "Original Model not found in constructor"
+                  );
+                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+              },
+              (model: any) => model[pk],
+              ormMeta
+            )
+          );
+        },
+      })
+      .apply();
+
+    // @manyToMany(clazz) => @ManyToMany(() => clazz)
+    const manyToManyKey = Repository.key(PersistenceKeys.MANY_TO_MANY);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(manyToManyKey)
+      .define({
+        decorator: function manyToMany(
+          clazz: Constructor<any>,
+          metadata: RelationsMetadata
+        ) {
+          const pk = findPrimaryKey(new clazz()).id;
+          const ormMeta: RelationOptions = {
+            cascade:
+              metadata.cascade.update === Cascade.CASCADE ||
+              metadata.cascade.delete === Cascade.CASCADE,
+            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: metadata.populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            type([clazz.name, String.name, Number.name, BigInt.name]),
+            propMetadata(manyToManyKey, metadata),
+            ManyToMany(
+              () => {
+                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  throw new InternalError(
+                    "Original Model not found in constructor"
+                  );
+                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+              },
+              (model: any) => model[pk],
+              ormMeta
+            )
           );
         },
       })
