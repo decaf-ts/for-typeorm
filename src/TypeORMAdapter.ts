@@ -1,6 +1,7 @@
 import {
   Adapter,
   Cascade,
+  CascadeMetadata,
   ConnectionError,
   DefaultSequenceOptions,
   final,
@@ -954,7 +955,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         let parsedType:
           | string
           | { model: Constructor<Model> | string; pkType?: string } =
-          this.parseTypeToPostgres(typeData.customTypes[0], isPk);
+          this.parseTypeToPostgres(
+            typeof (typeData.customTypes as any[])[0] === "function"
+              ? (typeData.customTypes as any)[0]()
+              : (typeData.customTypes as any)[0],
+            isPk
+          );
         if (typeof parsedType === "string") {
           parsedType = { model: parsedType };
         }
@@ -1206,22 +1212,35 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .for(oneToOneKey)
       .define({
         decorator: function oneToOne(
-          clazz: Constructor<any>,
-          metadata: RelationsMetadata
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
         ) {
-          const pk = findPrimaryKey(new clazz()).id;
+          const metadata: RelationsMetadata = {
+            class: clazz.name,
+            cascade: cascade,
+            populate: populate,
+          };
           const ormMeta: RelationOptions = {
             cascade:
-              metadata.cascade.update === Cascade.CASCADE ||
-              metadata.cascade.delete === Cascade.CASCADE,
-            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
-            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
             nullable: true,
-            eager: metadata.populate,
+            eager: populate,
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
-            type([clazz.name, String.name, Number.name, BigInt.name]),
+            type([
+              () =>
+                clazz.name
+                  ? clazz.name
+                  : (clazz as () => Constructor<any>)().name,
+              String.name,
+              Number.name,
+              BigInt.name,
+            ]),
             propMetadata(oneToOneKey, metadata),
             OneToOne(
               () => {
@@ -1231,7 +1250,10 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                   );
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
-              (model: any) => model[pk],
+              (model: any) => {
+                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                return model[pk];
+              },
               ormMeta
             ),
             JoinColumn()
@@ -1246,18 +1268,23 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .for(oneToManyKey)
       .define({
         decorator: function oneToMany(
-          clazz: Constructor<any>,
-          metadata: RelationsMetadata
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
         ) {
-          const pk = findPrimaryKey(new clazz()).id;
+          const metadata: RelationsMetadata = {
+            class: clazz.name,
+            cascade: cascade,
+            populate: populate,
+          };
           const ormMeta: RelationOptions = {
             cascade:
-              metadata.cascade.update === Cascade.CASCADE ||
-              metadata.cascade.delete === Cascade.CASCADE,
-            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
-            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
             nullable: true,
-            eager: metadata.populate,
+            eager: populate,
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
@@ -1277,7 +1304,10 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                   );
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
-              (model: any) => model[pk],
+              (model: any) => {
+                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                return model[pk];
+              },
               ormMeta
             )
           );
@@ -1291,18 +1321,23 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .for(manyToOneKey)
       .define({
         decorator: function manyToOne(
-          clazz: Constructor<any>,
-          metadata: RelationsMetadata
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
         ) {
-          const pk = findPrimaryKey(new clazz()).id;
+          const metadata: RelationsMetadata = {
+            class: clazz.name,
+            cascade: cascade,
+            populate: populate,
+          };
           const ormMeta: RelationOptions = {
             cascade:
-              metadata.cascade.update === Cascade.CASCADE ||
-              metadata.cascade.delete === Cascade.CASCADE,
-            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
-            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
             nullable: true,
-            eager: metadata.populate,
+            eager: populate,
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
@@ -1316,7 +1351,10 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                   );
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
-              (model: any) => model[pk],
+              (model: any) => {
+                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                return model[pk];
+              },
               ormMeta
             )
           );
@@ -1330,18 +1368,23 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .for(manyToManyKey)
       .define({
         decorator: function manyToMany(
-          clazz: Constructor<any>,
-          metadata: RelationsMetadata
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
         ) {
-          const pk = findPrimaryKey(new clazz()).id;
+          const metadata: RelationsMetadata = {
+            class: clazz.name,
+            cascade: cascade,
+            populate: populate,
+          };
           const ormMeta: RelationOptions = {
             cascade:
-              metadata.cascade.update === Cascade.CASCADE ||
-              metadata.cascade.delete === Cascade.CASCADE,
-            onDelete: metadata.cascade.delete ? "CASCADE" : "DEFAULT",
-            onUpdate: metadata.cascade.update ? "CASCADE" : "DEFAULT",
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
             nullable: true,
-            eager: metadata.populate,
+            eager: populate,
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
@@ -1355,7 +1398,10 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                   );
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
-              (model: any) => model[pk],
+              (model: any) => {
+                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                return model[pk];
+              },
               ormMeta
             )
           );
