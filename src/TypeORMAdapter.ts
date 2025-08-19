@@ -1243,10 +1243,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           return apply(
             prop(PersistenceKeys.RELATIONS),
             type([
-              () =>
-                clazz.name
-                  ? clazz.name
-                  : (clazz as () => Constructor<any>)().name,
+              (typeof clazz === "function" && !clazz.name
+                ? clazz
+                : clazz.name) as any,
               String.name,
               Number.name,
               BigInt.name,
@@ -1345,7 +1344,14 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
-            type([clazz.name, String.name, Number.name, BigInt.name]),
+            type([
+              (typeof clazz === "function" && !clazz.name
+                ? clazz
+                : clazz.name) as any,
+              String.name,
+              Number.name,
+              BigInt.name,
+            ]),
             propMetadata(manyToOneKey, metadata),
             ManyToOne(
               () => {
@@ -1392,7 +1398,14 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
-            type([clazz.name, String.name, Number.name, BigInt.name]),
+            type([
+              (typeof clazz === "function" && !clazz.name
+                ? clazz
+                : clazz.name) as any,
+              String.name,
+              Number.name,
+              BigInt.name,
+            ]),
             propMetadata(manyToManyKey, metadata),
             ManyToMany(
               () => {
