@@ -103,7 +103,6 @@ export function PrimaryGeneratedColumn(
 
     const columns = getMetadataArgsStorage().columns;
     aggregateOrNewColumn(object.constructor, propertyName, columns, options);
-    const columns2 = getMetadataArgsStorage().columns;
     // register generated metadata args
     getMetadataArgsStorage().generations.push({
       target: object.constructor,

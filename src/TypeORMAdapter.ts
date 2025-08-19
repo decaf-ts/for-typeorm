@@ -3,7 +3,6 @@ import {
   Cascade,
   CascadeMetadata,
   ConnectionError,
-  DefaultSequenceOptions,
   final,
   PersistenceKeys,
   RelationsMetadata,
@@ -61,7 +60,6 @@ import { convertJsRegexToPostgres } from "./utils";
 import {
   DataSource,
   FindOneOptions,
-  FindOptionsRelations,
   In,
   InsertResult,
   RelationOptions,
@@ -74,6 +72,7 @@ import { Column } from "./overrides/Column";
 import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
 import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
+import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
 // import { OneToOne } from "./overrides/OneToOne";
 import { OneToMany } from "./overrides/OneToMany";
@@ -993,9 +992,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           }
         }
 
+        let tp = Array.isArray(typeData.customTypes)
+          ? typeData.customTypes[0]
+          : typeData.customTypes;
+        tp = typeof tp === "function" && !tp.name ? tp() : tp;
         const validationStr = this.parseValidationToPostgres(
           column,
-          typeData.customTypes[0],
+          tp as any,
           isPk,
           ValidationKeys.MAX_LENGTH,
           (decoratorData[
@@ -1019,7 +1022,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         )) {
           const validation = this.parseValidationToPostgres(
             column,
-            typeData.customTypes[0],
+            tp as any,
             isPk,
             key,
             props
@@ -1113,18 +1116,25 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       )
       .apply();
 
-    // @pk => @PrimaryGeneratedColumn()
+    // @pk() => @PrimaryGeneratedColumn() | @PrimaryColumn()
     const pkKey = Repository.key(DBKeys.ID);
-    Decoration.flavouredAs(TypeORMFlavour)
-      .for(pkKey)
-      .define(
+
+    function pkDec(options: SequenceOptions) {
+      const decorators: any[] = [
         required(),
         readonly(),
-        propMetadata(pkKey, DefaultSequenceOptions)
-      )
-      .extend((original: any, prop: any) =>
-        PrimaryGeneratedColumn()(original, prop)
-      )
+        propMetadata(pkKey, options),
+      ];
+      if (options.type) decorators.push(PrimaryGeneratedColumn());
+      else decorators.push(PrimaryColumn());
+      return apply(...decorators);
+    }
+
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(pkKey)
+      .define({
+        decorator: pkDec,
+      })
       .apply();
 
     // @column("columnName") => @Column({name: "columnName"})
@@ -1288,13 +1298,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
-            list([
-              clazz,
-              String,
-              Number,
-              // @ts-expect-error Bigint is not a constructor
-              BigInt,
-            ]),
+            list(clazz),
             propMetadata(oneToManyKey, metadata),
             OneToMany(
               () => {
