@@ -74,10 +74,14 @@ export class TestAddressModel extends TypeORMBaseModel {
   @required()
   city!: string;
 
-  @oneToOne(TestCountryModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
+  @oneToOne(
+    TestCountryModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
   country!: TestCountryModel;
 
   constructor(m?: ModelArg<TestAddressModel>) {

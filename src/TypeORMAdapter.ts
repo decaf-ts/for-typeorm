@@ -354,7 +354,7 @@ export class TypeORMAdapter extends Adapter<
       });
     }
 
-    return obj as M;
+    return new (clazz as Constructor<M>)(obj);
   }
 
   /**
@@ -1284,6 +1284,15 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             list(clazz),
             propMetadata(oneToManyKey, metadata),
             function OneToManyWrapper(obj: any, prop: any): any {
+              const ormMeta: RelationOptions = {
+                cascade:
+                  cascade.update === Cascade.CASCADE ||
+                  cascade.delete === Cascade.CASCADE,
+                onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+                onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
+                nullable: true,
+                eager: populate,
+              };
               return OneToMany(
                 () => {
                   if (!clazz.name) clazz = (clazz as any)();
@@ -1321,7 +1330,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                       `Cross relation not found. Did you use @manyToOne on the ${clazz.name}?`
                     );
                   return model[crossRelationKey];
-                }
+                },
+                ormMeta
               )(obj, prop);
             }
           );
