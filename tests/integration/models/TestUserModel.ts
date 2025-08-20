@@ -50,10 +50,14 @@ export class TestUserModel extends TypeORMBaseModel {
   })
   address!: TestAddressModel;
 
-  @oneToMany(() => TestPhoneModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
+  @oneToMany(
+    () => TestPhoneModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {

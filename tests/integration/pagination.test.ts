@@ -1,12 +1,4 @@
-import { DataSource, DataSourceOptions } from "type";
 import { TypeORMAdapter, TypeORMRepository } from "../../src";
-let con: DataSource;
-const adapter = new TypeORMAdapter(con);
-
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
-import { TestCountryModel } from "./models";
-import { Repository } from "@decaf-ts/core";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -23,11 +15,35 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
+let con: DataSource;
+const adapter = new TypeORMAdapter(config);
+
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
+import { TestCountryModel } from "./models";
+import { Repository } from "@decaf-ts/core";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { DataSource } from "typeorm";
+import { ModelKeys } from "@decaf-ts/decorator-validation";
+
 const dbName = "pagination_db";
 
 jest.setTimeout(500000);
 
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
+
 describe(`Pagination`, function () {
+  let dataSource: DataSource;
+
   let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {
@@ -55,26 +71,18 @@ describe(`Pagination`, function () {
       await TypeORMAdapter.createUser(con, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(con, user);
       await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await TypeORMAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [TestCountryModel[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof TypeORMAdapter] = con;
-    repo = Repository.forModel(TestCountryModel);
-
-    try {
-      await TypeORMAdapter.createTable(con, TestCountryModel);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
+    repo = new TypeORMRepository(adapter, TestCountryModel);
   });
 
   let observer: Observer;
@@ -97,7 +105,8 @@ describe(`Pagination`, function () {
   // });
 
   afterAll(async () => {
-    await con.destroy();
+    if (con) await con.destroy();
+    await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -140,7 +149,7 @@ describe(`Pagination`, function () {
     expect(created.every((c, i) => c.equals(selected[i]))).toEqual(true);
   });
 
-  it.skip("paginates", async () => {
+  it("paginates", async () => {
     const paginator: Paginator<TestCountryModel> = await repo
       .select()
       .orderBy(["id", OrderDirection.DSC])

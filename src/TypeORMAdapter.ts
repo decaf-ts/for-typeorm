@@ -161,7 +161,9 @@ export class TypeORMAdapter extends Adapter<
           true
         );
         const dec = decs.decorators.find(
-          (dec: any) => dec.key === DBKeys.TIMESTAMP
+          (dec: any) =>
+            dec.key === DBKeys.TIMESTAMP &&
+            dec.props.operation.indexOf(operation) !== -1
         );
         if (dec) {
           accum[key] = dec.props;
@@ -169,18 +171,7 @@ export class TypeORMAdapter extends Adapter<
         return accum;
       }, {});
 
-      exceptions.push(
-        ...Object.keys(
-          Object.entries(decs || {}).reduce(
-            (accum: Record<string, any>, el) => {
-              const ops = el[1].operation;
-              if (ops.indexOf(operation) !== -1) accum[el[0]] = true;
-              return accum;
-            },
-            {}
-          )
-        )
-      );
+      exceptions.push(...Object.keys(decs));
     }
 
     newObj.ignoredValidationProperties = (
@@ -1126,7 +1117,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         propMetadata(pkKey, options),
       ];
       if (options.type) decorators.push(PrimaryGeneratedColumn());
-      else decorators.push(PrimaryColumn());
+      else decorators.push(PrimaryColumn({ unique: true }));
       return apply(...decorators);
     }
 
@@ -1146,6 +1137,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           return function column(obj: any, prop: any) {
             return Column({
               name: name || prop,
+              nullable: true,
             })(obj, prop);
           };
         },
@@ -1227,7 +1219,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           populate: boolean
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name,
+            class: (clazz.name ? clazz.name : clazz) as string,
             cascade: cascade,
             populate: populate,
           };
@@ -1254,7 +1246,6 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             OneToOne(
               () => {
                 if (!clazz.name) clazz = (clazz as any)();
-
                 if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
                   throw new InternalError(
                     "Original Model not found in constructor"
@@ -1284,38 +1275,55 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           populate: boolean
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name,
+            class: (clazz.name ? clazz.name : clazz) as string,
             cascade: cascade,
             populate: populate,
-          };
-          const ormMeta: RelationOptions = {
-            cascade:
-              cascade.update === Cascade.CASCADE ||
-              cascade.delete === Cascade.CASCADE,
-            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
-            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
-            nullable: true,
-            eager: populate,
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
             list(clazz),
             propMetadata(oneToManyKey, metadata),
-            OneToMany(
-              () => {
-                if (!clazz.name) clazz = (clazz as any)();
-                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
-                  throw new InternalError(
-                    "Original Model not found in constructor"
-                  );
-                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
-              },
-              (model: any) => {
-                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
-                return model[pk];
-              },
-              ormMeta
-            )
+            function OneToManyWrapper(obj: any, prop: any): any {
+              return OneToMany(
+                () => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                    throw new InternalError(
+                      "Original Model not found in constructor"
+                    );
+                  return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                },
+                (model: any) => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  const m = new (clazz as Constructor<any>)();
+                  const crossRelationKey = Object.keys(m).find((k) => {
+                    const decs = Reflection.getPropertyDecorators(
+                      Repository.key(PersistenceKeys.MANY_TO_ONE),
+                      m,
+                      k,
+                      true
+                    );
+                    if (!decs || !decs.decorators || !decs.decorators.length)
+                      return false;
+                    const designType = Reflect.getMetadata(
+                      ModelKeys.TYPE,
+                      m,
+                      k
+                    );
+                    if (!designType)
+                      throw new InternalError(
+                        `No Type Definition found for ${k} in ${m.constructor.name}`
+                      );
+                    return designType.name === obj.constructor.name;
+                  });
+                  if (!crossRelationKey)
+                    throw new InternalError(
+                      `Cross relation not found. Did you use @manyToOne on the ${clazz.name}?`
+                    );
+                  return model[crossRelationKey];
+                }
+              )(obj, prop);
+            }
           );
         },
       })
@@ -1332,7 +1340,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           populate: boolean
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name,
+            class: (clazz.name ? clazz.name : clazz) as string,
             cascade: cascade,
             populate: populate,
           };
@@ -1366,8 +1374,25 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
               (model: any) => {
-                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
-                return model[pk];
+                if (!clazz.name) clazz = (clazz as any)();
+                const m = new (clazz as Constructor<any>)();
+                const crossRelationKey = Object.keys(m).find((k) => {
+                  const decs = Reflection.getPropertyDecorators(
+                    Repository.key(PersistenceKeys.ONE_TO_MANY),
+                    m,
+                    k,
+                    true
+                  );
+                  if (!Object.keys(decs).length) return false;
+                  return !!Object.keys(decs).find(
+                    (k) => (decs[k] as any).props.class.name === clazz.name
+                  );
+                });
+                if (!crossRelationKey)
+                  throw new InternalError(
+                    `Cross relation not found. Did you use @oneToMany on the ${clazz.name}?`
+                  );
+                return model[crossRelationKey];
               },
               ormMeta
             )

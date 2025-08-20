@@ -95,8 +95,8 @@ describe(`Complex Database`, function () {
           TestAddressModel[ModelKeys.ANCHOR],
           TestDummyCountry[ModelKeys.ANCHOR],
           TestDummyPhone[ModelKeys.ANCHOR],
-          NoPopulateOnceModel[ModelKeys.ANCHOR],
-          NoPopulateManyModel[ModelKeys.ANCHOR],
+          // NoPopulateOnceModel[ModelKeys.ANCHOR],
+          // NoPopulateManyModel[ModelKeys.ANCHOR],
         ],
       }) as DataSourceOptions
     );
@@ -139,8 +139,8 @@ describe(`Complex Database`, function () {
   let testDummyPhoneModelRepository: TypeORMRepository<TestDummyPhone>;
   let testAddressModelRepository: TypeORMRepository<TestAddressModel>;
   let testCountryModelRepository: TypeORMRepository<TestCountryModel>;
-  let noPopulateOnceModelRepository: TypeORMRepository<NoPopulateOnceModel>;
-  let noPopulateManyModelRepository: TypeORMRepository<NoPopulateManyModel>;
+  // let noPopulateOnceModelRepository: TypeORMRepository<NoPopulateOnceModel>;
+  // let noPopulateManyModelRepository: TypeORMRepository<NoPopulateManyModel>;
 
   let model: any;
 
@@ -163,14 +163,14 @@ describe(`Complex Database`, function () {
       adapter,
       TestDummyPhone
     );
-    noPopulateOnceModelRepository = new TypeORMRepository(
-      adapter,
-      NoPopulateOnceModel
-    );
-    noPopulateManyModelRepository = new TypeORMRepository(
-      adapter,
-      NoPopulateManyModel
-    );
+    // noPopulateOnceModelRepository = new TypeORMRepository(
+    //   adapter,
+    //   NoPopulateOnceModel
+    // );
+    // noPopulateManyModelRepository = new TypeORMRepository(
+    //   adapter,
+    //   NoPopulateManyModel
+    // );
 
     model = {
       name: "test country",
@@ -179,7 +179,7 @@ describe(`Complex Database`, function () {
     };
   });
 
-  describe.skip("basic test", () => {
+  describe("basic test", () => {
     let cached: TestCountryModel;
 
     it("creates a new record", async () => {
@@ -248,27 +248,27 @@ describe(`Complex Database`, function () {
     describe("One to one relations", () => {
       let created: TestAddressModel;
       let updated: TestAddressModel;
-      it.skip("Ensure no population when populate is disabled in a one-to-one relation", async () => {
-        const country = {
-          name: "test country",
-          countryCode: "tst",
-          locale: "ts_TS",
-        };
-
-        const address = new NoPopulateOnceModel({ country });
-        const created = await noPopulateOnceModelRepository.create(address);
-
-        const read = await noPopulateOnceModelRepository.read(`${created.id}`);
-
-        created.country = new TestDummyCountry({
-          name: "foo",
-          countryCode: "foo",
-          locale: "fo_FO",
-        });
-        const updated = await noPopulateOnceModelRepository.update(created);
-
-        const deleted = await noPopulateOnceModelRepository.delete(created.id);
-      });
+      // it.skip("Ensure no population when populate is disabled in a one-to-one relation", async () => {
+      //   const country = {
+      //     name: "test country",
+      //     countryCode: "tst",
+      //     locale: "ts_TS",
+      //   };
+      //
+      //   const address = new NoPopulateOnceModel({ country });
+      //   const created = await noPopulateOnceModelRepository.create(address);
+      //
+      //   const read = await noPopulateOnceModelRepository.read(`${created.id}`);
+      //
+      //   created.country = new TestDummyCountry({
+      //     name: "foo",
+      //     countryCode: "foo",
+      //     locale: "fo_FO",
+      //   });
+      //   const updated = await noPopulateOnceModelRepository.update(created);
+      //
+      //   const deleted = await noPopulateOnceModelRepository.delete(created.id);
+      // });
 
       it("Creates a one to one relation", async () => {
         const address = new TestAddressModel({
@@ -340,7 +340,7 @@ describe(`Complex Database`, function () {
       });
     });
 
-    describe.only("One to many relations", () => {
+    describe("One to many relations", () => {
       const user = {
         name: "testuser",
         email: "test@test.com",

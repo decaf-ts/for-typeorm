@@ -3,9 +3,9 @@ import { TypeORMAdapter } from "../../src";
 let con: DataSource;
 const admin = "alfred";
 const admin_password = "password";
-const user = "orm_vanilla_decoration_user";
+const user = "orm_vanilla_relations_decoration_user";
 const user_password = "password";
-const dbName = "orm_vanilla_decoration_db";
+const dbName = "orm_vanilla_relations_decoration_db";
 const dbHost = "localhost";
 
 const config: DataSourceOptions = {
@@ -19,13 +19,12 @@ const config: DataSourceOptions = {
 
 const adapter = new TypeORMAdapter(config);
 
-import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { OneToOne } from "../../src/overrides/OneToOne";
 import { JoinColumn } from "../../src/overrides/JoinColumn";
-import { BaseModel } from "./models/vanilla/BaseModel";
+import { TypeORMVanillaRel } from "./models/vanilla/TypeORMVanillaRel";
+import { TypeORMVanillaChildRel } from "./models/vanilla/TypeORMVanillaChildRel";
 
 jest.setTimeout(50000);
 
@@ -40,55 +39,7 @@ const typeOrmCfg = {
   logging: false,
 };
 
-@Entity()
-class TypeORMVanillaChild extends BaseModel {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
-  @Column()
-  @prop()
-  firstName!: string;
-
-  @Column()
-  @prop()
-  lastName!: string;
-
-  constructor(arg?: ModelArg<TypeORMVanilla>) {
-    super();
-    Model.fromModel(this as any, arg);
-  }
-}
-
-@Entity()
-class TypeORMVanilla extends BaseModel {
-  @PrimaryGeneratedColumn()
-  id!: number;
-
-  @Column()
-  @prop()
-  firstName!: string;
-
-  @Column()
-  @prop()
-  lastName!: string;
-
-  @OneToOne(() => TypeORMVanillaChild, {
-    cascade: true,
-    onDelete: "CASCADE",
-    onUpdate: "CASCADE",
-    eager: true,
-  })
-  @JoinColumn()
-  @prop()
-  child!: TypeORMVanillaChild;
-
-  constructor(arg?: ModelArg<TypeORMVanilla>) {
-    super();
-    Model.fromModel(this as any, arg);
-  }
-}
-
-describe("TypeORM Vanilla decoration", () => {
+describe("TypeORM Vanilla Relations decoration", () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
@@ -122,7 +73,7 @@ describe("TypeORM Vanilla decoration", () => {
     }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
-        entities: [TypeORMVanilla, TypeORMVanillaChild],
+        entities: [TypeORMVanillaRel, TypeORMVanillaChildRel],
       }) as DataSourceOptions
     );
     await dataSource.initialize();
@@ -140,9 +91,9 @@ describe("TypeORM Vanilla decoration", () => {
   let child: TypeORMVanillaChild;
 
   it("creates a record child vanilla", async () => {
-    const repo = dataSource.getRepository(TypeORMVanillaChild);
+    const repo = dataSource.getRepository(TypeORMVanillaChildRel);
     expect(repo).toBeDefined();
-    const toCreate = new TypeORMVanillaChild({
+    const toCreate = Object.assign(new TypeORMVanillaChildRel(), {
       firstName: "JohnChild2",
       lastName: "DoeChild2",
     });
@@ -152,30 +103,32 @@ describe("TypeORM Vanilla decoration", () => {
   });
 
   it("creates a record parent vanilla with previous created child", async () => {
-    const repo = dataSource.getRepository(TypeORMVanilla);
+    const repo = dataSource.getRepository(TypeORMVanillaRel);
     expect(repo).toBeDefined();
-    const toCreate = new TypeORMVanilla({
+    const toCreate = Object.assign(new TypeORMVanillaRel(), {
       firstName: "John2",
       lastName: "Doe2",
-      child: child,
+      child: [child],
     });
 
     const record = await repo.save(toCreate);
     expect(record).toBeDefined();
   });
 
-  let created: TypeORMVanilla;
+  let created: TypeORMVanillaRel;
 
   it("creates a record vanilla nested", async () => {
-    const repo = dataSource.getRepository(TypeORMVanilla);
+    const repo = dataSource.getRepository(TypeORMVanillaRel);
     expect(repo).toBeDefined();
-    const toCreate = new TypeORMVanilla({
+    const toCreate = Object.assign(new TypeORMVanillaRel(), {
       firstName: "John3",
       lastName: "Doe3",
-      child: new TypeORMVanillaChild({
-        firstName: "JohnChild3",
-        lastName: "DoeChild3",
-      }),
+      child: [
+        Object.assign(new TypeORMVanillaChildRel(), {
+          firstName: "JohnChild3",
+          lastName: "DoeChild3",
+        }),
+      ],
     });
 
     const record = await repo.save(toCreate);
@@ -184,12 +137,11 @@ describe("TypeORM Vanilla decoration", () => {
   });
 
   it("read a record vanilla nested", async () => {
-    const repo = dataSource.getRepository(TypeORMVanilla);
+    const repo = dataSource.getRepository(TypeORMVanillaRel);
     expect(repo).toBeDefined();
     const record = await repo.findOneBy({
       id: created.id,
     });
     expect(record).toBeDefined();
-    expect(record.hasErrors()).toBeDefined();
   });
 });

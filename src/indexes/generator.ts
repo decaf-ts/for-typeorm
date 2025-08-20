@@ -7,7 +7,7 @@ import {
 import { TypeORMKeys } from "../constants";
 import { DefaultSeparator } from "@decaf-ts/db-decorators";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { TypeORMQuery, TypeORMQuery } from "../types";
+import { TypeORMQuery } from "../types";
 
 /**
  * @description Generates a name for a CouchDB index

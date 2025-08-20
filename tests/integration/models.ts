@@ -12,6 +12,7 @@ import {
   Cascade,
   column,
   index,
+  manyToOne,
   oneToMany,
   oneToOne,
   pk,
@@ -140,30 +141,28 @@ export class TestDummyPhone extends TypeORMBaseModel {
     super(m);
   }
 }
-@uses(TypeORMFlavour)
-@table("tst_no_populate_many")
-@model()
-export class NoPopulateManyModel extends TypeORMBaseModel {
-  @pk({ type: "Number" })
-  id!: number;
-
-  @required()
-  @index()
-  name!: string;
-
-  @oneToMany(
-    TestDummyPhone,
-    { update: Cascade.CASCADE, delete: Cascade.CASCADE },
-    false
-  )
-  @required()
-  @minlength(1)
-  phones!: TestDummyPhone[];
-
-  constructor(m?: ModelArg<NoPopulateManyModel>) {
-    super(m);
-  }
-}
+// @uses(TypeORMFlavour)
+// @table("tst_no_populate_many")
+// @model()
+// export class NoPopulateManyModel extends TypeORMBaseModel {
+//   @pk({ type: "Number" })
+//   id!: number;
+//
+//   @required()
+//   @index()
+//   name!: string;
+//
+//   @oneToMany(
+//     TestDummyPhone,
+//     { update: Cascade.CASCADE, delete: Cascade.CASCADE },
+//     false
+//   )
+//   phones!: TestDummyPhone[];
+//
+//   constructor(m?: ModelArg<NoPopulateManyModel>) {
+//     super(m);
+//   }
+// }
 
 export function testCountry(country: TestCountryModel) {
   expect(country).toBeDefined();
