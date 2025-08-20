@@ -1364,38 +1364,48 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
               BigInt.name,
             ]),
             propMetadata(manyToOneKey, metadata),
-            ManyToOne(
-              () => {
-                if (!clazz.name) clazz = (clazz as any)();
-                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
-                  throw new InternalError(
-                    "Original Model not found in constructor"
-                  );
-                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
-              },
-              (model: any) => {
-                if (!clazz.name) clazz = (clazz as any)();
-                const m = new (clazz as Constructor<any>)();
-                const crossRelationKey = Object.keys(m).find((k) => {
-                  const decs = Reflection.getPropertyDecorators(
-                    Repository.key(PersistenceKeys.ONE_TO_MANY),
-                    m,
-                    k,
-                    true
-                  );
-                  if (!Object.keys(decs).length) return false;
-                  return !!Object.keys(decs).find(
-                    (k) => (decs[k] as any).props.class.name === clazz.name
-                  );
-                });
-                if (!crossRelationKey)
-                  throw new InternalError(
-                    `Cross relation not found. Did you use @oneToMany on the ${clazz.name}?`
-                  );
-                return model[crossRelationKey];
-              },
-              ormMeta
-            )
+            function ManyToOneWrapper(obj: any, prop: any): any {
+              return ManyToOne(
+                () => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                    throw new InternalError(
+                      "Original Model not found in constructor"
+                    );
+                  return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                },
+                (model: any) => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  const m = new (clazz as Constructor<any>)();
+                  const crossRelationKey = Object.keys(m).find((k) => {
+                    const decs = Reflection.getPropertyDecorators(
+                      Repository.key(PersistenceKeys.ONE_TO_MANY),
+                      m,
+                      k,
+                      true
+                    );
+                    if (!decs || !decs.decorators || !decs.decorators.length)
+                      return false;
+                    const listDec = Reflect.getMetadata(
+                      Validation.key(ValidationKeys.LIST),
+                      m,
+                      k
+                    );
+                    if (!listDec)
+                      throw new InternalError(
+                        `No Type Definition found for ${k} in ${m.constructor.name}`
+                      );
+                    const name = listDec.clazz[0]().name;
+                    return name === obj.constructor.name;
+                  });
+                  if (!crossRelationKey)
+                    throw new InternalError(
+                      `Cross relation not found. Did you use @manyToOne on the ${clazz.name}?`
+                    );
+                  return model[crossRelationKey];
+                }
+              )(obj, prop);
+            }
           );
         },
       })
