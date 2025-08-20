@@ -8,7 +8,7 @@ import { TestUserModel } from "./TestUserModel";
 @table("tst_phone")
 @model()
 export class TestPhoneModel extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column("tst_area_code")

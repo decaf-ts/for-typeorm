@@ -3,9 +3,9 @@ import { TypeORMAdapter } from "../../src";
 let con: DataSource;
 const admin = "alfred";
 const admin_password = "password";
-const user = "orm_decoration_user";
+const user = "orm_vanilla_decoration_user";
 const user_password = "password";
-const dbName = "orm_decoration_db";
+const dbName = "orm_vanilla_decoration_db";
 const dbHost = "localhost";
 
 const config: DataSourceOptions = {
@@ -132,6 +132,7 @@ describe("TypeORM Vanilla decoration", () => {
       await TypeORMAdapter.createUser(con, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(con, user);
       await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
@@ -144,7 +145,7 @@ describe("TypeORM Vanilla decoration", () => {
   });
 
   afterAll(async () => {
-    await con.destroy();
+    if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);

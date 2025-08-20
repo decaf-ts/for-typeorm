@@ -1253,6 +1253,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             propMetadata(oneToOneKey, metadata),
             OneToOne(
               () => {
+                if (!clazz.name) clazz = (clazz as any)();
+
                 if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
                   throw new InternalError(
                     "Original Model not found in constructor"
@@ -1301,6 +1303,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             propMetadata(oneToManyKey, metadata),
             OneToMany(
               () => {
+                if (!clazz.name) clazz = (clazz as any)();
                 if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
                   throw new InternalError(
                     "Original Model not found in constructor"
@@ -1355,6 +1358,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             propMetadata(manyToOneKey, metadata),
             ManyToOne(
               () => {
+                if (!clazz.name) clazz = (clazz as any)();
                 if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
                   throw new InternalError(
                     "Original Model not found in constructor"
@@ -1409,6 +1413,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             propMetadata(manyToManyKey, metadata),
             ManyToMany(
               () => {
+                if (!clazz.name) clazz = (clazz as any)();
                 if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
                   throw new InternalError(
                     "Original Model not found in constructor"

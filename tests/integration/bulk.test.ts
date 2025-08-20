@@ -60,7 +60,7 @@ const typeOrmCfg = {
 @model()
 class TestBulkModel extends TypeORMBaseModel {
   @column()
-  @pk()
+  @pk({ type: "Number" })
   id?: number = undefined;
 
   @column()
@@ -103,6 +103,7 @@ describe("Bulk operations", () => {
       await TypeORMAdapter.createUser(con, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(con, user);
       await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
@@ -136,7 +137,7 @@ describe("Bulk operations", () => {
   // });
 
   afterAll(async () => {
-    await con.destroy();
+    if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);

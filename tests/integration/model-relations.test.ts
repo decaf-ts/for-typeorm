@@ -82,6 +82,7 @@ describe(`Complex Database`, function () {
       await TypeORMAdapter.createUser(con, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(con, user);
       await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
@@ -123,7 +124,7 @@ describe(`Complex Database`, function () {
   // });
 
   afterAll(async () => {
-    await con.destroy();
+    if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);

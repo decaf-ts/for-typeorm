@@ -65,7 +65,7 @@ const typeOrmCfg = {
 @table("tst_query_user")
 @model()
 class QueryUser extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column("tst_age")
@@ -120,6 +120,7 @@ describe("Queries", () => {
       await TypeORMAdapter.createUser(con, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(con, user);
       await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
@@ -153,7 +154,7 @@ describe("Queries", () => {
   // });
 
   afterAll(async () => {
-    await con.destroy();
+    if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);

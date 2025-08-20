@@ -56,7 +56,7 @@ const typeOrmCfg = {
 @table("type_orm_decaf_child")
 @model()
 class TypeORMDecafChild extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column()
@@ -76,7 +76,7 @@ class TypeORMDecafChild extends TypeORMBaseModel {
 @table("type_orm_decaf")
 @model()
 class TypeORMDecaf extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column()
@@ -127,6 +127,7 @@ describe("TypeORM Decaf decoration", () => {
       await TypeORMAdapter.createUser(con, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(con, user);
       await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
@@ -144,7 +145,7 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   afterAll(async () => {
-    await con.destroy();
+    if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);

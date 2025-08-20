@@ -25,7 +25,7 @@ import { TypeORMFlavour } from "../../src";
 @table("tst_country")
 @model()
 export class TestCountryModel extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column("tst_name")
@@ -50,7 +50,7 @@ export class TestCountryModel extends TypeORMBaseModel {
 @table("tst_address")
 @model()
 export class TestAddressModel extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column("tst_street")
@@ -88,7 +88,7 @@ export class TestAddressModel extends TypeORMBaseModel {
 @table("tst_dummy_country")
 @model()
 export class TestDummyCountry extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column("tst_name")
@@ -108,7 +108,7 @@ export class TestDummyCountry extends TypeORMBaseModel {
 @table("tst_no_populate_once")
 @model()
 export class NoPopulateOnceModel extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @oneToOne(
@@ -127,7 +127,7 @@ export class NoPopulateOnceModel extends TypeORMBaseModel {
 @table("tst_dummy_phone")
 @model()
 export class TestDummyPhone extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
   @column("tst_area_code")
   @required()
@@ -144,7 +144,7 @@ export class TestDummyPhone extends TypeORMBaseModel {
 @table("tst_no_populate_many")
 @model()
 export class NoPopulateManyModel extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @required()

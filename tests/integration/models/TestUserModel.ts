@@ -24,7 +24,7 @@ import { testPhone, TestPhoneModel } from "./TestModelPhone";
 @table("tst_user")
 @model()
 export class TestUserModel extends TypeORMBaseModel {
-  @pk()
+  @pk({ type: "Number" })
   id!: number;
 
   @column("tst_name")
