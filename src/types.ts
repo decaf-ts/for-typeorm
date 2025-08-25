@@ -3,10 +3,10 @@ import { QueryBuilder, SelectQueryBuilder } from "typeorm";
 import { Model } from "@decaf-ts/decorator-validation";
 
 /**
- * @description SQL operators available in PostgreSQL queries
- * @summary Enum of standard SQL operators that can be used in PostgreSQL queries
+ * @description SQL operators available for building TypeORM queries.
+ * @summary Enumeration of common SQL operators intended for use within TypeORM query construction and translation layers.
  * @enum {string}
- * @memberOf module:for-postgres
+ * @memberOf module:for-typeorm
  */
 export enum SQLOperator {
   EQUAL = "=",
@@ -29,6 +29,16 @@ export enum SQLOperator {
   SOME = "SOME",
 }
 
+/**
+ * @description Query container used by the TypeORM adapter.
+ * @summary Represents a raw SQL string or a TypeORM SelectQueryBuilder plus optional bound values to be executed by the adapter.
+ * @template M The Model type for which the SelectQueryBuilder is parameterized.
+ * @template T The underlying query type, either a string or a SelectQueryBuilder<M>.
+ * @param {T} query The raw SQL string or SelectQueryBuilder instance.
+ * @param {any[]} [values] Optional positional values to bind when executing a raw SQL string.
+ * @interface TypeORMQuery
+ * @memberOf module:for-typeorm
+ */
 export interface TypeORMQuery<
   M extends Model = Model,
   T extends string | SelectQueryBuilder<M> = string,
@@ -38,10 +48,10 @@ export interface TypeORMQuery<
 }
 
 /**
- * @description Configuration flags for Postgres database operations
- * @summary Extended repository flags that include user authentication information for Postgres database connections
+ * @description Configuration flags for TypeORM operations.
+ * @summary Extended repository flags including connection/user context that can be leveraged by the TypeORM adapter.
  * @interface TypeORMFlags
- * @memberOf module:for-postgres
+ * @memberOf module:for-typeorm
  */
 export interface TypeORMFlags extends RepositoryFlags {
   /**
@@ -50,6 +60,15 @@ export interface TypeORMFlags extends RepositoryFlags {
   user: string;
 }
 
+/**
+ * @description Specification for a table creation/change statement used by the TypeORM adapter.
+ * @summary Extends a TypeORMQuery with table metadata such as primary key flag, constraints, and foreign keys.
+ * @typedef TypeORMTableSpec
+ * @property {boolean} primaryKey Indicates if the target column is part of the primary key.
+ * @property {string[]} constraints A list of raw SQL constraints to apply to the table/column.
+ * @property {string[]} foreignKeys A list of foreign key constraint definitions.
+ * @memberOf module:for-typeorm
+ */
 export type TypeORMTableSpec = TypeORMQuery & {
   primaryKey: boolean;
   constraints: string[];

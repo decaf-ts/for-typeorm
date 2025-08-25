@@ -1,7 +1,7 @@
 {
-  "name": "@decaf-ts/for-postgres",
+  "name": "@decaf-ts/for-typeorm",
   "version": "0.0.5",
-  "description": "template for ts projects",
+  "description": "decaf typeorm wrapper",
   "type": "module",
   "exports": {
     "require": "./lib/index.cjs",
@@ -41,7 +41,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/decaf-ts/ts-workspace.git"
+    "url": "git+https://github.com/decaf-ts/for-typeorm.git"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -74,9 +74,9 @@
   ],
   "author": "Tiago Venceslau",
   "bugs": {
-    "url": "https://github.com/decaf-ts/ts-workspace/issues"
+    "url": "https://github.com/decaf-ts/for-typeorm/issues"
   },
-  "homepage": "https://github.com/decaf-ts/ts-workspace#readme",
+  "homepage": "https://github.com/decaf-ts/for-typeorm#readme",
   "devDependencies": {
     "@decaf-ts/utils": "latest",
     "@eslint/js": "^9.25.1",
