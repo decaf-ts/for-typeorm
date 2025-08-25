@@ -75,10 +75,8 @@ import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-// import { OneToOne } from "./overrides/OneToOne";
 import { OneToMany } from "./overrides/OneToMany";
 import { ManyToOne } from "./overrides/ManyToOne";
-// import { JoinColumn } from "./overrides/JoinColumn";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -123,7 +121,12 @@ export class TypeORMAdapter extends Adapter<
 
   get dataSource(): DataSource {
     if (!this._dataSource) {
-      this._dataSource = new DataSource(this.native);
+      const models = Adapter.models(this.flavour);
+      this._dataSource = new DataSource(
+        Object.assign(this.native, {
+          entities: models.map((c) => c[ModelKeys.ANCHOR as keyof typeof c]),
+        })
+      );
     }
     return this._dataSource;
   }
@@ -219,9 +222,14 @@ export class TypeORMAdapter extends Adapter<
    * @return {Promise<void>} A promise that resolves when initialization is complete
    */
   async initialize(): Promise<void> {
-    const managedModels = Adapter.models(this.flavour);
-
-    return this.index(...managedModels);
+    const ds = this.dataSource;
+    try {
+      await ds.initialize();
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
+    const log = this.log.for(this.initialize);
+    log.verbose(`${this.flavour} adapter initialized`);
   }
 
   /**
@@ -259,6 +267,7 @@ export class TypeORMAdapter extends Adapter<
    * @return {Promise<R>} A promise that resolves to the query result
    */
   override async raw<R>(q: TypeORMQuery): Promise<R> {
+    const log = this.log.for(this.raw);
     try {
       if (!this.dataSource.isInitialized) await this.dataSource.initialize();
     } catch (e: unknown) {
@@ -266,9 +275,9 @@ export class TypeORMAdapter extends Adapter<
     }
     try {
       const { query, values } = q;
-
-      const sql = (query as unknown as SelectQueryBuilder<any>).getSql();
-
+      log.debug(
+        `executing query: ${(query as unknown as SelectQueryBuilder<any>).getSql()}`
+      );
       const response = await this.dataSource.query(query, values);
       return response as R;
     } catch (e: unknown) {

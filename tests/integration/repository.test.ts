@@ -31,7 +31,11 @@ import {
   table,
   uses,
 } from "@decaf-ts/core";
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import {
+  ConflictError,
+  NotFoundError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
@@ -42,6 +46,7 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "./baseModel";
+import { getTypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 
 jest.setTimeout(50000);
 
@@ -131,12 +136,7 @@ describe("repositories", () => {
         return mock(...args);
       }
     })();
-    // repo.observe(observer);
   });
-  //
-  // afterEach(() => {
-  //   repo.unObserve(observer);
-  // });
 
   afterAll(async () => {
     if (con) await con.destroy();
@@ -192,6 +192,7 @@ describe("repositories", () => {
     const repo: TypeORMRepository<TestModelRepo> =
       Repository.forModel(TestModelRepo);
 
+    repo.observe(observer);
     const toCreate = new TestModelRepo({
       name: "test_name",
       nif: "123456789",
@@ -200,5 +201,12 @@ describe("repositories", () => {
     created = await repo.create(toCreate);
     expect(created).toBeDefined();
     expect(created.hasErrors()).toBeUndefined();
+
+    expect(mock).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledWith(
+      Repository.table(TestModelRepo),
+      OperationKeys.CREATE,
+      [1]
+    );
   });
 });

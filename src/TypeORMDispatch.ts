@@ -2,6 +2,7 @@ import { Dispatch } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { TypeORMAdapter } from "./TypeORMAdapter";
+import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
 
 /**
  * @description Dispatcher for PostgreSQL database change events
@@ -144,8 +145,6 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
    *   end
    */
   protected override async initialize(): Promise<void> {
-    const log = this.log.for(this.initialize);
-
     async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
       if (!this.adapter || !this.native) {
         throw new InternalError(`No adapter/native observed for dispatch`);
@@ -156,31 +155,12 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
       try {
         if (!adapter.dataSource.isInitialized)
           await adapter.dataSource.initialize();
-        //
-        // this.client.on("notification", this.notificationHandler.bind(this));
-        //
-        // // Listen for table change notifications
-        // // This assumes you have set up triggers in PostgreSQL to NOTIFY on table changes
-        // const res = await this.client.query("LISTEN user_table_changes");
 
-        this.attemptCounter = 0;
-      } catch (e: unknown) {
-        if (adapter.dataSource) {
-          await adapter.dataSource.destroy();
-        }
-
-        if (++this.attemptCounter > 3) {
-          return log.error(
-            `Failed to subscribe to TypeORM notifications: ${e}`
-          );
-        }
-
-        log.info(
-          `Failed to subscribe to TypeORM notifications: ${e}. Retrying in ${this.timeout}ms...`
+        adapter.dataSource.subscribers.push(
+          new TypeORMEventSubscriber(adapter)
         );
-
-        await new Promise((resolve) => setTimeout(resolve, this.timeout));
-        return subscribeToTypeORM.call(this);
+      } catch (e: unknown) {
+        throw new InternalError(e as Error);
       }
     }
 
