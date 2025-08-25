@@ -154,7 +154,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
     }
 
     const opts: FindManyOptions<M> = Object.assign(statement, {
-      skip: ((this.current || 1) - 1) * (this.size + 1),
+      skip: (this.current || 0) * this.size,
       take: this.size,
     });
 

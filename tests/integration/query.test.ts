@@ -69,7 +69,7 @@ const typeOrmCfg = {
 @uses(TypeORMFlavour)
 @table("tst_query_user")
 @model()
-class QueryUser extends Model {
+class QueryUser extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 

@@ -47,34 +47,34 @@ describe(`Pagination`, function () {
   let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {
-    // con = await TypeORMAdapter.connect(config);
-    // expect(con).toBeDefined();
-    //
-    // try {
-    //   await TypeORMAdapter.deleteDatabase(con, dbName, user);
-    // } catch (e: unknown) {
-    //   if (!(e instanceof NotFoundError)) throw e;
-    // }
-    // try {
-    //   await TypeORMAdapter.deleteUser(con, user, admin);
-    // } catch (e: unknown) {
-    //   if (!(e instanceof NotFoundError)) throw e;
-    // }
-    // try {
-    //   await TypeORMAdapter.createDatabase(con, dbName);
-    //   await con.destroy();
-    //   con = await TypeORMAdapter.connect(
-    //     Object.assign({}, config, {
-    //       database: dbName,
-    //     })
-    //   );
-    //   await TypeORMAdapter.createUser(con, dbName, user, user_password);
-    //   await TypeORMAdapter.createNotifyFunction(con, user);
-    //   await con.destroy();
-    //   con = undefined;
-    // } catch (e: unknown) {
-    //   if (!(e instanceof ConflictError)) throw e;
-    // }
+    con = await TypeORMAdapter.connect(config);
+    expect(con).toBeDefined();
+
+    try {
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+    try {
+      await TypeORMAdapter.deleteUser(con, user, admin);
+    } catch (e: unknown) {
+      if (!(e instanceof NotFoundError)) throw e;
+    }
+    try {
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
+        Object.assign({}, config, {
+          database: dbName,
+        })
+      );
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
+      con = undefined;
+    } catch (e: unknown) {
+      if (!(e instanceof ConflictError)) throw e;
+    }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
         entities: [TestCountryModel[ModelKeys.ANCHOR]],
@@ -108,14 +108,14 @@ describe(`Pagination`, function () {
     if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
-    // await TypeORMAdapter.deleteDatabase(con, dbName, user);
-    // await TypeORMAdapter.deleteUser(con, user, admin);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
   });
 
   let created: TestCountryModel[];
-  const size = 20;
-
+  const size = 100;
+  const pageSize = 10;
   let selected: TestCountryModel[];
 
   it("Creates in bulk", async () => {
@@ -141,7 +141,7 @@ describe(`Pagination`, function () {
     expect(created.every((el) => !el.hasErrors())).toEqual(true);
   });
 
-  it.only("Sorts via defined property when there is an index", async () => {
+  it("Sorts via defined property when there is an index", async () => {
     selected = await repo
       .select()
       .orderBy(["id", OrderDirection.ASC])
@@ -155,11 +155,11 @@ describe(`Pagination`, function () {
     const paginator: Paginator<TestCountryModel> = await repo
       .select()
       .orderBy(["id", OrderDirection.DSC])
-      .paginate(10);
+      .paginate(pageSize);
 
     expect(paginator).toBeDefined();
 
-    expect(paginator.size).toEqual(10);
+    expect(paginator.size).toEqual(pageSize);
     expect(paginator.current).toEqual(undefined);
 
     const page1 = await paginator.page();
@@ -194,7 +194,7 @@ describe(`Pagination`, function () {
       expect.arrayContaining(ids.map((e) => e - 30))
     );
 
-    expect(() => paginator.count).toThrow();
-    expect(() => paginator.total).toThrow();
+    expect(paginator.count).toEqual(created.length);
+    expect(paginator.total).toEqual(Math.ceil(size / pageSize));
   });
 });

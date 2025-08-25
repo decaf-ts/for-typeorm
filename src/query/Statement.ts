@@ -94,6 +94,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    *   Statement-->>Statement: Return query
    */
   protected build(): TypeORMQuery<M> {
+    const log = this.log.for(this.build);
     const tableName = Repository.table(this.fromSelector);
     const m = new this.fromSelector();
 
@@ -139,7 +140,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     if (this.limitSelector) {
       q.query = (q.query as SelectQueryBuilder<any>).limit(this.limitSelector);
     } else {
-      console.warn(
+      log.debug(
         `No limit selector defined. Using default limit of ${TypeORMQueryLimit}`
       );
       q.query = (q.query as SelectQueryBuilder<any>).limit(TypeORMQueryLimit);
@@ -224,7 +225,9 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     tableName: string,
     counter = 0,
     conditionalOp?: GroupOperator | Operator
-  ): FindOptionsWhere<M>[] | FindOptionsWhere<M> {}
+  ): FindOptionsWhere<M>[] | FindOptionsWhere<M> {
+    throw new InternalError("Not implemented");
+  }
 
   /**
    * @description Parses a condition into PostgreSQL conditions
