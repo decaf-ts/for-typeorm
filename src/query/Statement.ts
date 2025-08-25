@@ -14,7 +14,9 @@ import { TypeORMPaginator } from "./Paginator";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
 import { TypeORMAdapter } from "../TypeORMAdapter";
-import { SelectQueryBuilder } from "typeorm";
+import { FindManyOptions, SelectQueryBuilder } from "typeorm";
+import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
+import { FindOptionsOrder } from "typeorm/find-options/FindOptionsOrder";
 
 /**
  * @description Statement builder for PostgreSQL queries
@@ -100,19 +102,19 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
         .getRepository(
           this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector]
         )
-        .createQueryBuilder() as SelectQueryBuilder<M>,
+        .createQueryBuilder(tableName) as SelectQueryBuilder<M>,
     };
 
     if (this.selectSelector)
       q.query = q.query.select(
         this.selectSelector.map((s) => `${tableName}.${s as string}`)
       );
-    else q.query = q.query.select(tableName);
-
-    q.query = (q.query as SelectQueryBuilder<any>).from(
-      this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector],
-      tableName
-    );
+    else q.query = q.query.select();
+    //
+    // q.query = (q.query as SelectQueryBuilder<any>).from(
+    //   this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector],
+    //   tableName
+    // );
 
     if (this.whereCondition)
       q.query = this.parseCondition(
@@ -161,9 +163,22 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   async paginate<R>(size: number): Promise<Paginator<M, R, TypeORMQuery>> {
     try {
       const query: TypeORMQuery = this.build();
+      const transformedQuery: FindManyOptions<M> = {};
+      const a = query.query as unknown as SelectQueryBuilder<M>;
+      if (this.whereCondition)
+        transformedQuery.where = this.parseConditionForPagination(
+          this.whereCondition,
+          Repository.table(this.fromSelector)
+        );
+
+      if (this.orderBySelector)
+        transformedQuery.order = {
+          [this.orderBySelector[0]]: this.orderBySelector[1].toString(),
+        } as any;
+
       return new TypeORMPaginator(
         this.adapter as any,
-        query,
+        transformedQuery as any,
         size,
         this.fromSelector
       );
@@ -195,10 +210,21 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @return {Promise<R>} A promise that resolves to the query results
    */
   override async raw<R>(rawInput: TypeORMQuery<M>): Promise<R> {
+    const log = this.log.for(this.raw);
+    log.debug(
+      `Executing raw query: ${(rawInput.query as unknown as SelectQueryBuilder<M>).getSql()}`
+    );
     return (await (
       rawInput.query as unknown as SelectQueryBuilder<M>
     ).getMany()) as R;
   }
+
+  protected parseConditionForPagination(
+    condition: Condition<M>,
+    tableName: string,
+    counter = 0,
+    conditionalOp?: GroupOperator | Operator
+  ): FindOptionsWhere<M>[] | FindOptionsWhere<M> {}
 
   /**
    * @description Parses a condition into PostgreSQL conditions

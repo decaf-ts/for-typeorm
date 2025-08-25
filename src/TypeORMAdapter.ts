@@ -66,6 +66,7 @@ import {
   OneToOne,
   JoinColumn,
   ManyToMany,
+  SelectQueryBuilder,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -265,6 +266,9 @@ export class TypeORMAdapter extends Adapter<
     }
     try {
       const { query, values } = q;
+
+      const sql = (query as unknown as SelectQueryBuilder<any>).getSql();
+
       const response = await this.dataSource.query(query, values);
       return response as R;
     } catch (e: unknown) {

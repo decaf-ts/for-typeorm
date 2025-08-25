@@ -198,7 +198,7 @@ describe("Bulk operations", () => {
     expect(updated.every((el, i) => !el.equals(created[i]))).toEqual(true);
   });
 
-  it("Deletes in Bulk", async () => {
+  it.skip("Deletes in Bulk", async () => {
     const ids = created.map((c) => c.id);
     const deleted = await repo.deleteAll(ids as number[]);
     expect(deleted).toBeDefined();

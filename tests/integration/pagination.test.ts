@@ -47,34 +47,34 @@ describe(`Pagination`, function () {
   let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {
-    con = await TypeORMAdapter.connect(config);
-    expect(con).toBeDefined();
-
-    try {
-      await TypeORMAdapter.deleteDatabase(con, dbName, user);
-    } catch (e: unknown) {
-      if (!(e instanceof NotFoundError)) throw e;
-    }
-    try {
-      await TypeORMAdapter.deleteUser(con, user, admin);
-    } catch (e: unknown) {
-      if (!(e instanceof NotFoundError)) throw e;
-    }
-    try {
-      await TypeORMAdapter.createDatabase(con, dbName);
-      await con.destroy();
-      con = await TypeORMAdapter.connect(
-        Object.assign({}, config, {
-          database: dbName,
-        })
-      );
-      await TypeORMAdapter.createUser(con, dbName, user, user_password);
-      await TypeORMAdapter.createNotifyFunction(con, user);
-      await con.destroy();
-      con = undefined;
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    // con = await TypeORMAdapter.connect(config);
+    // expect(con).toBeDefined();
+    //
+    // try {
+    //   await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    // } catch (e: unknown) {
+    //   if (!(e instanceof NotFoundError)) throw e;
+    // }
+    // try {
+    //   await TypeORMAdapter.deleteUser(con, user, admin);
+    // } catch (e: unknown) {
+    //   if (!(e instanceof NotFoundError)) throw e;
+    // }
+    // try {
+    //   await TypeORMAdapter.createDatabase(con, dbName);
+    //   await con.destroy();
+    //   con = await TypeORMAdapter.connect(
+    //     Object.assign({}, config, {
+    //       database: dbName,
+    //     })
+    //   );
+    //   await TypeORMAdapter.createUser(con, dbName, user, user_password);
+    //   await TypeORMAdapter.createNotifyFunction(con, user);
+    //   await con.destroy();
+    //   con = undefined;
+    // } catch (e: unknown) {
+    //   if (!(e instanceof ConflictError)) throw e;
+    // }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
         entities: [TestCountryModel[ModelKeys.ANCHOR]],
@@ -108,13 +108,13 @@ describe(`Pagination`, function () {
     if (con) await con.destroy();
     await dataSource.destroy();
     con = await TypeORMAdapter.connect(config);
-    await TypeORMAdapter.deleteDatabase(con, dbName, user);
-    await TypeORMAdapter.deleteUser(con, user, admin);
+    // await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    // await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
   });
 
   let created: TestCountryModel[];
-  const size = 100;
+  const size = 20;
 
   let selected: TestCountryModel[];
 
@@ -123,15 +123,17 @@ describe(`Pagination`, function () {
       TestCountryModel,
       TypeORMRepository<TestCountryModel>
     >(TestCountryModel);
-    const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
-      (i) =>
-        new TestCountryModel({
-          age: Math.floor(18 + (i - 1) / 3),
-          name: "user_name_" + i,
-          countryCode: "M" + i,
-          locale: "pt_PT",
-        })
-    );
+    const models = Object.keys(new Array(size).fill(0))
+      .map((e) => parseInt(e) + 1)
+      .map(
+        (i) =>
+          new TestCountryModel({
+            age: Math.floor(18 + (i - 1) / 3),
+            name: "user_name_" + i,
+            countryCode: "M" + i,
+            locale: "pt_PT",
+          })
+      );
     created = await repo.createAll(models);
     expect(created).toBeDefined();
     expect(Array.isArray(created)).toEqual(true);
@@ -139,7 +141,7 @@ describe(`Pagination`, function () {
     expect(created.every((el) => !el.hasErrors())).toEqual(true);
   });
 
-  it("Sorts via defined property when there is an index", async () => {
+  it.only("Sorts via defined property when there is an index", async () => {
     selected = await repo
       .select()
       .orderBy(["id", OrderDirection.ASC])

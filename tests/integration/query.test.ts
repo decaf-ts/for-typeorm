@@ -1,5 +1,6 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter, TypeORMFlavour, TypeORMRepository } from "../../src";
+import { Logging, LogLevel } from "@decaf-ts/logging";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -17,7 +18,11 @@ const config: DataSourceOptions = {
   ssl: false,
 };
 let con: DataSource;
+Logging.setConfig({
+  level: LogLevel.debug,
+});
 const adapter = new TypeORMAdapter(config);
+
 import {
   column,
   Condition,
@@ -32,6 +37,7 @@ import {
 import {
   min,
   minlength,
+  Model,
   model,
   ModelArg,
   ModelKeys,
@@ -45,7 +51,6 @@ import {
 } from "@decaf-ts/db-decorators";
 
 import { TypeORMBaseModel } from "./baseModel";
-
 const dbName = "queries_db";
 
 jest.setTimeout(50000);
@@ -64,7 +69,7 @@ const typeOrmCfg = {
 @uses(TypeORMFlavour)
 @table("tst_query_user")
 @model()
-class QueryUser extends TypeORMBaseModel {
+class QueryUser extends Model {
   @pk({ type: "Number" })
   id!: number;
 
@@ -162,21 +167,39 @@ describe("Queries", () => {
     await con.destroy();
   });
 
-  let created: QueryUser[];
+  let created: QueryUser[] = [];
+  const size = 20;
+
+  it.skip("creates single model", async () => {
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
+      QueryUser,
+      TypeORMRepository<QueryUser>
+    >(QueryUser);
+    const m = new QueryUser({
+      age: 18,
+      name: "single",
+      sex: "M",
+    });
+    const created = await repo.create(m);
+    expect(created).toBeDefined();
+    expect(created.hasErrors()).toBeFalsy();
+  });
 
   it("Creates in bulk", async () => {
     const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
       TypeORMRepository<QueryUser>
     >(QueryUser);
-    const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
-      (i) =>
-        new QueryUser({
-          age: Math.floor(18 + (i - 1) / 3),
-          name: "user_name_" + i,
-          sex: i % 2 === 0 ? "M" : "F",
-        })
-    );
+    const models = Object.keys(new Array(size).fill(0))
+      .map((e) => parseInt(e) + 1)
+      .map(
+        (i) =>
+          new QueryUser({
+            age: Math.floor(18 + (i - 1) / 3),
+            name: "user_name_" + i,
+            sex: i % 2 === 0 ? "M" : "F",
+          })
+      );
     created = await repo.createAll(models);
     expect(created).toBeDefined();
     expect(Array.isArray(created)).toEqual(true);
@@ -187,6 +210,7 @@ describe("Queries", () => {
   it("Performs simple queries - full object", async () => {
     const repo: TypeORMRepository<QueryUser> = Repository.forModel(QueryUser);
     const selected = await repo.select().execute();
+    expect(selected.length).toEqual(created.length);
     expect(
       created.every((c) => c.equals(selected.find((s: any) => (s.id = c.id))))
     );
