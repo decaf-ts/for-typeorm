@@ -5,44 +5,31 @@ import { TypeORMAdapter } from "./TypeORMAdapter";
 import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
 
 /**
- * @description Dispatcher for PostgreSQL database change events
- * @summary Handles the subscription to and processing of database change events from a PostgreSQL database,
- * notifying observers when records are created, updated, or deleted
- * @template Pool - The pg Pool type
- * @param {number} [timeout=5000] - Timeout in milliseconds for notification requests
+ * @description Dispatcher for TypeORM-driven change events.
+ * @summary Subscribes a TypeORM DataSource with a custom EntitySubscriber to notify observers when records are created, updated, or deleted.
+ * @param {number} [timeout=5000] Timeout in milliseconds for initialization retries.
  * @class TypeORMDispatch
  * @example
- * ```typescript
- * // Create a dispatcher for a PostgreSQL database
- * const pool = new Pool({
- *   user: 'postgres',
- *   password: 'password',
- *   host: 'localhost',
- *   port: 5432,
- *   database: 'mydb'
- * });
- * const adapter = new PostgreSQLAdapterImpl(pool);
- * const dispatch = new PostgreSQLDispatch();
+ * // Create a dispatcher for a TypeORM DataSource
+ * const dispatch = new TypeORMDispatch();
+ * await dispatch.observe(adapter, adapter.dataSource.options);
  *
- * // The dispatcher will automatically subscribe to notifications
- * // and notify observers when records change
- * ```
+ * // The dispatcher registers a TypeORMEventSubscriber and notifies observers when entities change.
  * @mermaid
  * classDiagram
  *   class Dispatch {
  *     +initialize()
  *     +updateObservers()
  *   }
- *   class PostgreSQLDispatch {
+ *   class TypeORMDispatch {
  *     -observerLastUpdate?: string
  *     -attemptCounter: number
  *     -timeout: number
- *     -client?: PoolClient
  *     +constructor(timeout)
  *     #notificationHandler()
  *     #initialize()
  *   }
- *   Dispatch <|-- PostgreSQLDispatch
+ *   Dispatch <|-- TypeORMDispatch
  */
 export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
   private observerLastUpdate?: string;
@@ -53,11 +40,10 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
   }
 
   /**
-   * @description Processes database notification events
-   * @summary Handles the notifications from PostgreSQL LISTEN/NOTIFY mechanism,
-   * and notifies observers about record changes
-   * @param {Notification} notification - The notification from PostgreSQL
-   * @return {Promise<void>} A promise that resolves when all notifications have been processed
+   * @description Processes TypeORM notification events.
+   * @summary Handles change notifications (translated from TypeORM events) and notifies observers about record changes.
+   * @param {any} notification The notification payload.
+   * @return {Promise<void>} A promise that resolves when all notifications have been processed.
    * @mermaid
    * sequenceDiagram
    *   participant D as PostgreSQLDispatch
@@ -110,38 +96,29 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
   }
 
   /**
-   * @description Initializes the dispatcher and subscribes to database notifications
-   * @summary Sets up the LISTEN mechanism to subscribe to PostgreSQL notifications
-   * and handles reconnection attempts if the connection fails
-   * @return {Promise<void>} A promise that resolves when the subscription is established
+   * @description Initializes the dispatcher and subscribes to TypeORM notifications.
+   * @summary Registers the TypeORMEventSubscriber on the DataSource and logs the subscription lifecycle.
+   * @return {Promise<void>} A promise that resolves when the subscription is established.
    * @mermaid
    * sequenceDiagram
-   *   participant D as PostgreSQLDispatch
-   *   participant S as subscribeToPostgreSQL
-   *   participant DB as PostgreSQL Database
+   *   participant D as TypeORMDispatch
+   *   participant S as subscribeToTypeORM
+   *   participant DS as TypeORM DataSource
    *   participant L as Logger
-   *   D->>S: Call subscribeToPostgreSQL
+   *   D->>S: Call subscribeToTypeORM
    *   S->>S: Check adapter and native
    *   alt No adapter or native
    *     S-->>S: throw InternalError
    *   end
-   *   S->>DB: Connect client from pool
-   *   S->>DB: LISTEN table_changes
+   *   S->>DS: initialize()
+   *   S->>DS: subscribers.push(TypeORMEventSubscriber)
    *   alt Success
-   *     DB-->>S: Subscription established
+   *     DS-->>S: Subscription established
    *     S-->>D: Promise resolves
    *     D->>L: Log successful subscription
    *   else Error
-   *     DB-->>S: Error
-   *     S->>S: Increment attemptCounter
-   *     alt attemptCounter > 3
-   *       S->>L: Log error
-   *       S-->>D: Promise rejects
-   *     else attemptCounter <= 3
-   *       S->>L: Log retry
-   *       S->>S: Wait timeout
-   *       S->>S: Recursive call to subscribeToPostgreSQL
-   *     end
+   *     DS-->>S: Error
+   *     S-->>D: Promise rejects
    *   end
    */
   protected override async initialize(): Promise<void> {

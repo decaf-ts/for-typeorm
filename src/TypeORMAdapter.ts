@@ -101,15 +101,36 @@ export async function createdByOnPostgresCreateUpdate<
 }
 
 /**
- * @description Abstract adapter for Postgres database operations
- * @summary Provides a base implementation for Postgres database operations, including CRUD operations, sequence management, and error handling
- * @template Y - The scope type
- * @template F - The repository flags type
- * @template C - The context type
- * @param {Y} scope - The scope for the adapter
- * @param {string} flavour - The flavour of the adapter
- * @param {string} [alias] - Optional alias for the adapter
- * @class PostgresAdapter
+ * @description Adapter for TypeORM-backed persistence operations.
+ * @summary Implements the Decaf.ts Adapter over a TypeORM DataSource, providing CRUD operations, query/statement factories, sequence management, error parsing, and decoration helpers.
+ * @template Y The native configuration type (TypeORM DataSourceOptions).
+ * @template F The repository flags type.
+ * @template C The context type.
+ * @param {DataSourceOptions} scope The DataSource options for the adapter.
+ * @param {string} flavour The flavour of the adapter.
+ * @param {string} [alias] Optional alias for the adapter.
+ * @class TypeORMAdapter
+ * @example
+ * const adapter = new TypeORMAdapter({ type: 'postgres', /* ... *\/ });
+ * await adapter.initialize();
+ * const repo = new (adapter.repository<User>())(adapter, User);
+ * const created = await repo.create(new User({ name: 'Alice' }));
+ *
+ * @mermaid
+ * sequenceDiagram
+ *   participant App
+ *   participant Adapter as TypeORMAdapter
+ *   participant Repo as TypeORMRepository
+ *   participant DS as TypeORM DataSource
+ *
+ *   App->>Adapter: new TypeORMAdapter(opts)
+ *   Adapter->>DS: initialize()
+ *   App->>Adapter: repository()
+ *   Adapter-->>App: TypeORMRepository
+ *   App->>Repo: create(model)
+ *   Repo->>Adapter: prepare/create/revert
+ *   Adapter-->>Repo: Model
+ *   Repo-->>App: Model
  */
 export class TypeORMAdapter extends Adapter<
   DataSourceOptions,

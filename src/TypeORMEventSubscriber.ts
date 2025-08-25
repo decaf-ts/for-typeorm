@@ -18,6 +18,25 @@ import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
  * @example
  * // Registering the subscriber when creating a DataSource
  * // dataSourceOptions.subscribers = [new TypeORMEventSubscriber(adapter)];
+ *
+ * @mermaid
+ * sequenceDiagram
+ *   participant TypeORM
+ *   participant Subscriber as TypeORMEventSubscriber
+ *   participant Adapter as TypeORMAdapter
+ *   participant Observers
+ *
+ *   TypeORM->>Subscriber: afterInsert(entity)
+ *   Subscriber->>Adapter: updateObservers(table, CREATE, [id])
+ *   Adapter->>Observers: notify(table, CREATE, [id])
+ *
+ *   TypeORM->>Subscriber: afterUpdate(event)
+ *   Subscriber->>Adapter: updateObservers(table, UPDATE, [id])
+ *   Adapter->>Observers: notify(table, UPDATE, [id])
+ *
+ *   TypeORM->>Subscriber: afterRemove(event)
+ *   Subscriber->>Adapter: updateObservers(table, DELETE, [id])
+ *   Adapter->>Observers: notify(table, DELETE, [id])
  */
 @EventSubscriber()
 export class TypeORMEventSubscriber implements EntitySubscriberInterface {
