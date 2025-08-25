@@ -1,5 +1,5 @@
 import { RepositoryFlags } from "@decaf-ts/db-decorators";
-import { QueryBuilder, SelectQueryBuilder } from "typeorm";
+import { SelectQueryBuilder } from "typeorm";
 import { Model } from "@decaf-ts/decorator-validation";
 
 /**

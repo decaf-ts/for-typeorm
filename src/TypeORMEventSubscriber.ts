@@ -5,10 +5,10 @@ import {
   RemoveEvent,
   UpdateEvent,
 } from "typeorm";
-import { Repository, table } from "@decaf-ts/core";
+import { Repository } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TypeORMAdapter } from "./TypeORMAdapter";
-import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description TypeORM event subscriber that forwards entity lifecycle events to the adapter.

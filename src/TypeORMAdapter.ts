@@ -67,6 +67,7 @@ import {
   JoinColumn,
   ManyToMany,
   SelectQueryBuilder,
+  JoinTable,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -1504,7 +1505,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                 return model[pk];
               },
               ormMeta
-            )
+            ),
+            JoinTable()
           );
         },
       })

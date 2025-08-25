@@ -28,14 +28,28 @@ import {
   TestDummyCountry,
   TestDummyPhone,
 } from "./models";
-import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import {
+  Model,
+  ModelArg,
+  ModelKeys,
+  required,
+} from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Condition, Observer } from "@decaf-ts/core";
+import {
+  Cascade,
+  Condition,
+  manyToMany,
+  Observer,
+  table,
+  column,
+  pk,
+} from "@decaf-ts/core";
 import { sequenceNameForModel } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { TestPhoneModel, testPhone } from "./models/TestModelPhone";
 import { TestUserModel, testUser } from "./models/TestUserModel";
+import { TypeORMBaseModel } from "./baseModel";
 
 const dbName = "complex_db";
 
@@ -661,6 +675,62 @@ describe(`Complex Database`, function () {
           );
         }
         expect(created).toBeUndefined();
+      });
+    });
+
+    describe("many-to-many relations", () => {
+      @table("tst_section")
+      @model()
+      class Section extends TypeORMBaseModel {
+        @pk({ type: "Number" })
+        id!: number;
+
+        @column("tst_section_text")
+        @required()
+        text!: string;
+
+        constructor(arg?: ModelArg<Section>) {
+          super(arg);
+        }
+      }
+
+      @table("tst_text")
+      @model()
+      class Text extends TypeORMBaseModel {
+        @pk({ type: "Number" })
+        id!: number;
+
+        @manyToMany(
+          () => Section,
+          {
+            update: Cascade.CASCADE,
+            delete: Cascade.CASCADE,
+          },
+          true
+        )
+        @required()
+        sections!: Section[];
+
+        constructor(arg?: ModelArg<Section>) {
+          super(arg);
+        }
+      }
+
+      it("creates a many to many relation", async () => {
+        const text = new Text({
+          sections: [
+            new Section({
+              text: "section1",
+            }),
+            new Section({
+              text: "section2",
+            }),
+          ],
+        });
+        const repo = new TypeORMRepository(adapter, Text);
+        const created = await repo.create(text);
+        expect(created).toBeDefined();
+        expect(created.hasErrors()).toBeUndefined();
       });
     });
   });
