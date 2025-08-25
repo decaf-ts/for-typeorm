@@ -31,11 +31,9 @@ export enum SQLOperator {
 
 /**
  * @description Query container used by the TypeORM adapter.
- * @summary Represents a raw SQL string or a TypeORM SelectQueryBuilder plus optional bound values to be executed by the adapter.
+ * @summary Represents either a raw SQL string or a TypeORM SelectQueryBuilder along with optional bound values to be executed by the adapter.
  * @template M The Model type for which the SelectQueryBuilder is parameterized.
  * @template T The underlying query type, either a string or a SelectQueryBuilder<M>.
- * @param {T} query The raw SQL string or SelectQueryBuilder instance.
- * @param {any[]} [values] Optional positional values to bind when executing a raw SQL string.
  * @interface TypeORMQuery
  * @memberOf module:for-typeorm
  */

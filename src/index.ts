@@ -23,5 +23,6 @@ export * from "./utils";
  * @description Stores the current package version.
  * @summary The version string of the for-typeorm package.
  * @const VERSION
+ * @memberOf module:for-typeorm
  */
 export const VERSION = "##VERSION##";

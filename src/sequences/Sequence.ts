@@ -4,13 +4,35 @@ import { Sequence } from "@decaf-ts/core";
 import { TypeORMAdapter } from "../TypeORMAdapter";
 
 /**
- * @summary Abstract implementation of a Sequence
- * @description provides the basic functionality for {@link Sequence}s
- *
- * @param {SequenceOptions} options
- *
+ * @description Abstract implementation of a database sequence for TypeORM.
+ * @summary Provides the basic functionality for {@link Sequence}s, delegating to the {@link TypeORMAdapter} to fetch and increment values while handling type parsing and error translation.
+ * @param {SequenceOptions} options The sequence configuration options (name, type, startWith, incrementBy, etc.).
+ * @param {TypeORMAdapter} adapter The TypeORM adapter used to execute sequence operations.
  * @class TypeORMSequence
  * @implements Sequence
+ * @example
+ * // Create and use a TypeORM-backed sequence
+ * const seq = new TypeORMSequence({ name: "user_id_seq", type: "Number", startWith: 1, incrementBy: 1 }, adapter);
+ * const nextId = await seq.next();
+ *
+ * @mermaid
+ * sequenceDiagram
+ *   participant App
+ *   participant Seq as TypeORMSequence
+ *   participant Adapter as TypeORMAdapter
+ *   participant DB as Database
+ *   App->>Seq: next()
+ *   Seq->>Seq: current()
+ *   Seq->>Adapter: raw(SELECT current_value ...)
+ *   Adapter->>DB: Query current value
+ *   DB-->>Adapter: current_value
+ *   Adapter-->>Seq: value
+ *   Seq->>Seq: increment(current)
+ *   Seq->>Adapter: raw(nextval(name))
+ *   Adapter->>DB: nextval()
+ *   DB-->>Adapter: next value
+ *   Adapter-->>Seq: value
+ *   Seq-->>App: parsed next value
  */
 export class TypeORMSequence extends Sequence {
   constructor(

@@ -21,7 +21,7 @@ import { TypeORMFlavour } from "./constants";
  * @param {TypeORMAdapter} adapter The adapter used to execute persistence operations.
  * @param {Constructor<M>} model The Model constructor associated with this repository.
  * @param {...any[]} args Optional arguments forwarded to the base Repository.
- * @class
+ * @class TypeORMRepository
  * @example
  * // Creating a repository
  * const repo = new TypeORMRepository<User>(adapter, User);
