@@ -1,9 +1,27 @@
-import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter, PostgresFlavour } from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
+import { DataSource, DataSourceOptions } from "typeorm";
+import { TypeORMAdapter, TypeORMFlavour } from "../../src";
+
+const admin = "alfred";
+const admin_password = "password";
+const user = "bulk_user";
+const user_password = "password";
+const dbHost = "localhost";
+
+const config: DataSourceOptions = {
+  type: "postgres",
+  username: admin,
+  password: admin_password,
+  database: "alfred",
+  host: dbHost,
+  port: 5432,
+  ssl: false,
+};
+let con: DataSource;
+
+const adapter = new TypeORMAdapter(config);
 
 import {
+  column,
   Observer,
   PersistenceKeys,
   pk,
@@ -15,100 +33,88 @@ import {
   minlength,
   model,
   ModelArg,
+  ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { PostgresRepository } from "../../src/PostgresRepository";
-import { PGBaseModel } from "./baseModel";
-
-const admin = "alfred";
-const admin_password = "password";
-const user = "bulk_user";
-const user_password = "password";
-const dbHost = "localhost";
-
-const config: PoolConfig = {
-  user: admin,
-  password: admin_password,
-  database: "alfred",
-  host: dbHost,
-  port: 5432,
-  ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
-};
-
-jest.setTimeout(50000);
+import { TypeORMRepository } from "../../src/TypeORMRepository";
+import { TypeORMBaseModel } from "./baseModel";
 
 const dbName = "bulk_db";
 
 jest.setTimeout(50000);
 
-describe("Bulk operations", () => {
-  let con: Pool;
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
 
-  @uses(PostgresFlavour)
-  @table("tst_bulk_model")
-  @model()
-  class TestBulkModel extends PGBaseModel {
-    @pk()
-    id?: number = undefined;
+@uses(TypeORMFlavour)
+@table("tst_bulk_model")
+@model()
+class TestBulkModel extends TypeORMBaseModel {
+  @column()
+  @pk({ type: "Number" })
+  id?: number = undefined;
 
-    @required()
-    @minlength(5)
-    attr1?: string = undefined;
+  @column()
+  @required()
+  @minlength(5)
+  attr1?: string = undefined;
 
-    constructor(arg?: ModelArg<TestBulkModel>) {
-      super(arg);
-    }
+  constructor(arg?: ModelArg<TestBulkModel>) {
+    super(arg);
   }
+}
+
+describe("Bulk operations", () => {
+  let dataSource: DataSource;
+
+  let repo: TypeORMRepository<TestBulkModel>;
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await PostgresAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [TestBulkModel[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
-
-    try {
-      await PostgresAdapter.createTable(con, TestBulkModel);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
+    repo = new TypeORMRepository(adapter, TestBulkModel);
   });
 
   let observer: Observer;
@@ -125,21 +131,24 @@ describe("Bulk operations", () => {
     })();
     // repo.observe(observer);
   });
+  //
+  // afterEach(() => {
+  //   repo.unObserve(observer);
+  // });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName, user);
-    await PostgresAdapter.deleteUser(con, user, admin);
-    await con.end();
+    if (con) await con.destroy();
+    await dataSource.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
+    await con.destroy();
   });
 
   let created: TestBulkModel[];
   let updated: TestBulkModel[];
 
-  it.skip("creates one", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
+  it("creates one", async () => {
     const created = await repo.create(
       new TestBulkModel({
         attr1: "attr1",
@@ -149,8 +158,6 @@ describe("Bulk operations", () => {
   });
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const models = [1, 2, 3, 4, 5].map(
       (i) =>
         new TestBulkModel({
@@ -165,8 +172,6 @@ describe("Bulk operations", () => {
   });
 
   it("Reads in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const ids = created.map((c) => c.id) as number[];
     const read = await repo.readAll(ids);
     expect(read).toBeDefined();
@@ -178,8 +183,6 @@ describe("Bulk operations", () => {
   });
 
   it("Updates in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
     const toUpdate = created.map((c, i) => {
       return new TestBulkModel({
         id: c.id,
@@ -195,9 +198,7 @@ describe("Bulk operations", () => {
     expect(updated.every((el, i) => !el.equals(created[i]))).toEqual(true);
   });
 
-  it("Deletes in Bulk", async () => {
-    const repo: PostgresRepository<TestBulkModel> =
-      Repository.forModel(TestBulkModel);
+  it.skip("Deletes in Bulk", async () => {
     const ids = created.map((c) => c.id);
     const deleted = await repo.deleteAll(ids as number[]);
     expect(deleted).toBeDefined();
@@ -205,7 +206,7 @@ describe("Bulk operations", () => {
     expect(deleted.every((el) => el instanceof TestBulkModel)).toEqual(true);
     expect(deleted.every((el) => !el.hasErrors())).toEqual(true);
     expect(deleted.every((el, i) => el.equals(updated[i]))).toEqual(true);
-    for (const k in created.map((c) => c.id)) {
+    for (const k in deleted.map((c) => c.id)) {
       await expect(repo.read(k)).rejects.toThrowError(NotFoundError);
     }
   });

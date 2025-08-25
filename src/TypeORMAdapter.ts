@@ -1,32 +1,36 @@
 import {
   Adapter,
+  Cascade,
+  CascadeMetadata,
+  ConnectionError,
+  final,
+  PersistenceKeys,
+  RelationsMetadata,
+  Repository,
   Sequence,
   type SequenceOptions,
-  PersistenceKeys,
-  ConnectionError,
-  Repository,
-  RelationsMetadata,
-  DefaultSequenceOptions,
-  final,
 } from "@decaf-ts/core";
-import { PostgresFlavour, reservedAttributes } from "./constants";
+import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
   BaseError,
   ConflictError,
   Context,
   DBKeys,
+  DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
   findPrimaryKey,
   InternalError,
   NotFoundError,
-  onCreate,
   OperationKeys,
   readonly,
+  UpdateValidationKeys,
 } from "@decaf-ts/db-decorators";
 import "reflect-metadata";
 import {
   type Constructor,
+  date,
   Decoration,
   DEFAULT_ERROR_MESSAGES,
+  list,
   MaxLengthValidatorOptions,
   MaxValidatorOptions,
   MinLengthValidatorOptions,
@@ -34,31 +38,53 @@ import {
   Model,
   ModelKeys,
   PatternValidatorOptions,
+  prop,
   propMetadata,
   required,
+  type,
   TypeMetadata,
+  Validation,
   ValidationKeys,
   ValidatorOptions,
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
-import { PostgresStatement } from "./query";
-import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
-import { PostgresSequence } from "./sequences";
+import { TypeORMStatement } from "./query";
+import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { PostgresFlags, type PostgresQuery, PostgresTableSpec } from "./types";
-import { Reflection } from "@decaf-ts/reflection";
-import { PostgresRepository } from "./PostgresRepository";
+import { TypeORMFlags, TypeORMQuery, TypeORMTableSpec } from "./types";
+import { apply, Reflection } from "@decaf-ts/reflection";
+import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
-import { PostgresDispatch } from "./PostgresDispatch";
+import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres } from "./utils";
+import {
+  DataSource,
+  FindOneOptions,
+  In,
+  InsertResult,
+  RelationOptions,
+  OneToOne,
+  JoinColumn,
+  ManyToMany,
+  SelectQueryBuilder,
+} from "typeorm";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { Column } from "./overrides/Column";
+import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
+import { CreateDateColumn } from "./overrides/CreateDateColumn";
+import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
+import { PrimaryColumn } from "./overrides/PrimaryColumn";
+import { Entity } from "./overrides/Entity";
+import { OneToMany } from "./overrides/OneToMany";
+import { ManyToOne } from "./overrides/ManyToOne";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
-  R extends PostgresRepository<M>,
+  R extends TypeORMRepository<M>,
   V extends RelationsMetadata,
 >(
   this: R,
-  context: Context<PostgresFlags>,
+  context: Context<TypeORMFlags>,
   data: V,
   key: keyof M,
   model: M
@@ -85,59 +111,98 @@ export async function createdByOnPostgresCreateUpdate<
  * @param {string} [alias] - Optional alias for the adapter
  * @class PostgresAdapter
  */
-export class PostgresAdapter extends Adapter<
-  Pool,
-  PostgresQuery,
-  PostgresFlags,
-  Context<PostgresFlags>
+export class TypeORMAdapter extends Adapter<
+  DataSourceOptions,
+  TypeORMQuery,
+  TypeORMFlags,
+  Context<TypeORMFlags>
 > {
-  constructor(pool: Pool, alias?: string) {
-    super(pool, PostgresFlavour, alias);
+  private _dataSource?: DataSource;
+
+  get dataSource(): DataSource {
+    if (!this._dataSource) {
+      const models = Adapter.models(this.flavour);
+      this._dataSource = new DataSource(
+        Object.assign(this.native, {
+          entities: models.map((c) => c[ModelKeys.ANCHOR as keyof typeof c]),
+        })
+      );
+    }
+    return this._dataSource;
+  }
+  // protected dataSou
+
+  constructor(options: DataSourceOptions, alias?: string) {
+    super(options, TypeORMFlavour, alias);
   }
 
   protected override async flags<M extends Model>(
     operation: OperationKeys,
     model: Constructor<M>,
-    flags: Partial<PostgresFlags>
-  ): Promise<PostgresFlags> {
+    flags: Partial<TypeORMFlags>
+  ): Promise<TypeORMFlags> {
     const f = await super.flags(operation, model, flags);
     const newObj: any = {
-      user: (await PostgresAdapter.getCurrentUser(this.native)) as string,
+      user: (await TypeORMAdapter.getCurrentUser(this.dataSource)) as string,
     };
-    if (operation === "create" || operation === "update") {
-      const pk = findPrimaryKey(new model()).id;
-      newObj.ignoredValidationProperties = (
-        f.ignoredValidationProperties ? f.ignoredValidationProperties : []
-      ).concat(pk as string);
+    const m = new model();
+
+    const exceptions: string[] = [];
+    if (operation === OperationKeys.CREATE) {
+      const pk = findPrimaryKey(m).id;
+      exceptions.push(pk as string);
     }
-    return Object.assign(f, newObj) as PostgresFlags;
+
+    if (
+      operation === OperationKeys.CREATE ||
+      operation === OperationKeys.UPDATE
+    ) {
+      const decs = Object.keys(m).reduce((accum: Record<string, any>, key) => {
+        const decs = Reflection.getPropertyDecorators(
+          ValidationKeys.REFLECT,
+          m,
+          key,
+          true
+        );
+        const dec = decs.decorators.find(
+          (dec: any) =>
+            dec.key === DBKeys.TIMESTAMP &&
+            dec.props.operation.indexOf(operation) !== -1
+        );
+        if (dec) {
+          accum[key] = dec.props;
+        }
+        return accum;
+      }, {});
+
+      exceptions.push(...Object.keys(decs));
+    }
+
+    newObj.ignoredValidationProperties = (
+      f.ignoredValidationProperties ? f.ignoredValidationProperties : []
+    ).concat(...exceptions);
+    return Object.assign(f, newObj) as TypeORMFlags;
   }
 
-  protected override Dispatch(): PostgresDispatch {
-    return new PostgresDispatch();
+  @final()
+  protected override Dispatch(): TypeORMDispatch {
+    return new TypeORMDispatch();
   }
 
-  override repository<M extends Model>(): Constructor<
-    Repository<
-      M,
-      PostgresQuery,
-      PostgresAdapter,
-      PostgresFlags,
-      Context<PostgresFlags>
-    >
-  > {
-    return PostgresRepository;
+  @final()
+  override repository<M extends Model>(): Constructor<TypeORMRepository<M>> {
+    return TypeORMRepository;
   }
 
   /**
    * @description Creates a new Postgres statement for querying
    * @summary Factory method that creates a new PostgresStatement instance for building queries
    * @template M - The model type
-   * @return {PostgresStatement<M, any>} A new PostgresStatement instance
+   * @return {TypeORMStatement<M, any>} A new PostgresStatement instance
    */
   @final()
-  Statement<M extends Model>(): PostgresStatement<M, any> {
-    return new PostgresStatement(this);
+  Statement<M extends Model>(): TypeORMStatement<M, any> {
+    return new TypeORMStatement(this);
   }
 
   /**
@@ -148,7 +213,7 @@ export class PostgresAdapter extends Adapter<
    */
   @final()
   async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new PostgresSequence(options, this);
+    return new TypeORMSequence(options, this);
   }
 
   /**
@@ -157,8 +222,14 @@ export class PostgresAdapter extends Adapter<
    * @return {Promise<void>} A promise that resolves when initialization is complete
    */
   async initialize(): Promise<void> {
-    const managedModels = Adapter.models(this.flavour);
-    return this.index(...managedModels);
+    const ds = this.dataSource;
+    try {
+      await ds.initialize();
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
+    const log = this.log.for(this.initialize);
+    log.verbose(`${this.flavour} adapter initialized`);
   }
 
   /**
@@ -172,22 +243,19 @@ export class PostgresAdapter extends Adapter<
   protected async index<M extends Model>(
     ...models: Constructor<M>[]
   ): Promise<void> {
-    const indexes: PostgresQuery[] = generateIndexes(models);
-    const client = await this.native.connect();
+    const indexes: TypeORMQuery[] = generateIndexes(models);
 
     try {
-      await client.query("BEGIN");
+      await this.dataSource.query("BEGIN");
 
       for (const index of indexes) {
-        await client.query(index.query, index.values);
+        await this.dataSource.query(index.query, index.values);
       }
 
-      await client.query("COMMIT");
+      await this.dataSource.query("COMMIT");
     } catch (e: unknown) {
-      await client.query("ROLLBACK");
+      await this.dataSource.query("ROLLBACK");
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
@@ -195,29 +263,32 @@ export class PostgresAdapter extends Adapter<
    * @description Executes a raw SQL query against the database
    * @summary Abstract method that must be implemented to execute raw SQL queries
    * @template R - The result type
-   * @param {PostgresQuery} q - The query to execute
-   * @param {boolean} rowsOnly - Whether to return only the rows or the full response
+   * @param {TypeORMQuery} q - The query to execute
    * @return {Promise<R>} A promise that resolves to the query result
    */
-
-  @final()
-  override async raw<R>(q: PostgresQuery, rowsOnly: boolean): Promise<R> {
-    const client: PoolClient = await this.native.connect();
+  override async raw<R>(q: TypeORMQuery): Promise<R> {
+    const log = this.log.for(this.raw);
+    try {
+      if (!this.dataSource.isInitialized) await this.dataSource.initialize();
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
     try {
       const { query, values } = q;
-      const response: QueryResult = await client.query(query, values);
-      if (rowsOnly) return response.rows as R;
+      log.debug(
+        `executing query: ${(query as unknown as SelectQueryBuilder<any>).getSql()}`
+      );
+      const response = await this.dataSource.query(query, values);
       return response as R;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M
+    pk: keyof M,
+    child = false
   ): {
     record: Record<string, any>;
     id: string;
@@ -227,11 +298,7 @@ export class PostgresAdapter extends Adapter<
 
     prepared.record = Object.entries(prepared.record).reduce(
       (accum: Record<string, any>, [key, value]) => {
-        if (
-          key === PersistenceKeys.METADATA ||
-          this.isReserved(key) ||
-          key === pk
-        )
+        if (key === PersistenceKeys.METADATA || this.isReserved(key))
           return accum;
         if (value === undefined) {
           return accum;
@@ -239,6 +306,8 @@ export class PostgresAdapter extends Adapter<
 
         if (value instanceof Date) {
           value = new Date(value.getTime());
+        } else if (Model.isModel(value)) {
+          value = this.prepare(value, findPrimaryKey(value).id, true).record;
         } else {
           switch (typeof value) {
             case "string":
@@ -253,6 +322,27 @@ export class PostgresAdapter extends Adapter<
       },
       {}
     );
+    const constr: Constructor<any> | undefined = Model.get(
+      model.constructor.name
+    );
+    if (!constr)
+      throw new InternalError(
+        `Model ${model.constructor.name} not found in registry`
+      );
+    const result = child
+      ? new (constr as any)[ModelKeys.ANCHOR as keyof typeof constr]()
+      : new constr();
+    if (child)
+      Object.defineProperty(result, "constructor", {
+        configurable: false,
+        enumerable: false,
+        value: (constr as any)[ModelKeys.ANCHOR as keyof typeof constr],
+        writable: false,
+      });
+    Object.entries(prepared.record).forEach(
+      ([key, val]) => (result[key as keyof typeof result] = val)
+    );
+    prepared.record = result;
     return prepared;
   }
 
@@ -264,31 +354,20 @@ export class PostgresAdapter extends Adapter<
     transient?: Record<string, any>
   ): M {
     const log = this.log.for(this.revert);
-    const ob: Record<string, any> = {};
-    ob[pk as string] = id || obj[pk as string];
-    const m = (
-      typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
-    ) as M;
-    log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
-    const result = Object.keys(m).reduce((accum: M, key) => {
-      (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
-      return accum;
-    }, m);
-
     if (transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
       Object.entries(transient).forEach(([key, val]) => {
-        if (key in result)
+        if (key in obj)
           throw new InternalError(
-            `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
+            `Transient property ${key} already exists on model ${typeof clazz === "string" ? clazz : clazz.name}. should be impossible`
           );
-        result[key as keyof M] = val;
+        (obj as M)[key as keyof M] = val;
       });
     }
 
-    return result;
+    return new (clazz as Constructor<M>)(obj);
   }
 
   /**
@@ -307,14 +386,13 @@ export class PostgresAdapter extends Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const values = Object.values(model);
-    const sql = `INSERT INTO ${tableName} (${Object.keys(model)}) VALUES (${values.map((_, i) => `$${i + 1}`)}) RETURNING *`;
-    const response: QueryResult = await this.raw(
-      { query: sql, values: values },
-      false
-    );
-    const { rows } = response;
-    return rows[0];
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      return await repo.save(model);
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
   }
 
   /**
@@ -330,13 +408,24 @@ export class PostgresAdapter extends Adapter<
     id: string | number,
     pk: string
   ): Promise<Record<string, any>> {
-    const sql = `SELECT * FROM ${tableName} as t WHERE t.${pk} = $1`;
-    const result: any = await this.raw({ query: sql, values: [id] }, false);
-    if (result.rowCount === 0)
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    let result: any;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const q: FindOneOptions = {
+        where: {
+          [pk]: id,
+        },
+      };
+      result = (await repo.findOne(q)) as Record<string, any>;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
+    if (!result)
       throw new NotFoundError(
-        `Record with id: ${id} not found in table ${tableName}`
+        `Record with id: ${id} not found in table ${typeof tableName === "string" ? tableName : Repository.table(tableName)}`
       );
-    return result.rows[0];
+    return result;
   }
 
   /**
@@ -355,28 +444,13 @@ export class PostgresAdapter extends Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const values = Object.values(model);
-
-    const sql = `UPDATE ${tableName} 
-SET ${Object.keys(model)
-      .map((f, i) => `${f} = $${i + 1}`)
-      .join(", ")}
-WHERE id = $${values.length + 1}
-RETURNING *;`;
-
-    const response: QueryResult = await this.raw(
-      { query: sql, values: [...values, id] },
-      false
-    );
-
-    if (response.rowCount === 0) {
-      throw new NotFoundError(
-        `Record with id: ${id} not found in table ${tableName}`
-      );
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      return repo.save(model);
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
     }
-
-    const { rows } = response;
-    return rows[0];
   }
 
   /**
@@ -394,26 +468,15 @@ RETURNING *;`;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const sql = `
-        DELETE FROM ${tableName}
-        WHERE ${pk} = $1
-        RETURNING *
-      `;
-
-    const result: QueryResult = await this.raw(
-      {
-        query: sql,
-        values: [id],
-      },
-      false
-    );
-
-    if (result.rowCount === 0) {
-      throw new NotFoundError(
-        `Record with id: ${id} not found in table ${tableName}`
-      );
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const model = await this.read(tableName, id, pk);
+      const res = await repo.delete(id);
+      return model;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
     }
-    return result.rows[0];
   }
 
   override async createAll(
@@ -423,32 +486,18 @@ RETURNING *;`;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    const columns = Object.keys(model[0]);
-
-    const valuePlaceholders = model
-      .map(
-        (_, recordIndex) =>
-          `(${columns
-            .map(
-              (_, colIndex) => `$${recordIndex * columns.length + colIndex + 1}`
-            )
-            .join(", ")})`
-      )
-      .join(", ");
-
-    const values = model.flatMap((record) => Object.values(record));
-    const q = `INSERT INTO ${tableName} (${columns.join(", ")})
-    VALUES ${valuePlaceholders}
-    RETURNING *;
-`;
-    const result: any = await this.raw(
-      {
-        query: q,
-        values: values,
-      },
-      false
-    );
-    return result.rows;
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const result: InsertResult = await repo.insert(model);
+      return this.readAll(
+        tableName,
+        result.identifiers.map((id) => id.id),
+        "id"
+      );
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
+    }
   }
 
   override async readAll(
@@ -460,30 +509,13 @@ RETURNING *;`;
   ): Promise<Record<string, any>[]> {
     if (!id.length) return [];
 
-    const sql = `
-    SELECT * 
-    FROM ${tableName} 
-    WHERE ${pk} = ANY($1)
-    ORDER BY array_position($1::${typeof id[0] === "number" ? "integer" : "text"}[], ${pk})`;
-
-    const result: any = await this.raw(
-      {
-        query: sql,
-        values: [id],
-      },
-      false
-    );
-
-    // If we didn't find all requested records, throw an error
-    if (result.rows.length !== id.length) {
-      const foundIds = result.rows.map((row: any) => row[pk]);
-      const missingIds = id.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError(
-        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
-      );
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      return repo.findBy({ [pk]: In(id) });
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
     }
-
-    return result.rows;
   }
 
   override async updateAll(
@@ -491,60 +523,13 @@ RETURNING *;`;
     ids: string[] | number[],
     model: Record<string, any>[],
     pk: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    if (!ids.length) return [];
-    if (ids.length !== model.length) {
-      throw new InternalError("Number of IDs must match number of records");
+    const result = [];
+    for (const m of model) {
+      result.push(await this.update(tableName, m[pk], m, ...args));
     }
-    // Create values array and get column names from first record
-    const columns = Object.keys(model[0]);
-    const values: any[] = [];
-    let placeholderIndex = 1;
-
-    // Generate value lists for each record
-    const valueLists = model
-      .map((record, i) => {
-        const recordValues = columns.map((col) => {
-          values.push(record[col]);
-          if (record[col] instanceof Date) {
-            return `$${placeholderIndex++}::timestamp`;
-          }
-          return `$${placeholderIndex++}`;
-        });
-        return `(${ids[i]}, ${recordValues.join(", ")})`;
-      })
-      .join(", ");
-
-    const sql = `
-    UPDATE ${tableName} AS t SET
-      ${columns.map((col) => `${col} = c.${col}`).join(",\n      ")}
-    FROM (VALUES ${valueLists}) AS c(id, ${columns.join(", ")})
-    WHERE t.${pk} = c.id
-    RETURNING *`;
-
-    const result: any = await this.raw(
-      {
-        query: sql,
-        values,
-      },
-      false
-    );
-
-    // Verify all records were updated
-    if (result.rows.length !== ids.length) {
-      const foundIds = result.rows.map((row: any) => row[pk]);
-      const missingIds = ids.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError(
-        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
-      );
-    }
-
-    // Return updated records in the same order as input
-    return ids.map((id) =>
-      result.rows.find((row: any) => row[pk].toString() === id.toString())
-    );
+    return result;
   }
 
   override async deleteAll(
@@ -555,45 +540,15 @@ RETURNING *;`;
     ...args: any[]
   ): Promise<Record<string, any>[]> {
     if (!ids.length) return [];
-
-    // First fetch the records that will be deleted (for returning them later)
-    const fetchSql = `
-    SELECT * 
-    FROM ${tableName} 
-    WHERE ${pk} = ANY($1)
-    ORDER BY array_position($1::${typeof ids[0] === "number" ? "integer" : "text"}[], ${pk})`;
-
-    const fetchResult: any = await this.raw(
-      {
-        query: fetchSql,
-        values: [ids],
-      },
-      false
-    );
-
-    if (fetchResult.rows.length !== ids.length) {
-      const foundIds = fetchResult.rows.map((row: any) => row[pk]);
-      const missingIds = ids.filter((id) => !foundIds.includes(id));
-      throw new NotFoundError(
-        `Records with ids: ${missingIds.join(", ")} not found in table ${tableName}`
-      );
+    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    try {
+      const repo = this.dataSource.getRepository(m);
+      const models = await this.readAll(tableName, ids, pk);
+      await repo.delete(ids);
+      return models;
+    } catch (e: unknown) {
+      throw this.parseError(e as Error);
     }
-
-    const deleteSql = `
-    DELETE FROM ${tableName} 
-    WHERE ${pk} = ANY($1)`;
-
-    await this.raw(
-      {
-        query: deleteSql,
-        values: [ids],
-      },
-      false
-    );
-
-    return ids.map((id) =>
-      fetchResult.rows.find((row: any) => row[pk].toString() === id.toString())
-    );
   }
 
   /**
@@ -604,7 +559,7 @@ RETURNING *;`;
    * @return {BaseError} The parsed error as a BaseError
    */
   parseError(err: Error | string, reason?: string): BaseError {
-    return PostgresAdapter.parseError(err, reason);
+    return TypeORMAdapter.parseError(err, reason);
   }
 
   /**
@@ -708,33 +663,34 @@ RETURNING *;`;
     }
   }
 
-  static async connect(config: PoolConfig): Promise<Pool> {
-    return new Pool(config);
+  static async connect(config: DataSourceOptions): Promise<DataSource> {
+    const con = new DataSource(config);
+    if (!con.isInitialized) await con.initialize();
+    return con;
   }
 
-  static async createDatabase(pool: Pool, dbName: string): Promise<void> {
+  static async createDatabase(
+    dataSource: DataSource,
+    dbName: string
+  ): Promise<void> {
     const log = Logging.for(this.createDatabase);
     log.verbose(`Creating database ${dbName}`);
-    const client = await pool.connect();
     try {
-      await client.query({
-        name: `create-database`,
-        text: `CREATE DATABASE ${dbName}`,
-      });
+      await dataSource.query(`CREATE DATABASE ${dbName}`);
       log.info(`Created database ${dbName}`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
-  static async createNotifyFunction(pool: Pool, user: string): Promise<void> {
+  static async createNotifyFunction(
+    dataSource: DataSource,
+    user: string
+  ): Promise<void> {
     const log = Logging.for(this.createNotifyFunction);
     log.verbose(`Creating notify function`);
-    const client = await pool.connect();
     try {
-      await client.query(
+      await dataSource.query(
         `CREATE OR REPLACE FUNCTION notify_table_changes()
 RETURNS trigger AS $$
 BEGIN
@@ -752,84 +708,68 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER
 ;`
       );
-      await client.query(
+      await dataSource.query(
         `ALTER FUNCTION notify_table_changes() OWNER TO ${user};`
       );
-      await client.query(`
+      await dataSource.query(`
             GRANT EXECUTE ON FUNCTION notify_table_changes() TO public;
         `);
       log.info(`Created notify function`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static async deleteDatabase(
-    pool: Pool,
+    dataSource: DataSource,
     dbName: string,
     user?: string
   ): Promise<void> {
-    const client = await pool.connect();
     try {
-      if (user)
-        await client.query({
-          name: `delete-owned-by`,
-          text: `DROP OWNED BY ${user} CASCADE;`,
-        });
-      await client.query({
-        name: `delete-database`,
-        text: `DROP DATABASE ${dbName}`,
-      });
+      if (user) await dataSource.query(`DROP OWNED BY ${user} CASCADE;`);
+      await dataSource.query(`DROP DATABASE ${dbName}`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static async createUser(
-    pool: Pool,
+    dataSource: DataSource,
     dbName: string,
     user: string,
     password: string
   ): Promise<void> {
-    const client = await pool.connect();
     try {
-      await client.query(`CREATE USER ${user} WITH PASSWORD '${password}'`);
-      await client.query(`GRANT CONNECT ON DATABASE ${dbName} TO ${user}`);
+      await dataSource.query(`CREATE USER ${user} WITH PASSWORD '${password}'`);
+      await dataSource.query(`GRANT CONNECT ON DATABASE ${dbName} TO ${user}`);
 
-      await client.query(`GRANT USAGE ON SCHEMA public TO ${user}`);
-      await client.query(`GRANT CREATE ON SCHEMA public TO ${user}`);
-      await client.query(
+      await dataSource.query(`GRANT USAGE ON SCHEMA public TO ${user}`);
+      await dataSource.query(`GRANT CREATE ON SCHEMA public TO ${user}`);
+      await dataSource.query(
         `GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO ${user}`
       );
-      await client.query(
+      await dataSource.query(
         `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO ${user}`
       );
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static async deleteUser(
-    pool: Pool,
+    client: DataSource,
     user: string,
     admin: string
   ): Promise<void> {
-    const client = await pool.connect();
     try {
       await client.query(`REASSIGN OWNED BY ${user} TO ${admin}`);
       await client.query(
@@ -855,8 +795,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       await client.query(`DROP USER IF EXISTS "${user}"`);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
@@ -947,11 +885,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
   }
 
   static async createTable<M extends Model>(
-    pool: Pool,
+    client: DataSource,
     model: Constructor<M>
-  ): Promise<Record<string, PostgresTableSpec>> {
-    const result: Record<string, PostgresTableSpec> = {};
-    const m = new model();
+  ): Promise<Record<string, TypeORMTableSpec>> {
+    const result: Record<string, TypeORMTableSpec> = {};
+    const m = new model({});
     const tableName = Repository.table(model);
     const { id } = findPrimaryKey(m);
 
@@ -1020,7 +958,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         let parsedType:
           | string
           | { model: Constructor<Model> | string; pkType?: string } =
-          this.parseTypeToPostgres(typeData.customTypes[0], isPk);
+          this.parseTypeToPostgres(
+            typeof (typeData.customTypes as any[])[0] === "function"
+              ? (typeData.customTypes as any)[0]()
+              : (typeData.customTypes as any)[0],
+            isPk
+          );
         if (typeof parsedType === "string") {
           parsedType = { model: parsedType };
         }
@@ -1047,20 +990,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
               false,
               true
             );
-            await this.createTable(pool, childClass);
+            await this.createTable(client, childClass);
           } catch (e: unknown) {
-            throw new InternalError(
-              `Error creating table for ${typeStr}: ${e}`
-            );
+            if (!(e instanceof ConflictError)) throw e;
           }
-
-          // const tbl = Repository.table(typeStr);
-          // foreignKeys.push(`FOREIGN KEY (${prop as string}) REFERENCES ${tbl}(${pk as string})`);
         }
 
+        let tp = Array.isArray(typeData.customTypes)
+          ? typeData.customTypes[0]
+          : typeData.customTypes;
+        tp = typeof tp === "function" && !tp.name ? tp() : tp;
         const validationStr = this.parseValidationToPostgres(
           column,
-          typeData.customTypes[0],
+          tp as any,
           isPk,
           ValidationKeys.MAX_LENGTH,
           (decoratorData[
@@ -1084,7 +1026,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         )) {
           const validation = this.parseValidationToPostgres(
             column,
-            typeData.customTypes[0],
+            tp as any,
             isPk,
             key,
             props
@@ -1099,7 +1041,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         }
       }
 
-      if (dbDecs && dbDecs.decorators.length) {
+      // TODO ignore for now. this leaves foreign keys out
+      // eslint-disable-next-line no-constant-binary-expression
+      if (false || (dbDecs && dbDecs.decorators.length)) {
         if (!typeData) throw new Error(`Missing type information`);
         for (const decorator of dbDecs.decorators) {
           const { key, props } = decorator;
@@ -1127,7 +1071,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       };
     }
 
-    const client = await pool.connect();
     const values = Object.values(result);
     const query = values.map((r) => r.query).join(",\n");
     const constraints = values
@@ -1153,62 +1096,397 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       );
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
     return result;
   }
 
-  static async getCurrentUser(pool: Pool): Promise<string> {
-    const client = await pool.connect();
+  static async getCurrentUser(client: DataSource): Promise<string> {
     const queryString = `SELECT CURRENT_USER;`;
     try {
-      const result = await client.query({
-        name: `get-current-user`,
-        text: queryString,
-      });
-      return result.rows[0].current_user;
+      const result = await client.query(queryString);
+      return result[0].current_user;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
-    } finally {
-      client.release();
     }
   }
 
   static decoration() {
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
-    const pkKey = Repository.key(DBKeys.ID);
-    const uniqueKey = Repository.key(DBKeys.UNIQUE);
+    // @table() => @Entity()
+    const tableKey = Adapter.key(PersistenceKeys.TABLE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(tableKey)
+      .extend((original: any) =>
+        Entity()(original[ModelKeys.ANCHOR] || original)
+      )
+      .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
-      .for(pkKey)
-      .define(
+    // @pk() => @PrimaryGeneratedColumn() | @PrimaryColumn()
+    const pkKey = Repository.key(DBKeys.ID);
+
+    function pkDec(options: SequenceOptions) {
+      const decorators: any[] = [
         required(),
         readonly(),
-        propMetadata(pkKey, DefaultSequenceOptions)
-      )
+        propMetadata(pkKey, options),
+      ];
+      if (options.type) decorators.push(PrimaryGeneratedColumn());
+      else decorators.push(PrimaryColumn({ unique: true }));
+      return apply(...decorators);
+    }
+
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(pkKey)
+      .define({
+        decorator: pkDec,
+      })
       .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
+    // @column("columnName") => @Column({name: "columnName"})
+    const columnKey = Adapter.key(PersistenceKeys.COLUMN);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(columnKey)
+      .extend({
+        decorator: function columm(name: string) {
+          return function column(obj: any, prop: any) {
+            return Column({
+              name: name || prop,
+              nullable: true,
+            })(obj, prop);
+          };
+        },
+        transform: (args: any[]) => {
+          const columnName = args[1];
+          return [columnName];
+        },
+      })
+      .apply();
+
+    // @unique => @Column({unique: true})
+    const uniqueKey = Adapter.key(PersistenceKeys.UNIQUE);
+    Decoration.flavouredAs(TypeORMFlavour)
       .for(uniqueKey)
       .define(propMetadata(uniqueKey, {}))
+      .extend(Column({ unique: true }))
       .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
-      .for(createdByKey)
-      .define(
-        onCreate(createdByOnPostgresCreateUpdate),
-        propMetadata(createdByKey, {})
-      )
+    // @required => @Column({ nullable: false })
+    const requiredKey = Validation.key(ValidationKeys.REQUIRED);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(requiredKey)
+      .extend(Column({ nullable: false }))
       .apply();
 
-    Decoration.flavouredAs(PostgresFlavour)
-      .for(updatedByKey)
-      .define(
-        onCreate(createdByOnPostgresCreateUpdate),
-        propMetadata(updatedByKey, {})
-      )
+    function ValidationUpdateKey(key: string) {
+      return UpdateValidationKeys.REFLECT + key;
+    }
+
+    // @timestamp(op) => @CreateDateColumn() || @UpdateDateColumn()
+    const timestampKey = ValidationUpdateKey(DBKeys.TIMESTAMP);
+
+    function ts(operation: OperationKeys[], format: string) {
+      const decorators: any[] = [
+        date(format, DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.DATE),
+        required(DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.REQUIRED),
+        propMetadata(Validation.key(DBKeys.TIMESTAMP), {
+          operation: operation,
+          format: format,
+        }),
+      ];
+      if (operation.indexOf(OperationKeys.UPDATE) !== -1)
+        decorators.push(
+          propMetadata(timestampKey, {
+            message: DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.INVALID,
+          })
+        );
+      else decorators.push(readonly());
+      return apply(...decorators);
+    }
+
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(timestampKey)
+      .define({
+        decorator: ts,
+      })
+      .extend({
+        decorator: function timestamp(...ops: OperationKeys[]) {
+          return function timestamp(obj: any, prop: any) {
+            if (ops.indexOf(OperationKeys.UPDATE) !== -1)
+              return UpdateDateColumn()(obj, prop);
+            return CreateDateColumn()(obj, prop);
+          };
+        },
+        transform: (args: any[]) => {
+          return args[0];
+        },
+      })
+      .apply();
+
+    // @oneToOne(clazz) => @OneToOne(() => clazz)
+    const oneToOneKey = Repository.key(PersistenceKeys.ONE_TO_ONE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(oneToOneKey)
+      .define({
+        decorator: function oneToOne(
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
+        ) {
+          const metadata: RelationsMetadata = {
+            class: (clazz.name ? clazz.name : clazz) as string,
+            cascade: cascade,
+            populate: populate,
+          };
+          const ormMeta: RelationOptions = {
+            cascade:
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            type([
+              (typeof clazz === "function" && !clazz.name
+                ? clazz
+                : clazz.name) as any,
+              String.name,
+              Number.name,
+              BigInt.name,
+            ]),
+            propMetadata(oneToOneKey, metadata),
+            OneToOne(
+              () => {
+                if (!clazz.name) clazz = (clazz as any)();
+                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  throw new InternalError(
+                    "Original Model not found in constructor"
+                  );
+                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+              },
+              (model: any) => {
+                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                return model[pk];
+              },
+              ormMeta
+            ),
+            JoinColumn()
+          );
+        },
+      })
+      .apply();
+
+    // @oneToMany(clazz) => @OneToMany(() => clazz)
+    const oneToManyKey = Repository.key(PersistenceKeys.ONE_TO_MANY);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(oneToManyKey)
+      .define({
+        decorator: function oneToMany(
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
+        ) {
+          const metadata: RelationsMetadata = {
+            class: (clazz.name ? clazz.name : clazz) as string,
+            cascade: cascade,
+            populate: populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            list(clazz),
+            propMetadata(oneToManyKey, metadata),
+            function OneToManyWrapper(obj: any, prop: any): any {
+              const ormMeta: RelationOptions = {
+                cascade:
+                  cascade.update === Cascade.CASCADE ||
+                  cascade.delete === Cascade.CASCADE,
+                onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+                onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
+                nullable: true,
+                eager: populate,
+              };
+              return OneToMany(
+                () => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                    throw new InternalError(
+                      "Original Model not found in constructor"
+                    );
+                  return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                },
+                (model: any) => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  const m = new (clazz as Constructor<any>)();
+                  const crossRelationKey = Object.keys(m).find((k) => {
+                    const decs = Reflection.getPropertyDecorators(
+                      Repository.key(PersistenceKeys.MANY_TO_ONE),
+                      m,
+                      k,
+                      true
+                    );
+                    if (!decs || !decs.decorators || !decs.decorators.length)
+                      return false;
+                    const designType = Reflect.getMetadata(
+                      ModelKeys.TYPE,
+                      m,
+                      k
+                    );
+                    if (!designType)
+                      throw new InternalError(
+                        `No Type Definition found for ${k} in ${m.constructor.name}`
+                      );
+                    return designType.name === obj.constructor.name;
+                  });
+                  if (!crossRelationKey)
+                    throw new InternalError(
+                      `Cross relation not found. Did you use @manyToOne on the ${clazz.name}?`
+                    );
+                  return model[crossRelationKey];
+                },
+                ormMeta
+              )(obj, prop);
+            }
+          );
+        },
+      })
+      .apply();
+
+    // @manyToOne(clazz) => @ManyToOne(() => clazz)
+    const manyToOneKey = Repository.key(PersistenceKeys.MANY_TO_ONE);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(manyToOneKey)
+      .define({
+        decorator: function manyToOne(
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
+        ) {
+          const metadata: RelationsMetadata = {
+            class: (clazz.name ? clazz.name : clazz) as string,
+            cascade: cascade,
+            populate: populate,
+          };
+          const ormMeta: RelationOptions = {
+            cascade:
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            type([
+              (typeof clazz === "function" && !clazz.name
+                ? clazz
+                : clazz.name) as any,
+              String.name,
+              Number.name,
+              BigInt.name,
+            ]),
+            propMetadata(manyToOneKey, metadata),
+            function ManyToOneWrapper(obj: any, prop: any): any {
+              return ManyToOne(
+                () => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                    throw new InternalError(
+                      "Original Model not found in constructor"
+                    );
+                  return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                },
+                (model: any) => {
+                  if (!clazz.name) clazz = (clazz as any)();
+                  const m = new (clazz as Constructor<any>)();
+                  const crossRelationKey = Object.keys(m).find((k) => {
+                    const decs = Reflection.getPropertyDecorators(
+                      Repository.key(PersistenceKeys.ONE_TO_MANY),
+                      m,
+                      k,
+                      true
+                    );
+                    if (!decs || !decs.decorators || !decs.decorators.length)
+                      return false;
+                    const listDec = Reflect.getMetadata(
+                      Validation.key(ValidationKeys.LIST),
+                      m,
+                      k
+                    );
+                    if (!listDec)
+                      throw new InternalError(
+                        `No Type Definition found for ${k} in ${m.constructor.name}`
+                      );
+                    const name = listDec.clazz[0]().name;
+                    return name === obj.constructor.name;
+                  });
+                  if (!crossRelationKey)
+                    throw new InternalError(
+                      `Cross relation not found. Did you use @manyToOne on the ${clazz.name}?`
+                    );
+                  return model[crossRelationKey];
+                }
+              )(obj, prop);
+            }
+          );
+        },
+      })
+      .apply();
+
+    // @manyToMany(clazz) => @ManyToMany(() => clazz)
+    const manyToManyKey = Repository.key(PersistenceKeys.MANY_TO_MANY);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(manyToManyKey)
+      .define({
+        decorator: function manyToMany(
+          clazz: Constructor<any> | (() => Constructor<any>),
+          cascade: CascadeMetadata,
+          populate: boolean
+        ) {
+          const metadata: RelationsMetadata = {
+            class: clazz.name,
+            cascade: cascade,
+            populate: populate,
+          };
+          const ormMeta: RelationOptions = {
+            cascade:
+              cascade.update === Cascade.CASCADE ||
+              cascade.delete === Cascade.CASCADE,
+            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
+            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
+            nullable: true,
+            eager: populate,
+          };
+          return apply(
+            prop(PersistenceKeys.RELATIONS),
+            type([
+              (typeof clazz === "function" && !clazz.name
+                ? clazz
+                : clazz.name) as any,
+              String.name,
+              Number.name,
+              BigInt.name,
+            ]),
+            propMetadata(manyToManyKey, metadata),
+            ManyToMany(
+              () => {
+                if (!clazz.name) clazz = (clazz as any)();
+                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  throw new InternalError(
+                    "Original Model not found in constructor"
+                  );
+                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+              },
+              (model: any) => {
+                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                return model[pk];
+              },
+              ormMeta
+            )
+          );
+        },
+      })
       .apply();
   }
 }

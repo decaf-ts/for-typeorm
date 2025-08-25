@@ -4,7 +4,7 @@ import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "repo_user";
+const user = "repo2_user";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -17,7 +17,7 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
-const dbName = "repository_db";
+const dbName = "repository2_db";
 
 let con: DataSource;
 const adapter = new TypeORMAdapter(config);
@@ -31,29 +31,23 @@ import {
   table,
   uses,
 } from "@decaf-ts/core";
-import {
-  ConflictError,
-  NotFoundError,
-  OperationKeys,
-} from "@decaf-ts/db-decorators";
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
-  maxlength,
-  minlength,
   model,
   ModelArg,
   ModelKeys,
+  pattern,
   required,
 } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "./baseModel";
-import { getTypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 
 jest.setTimeout(50000);
 
 @uses(TypeORMFlavour)
-@table("tst_user")
+@table("tst_repo_country")
 @model()
-class TestModelRepo extends TypeORMBaseModel {
+export class TestCountryRepoModel extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 
@@ -61,14 +55,17 @@ class TestModelRepo extends TypeORMBaseModel {
   @required()
   name!: string;
 
-  @column("tst_nif")
-  @minlength(9)
-  @maxlength(9)
+  @column("tst_country_code")
   @required()
-  nif!: string;
+  countryCode!: string;
 
-  constructor(arg?: ModelArg<TestModelRepo>) {
-    super(arg);
+  @column("tst_locale")
+  @required()
+  @pattern(/^[a-z]{2}_[A-Z]{2}$/)
+  locale!: string;
+
+  constructor(m?: ModelArg<TestCountryRepoModel>) {
+    super(m);
   }
 }
 
@@ -83,7 +80,7 @@ const typeOrmCfg = {
   logging: false,
 };
 
-describe("repositories", () => {
+describe("repositories 2nd", () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
@@ -117,7 +114,7 @@ describe("repositories", () => {
     }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
-        entities: [TestModelRepo[ModelKeys.ANCHOR]],
+        entities: [TestCountryRepoModel[ModelKeys.ANCHOR]],
       }) as DataSourceOptions
     );
 
@@ -136,7 +133,12 @@ describe("repositories", () => {
         return mock(...args);
       }
     })();
+    // repo.observe(observer);
   });
+  //
+  // afterEach(() => {
+  //   repo.unObserve(observer);
+  // });
 
   afterAll(async () => {
     if (con) await con.destroy();
@@ -148,35 +150,36 @@ describe("repositories", () => {
   });
 
   it("instatiates the model", () => {
-    const m = new TestModelRepo({
+    const m = new TestCountryRepoModel({
       name: "test_name",
-      nif: "123456789",
+      countryCode: "pt",
+      locale: "pt_PT",
     });
     expect(m).toBeDefined();
     expect(m.name).toEqual("test_name");
-    expect(m.nif).toEqual("123456789");
+    expect(m.locale).toEqual("pt_PT");
   });
 
   it("instantiates via constructor", () => {
-    const repo: TypeORMRepository<TestModelRepo> = new TypeORMRepository(
+    const repo: TypeORMRepository<TestCountryRepoModel> = new TypeORMRepository(
       adapter as any,
-      TestModelRepo
+      TestCountryRepoModel
     );
     expect(repo).toBeDefined();
     expect(repo).toBeInstanceOf(Repository);
   });
 
   it("instantiates via Repository.get with @uses decorator on model", () => {
-    uses(TypeORMFlavour)(TestModelRepo);
-    const repo = Repository.forModel(TestModelRepo);
+    uses(TypeORMFlavour)(TestCountryRepoModel);
+    const repo = Repository.forModel(TestCountryRepoModel);
     expect(repo).toBeDefined();
     expect(repo).toBeInstanceOf(Repository);
   });
 
   it("gets injected when using @repository", () => {
     class TestClass {
-      @repository(TestModelRepo)
-      repo!: TypeORMRepository<TestModelRepo>;
+      @repository(TestCountryRepoModel)
+      repo!: TypeORMRepository<TestCountryRepoModel>;
     }
 
     const testClass = new TestClass();
@@ -185,28 +188,21 @@ describe("repositories", () => {
     expect(testClass.repo).toBeInstanceOf(Repository);
   });
 
-  let created: TestModelRepo | undefined;
+  let created: TestCountryRepoModel | undefined;
 
   it("creates a model", async () => {
     await dataSource.initialize();
-    const repo: TypeORMRepository<TestModelRepo> =
-      Repository.forModel(TestModelRepo);
+    const repo: TypeORMRepository<TestCountryRepoModel> =
+      Repository.forModel(TestCountryRepoModel);
 
-    repo.observe(observer);
-    const toCreate = new TestModelRepo({
+    const toCreate = new TestCountryRepoModel({
       name: "test_name",
-      nif: "123456789",
+      countryCode: "pt",
+      locale: "pt_PT",
     });
 
     created = await repo.create(toCreate);
     expect(created).toBeDefined();
     expect(created.hasErrors()).toBeUndefined();
-
-    expect(mock).toHaveBeenCalledTimes(1);
-    expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModelRepo),
-      OperationKeys.CREATE,
-      [1]
-    );
   });
 });

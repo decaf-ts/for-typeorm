@@ -1,24 +1,24 @@
-import { PostgresAdapter } from "../../src";
-import { Pool, PoolConfig } from "pg";
+import { TypeORMAdapter } from "../../src";
+import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
 const dbHost = "localhost";
-const dbName = "table_creation_db";
+const dbName = "single_table_creation_db";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  type: "postgres",
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
 };
-let con: Pool = new Pool(config);
-const adapter = new PostgresAdapter(con);
+let con: DataSource = new DataSource(config);
+const adapter = new TypeORMAdapter(con);
 
 import { Logging, LogLevel } from "@decaf-ts/logging";
 import {
-  Constructor,
   list,
   min,
   minlength,
@@ -26,20 +26,11 @@ import {
   Model,
   ModelArg,
   required,
-  type,
 } from "@decaf-ts/decorator-validation";
-import {
-  column,
-  oneToMany,
-  oneToOne,
-  pk,
-  Repository,
-  table,
-} from "@decaf-ts/core";
+import { column, oneToMany, oneToOne, pk, table } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 
 Logging.setConfig({ level: LogLevel.debug });
-const log = Logging.for("table creation");
 
 jest.setTimeout(50000);
 export enum AIFeatures {
@@ -72,17 +63,17 @@ export enum AIVendors {
   OLLAMA = "ollama",
 }
 
-describe("table creations", () => {
+describe("single table creations", () => {
   @table("ai_features")
   @model()
-  class AIFeature extends Model {
+  class AIFeatureSingle extends Model {
     @pk()
-    name!: string;
+    name!: AIFeatures;
 
     @required()
     description!: string;
 
-    constructor(arg?: ModelArg<AIFeature>) {
+    constructor(arg?: ModelArg<AIFeatureSingle>) {
       super(arg);
     }
   }
@@ -93,9 +84,9 @@ describe("table creations", () => {
     @pk()
     name!: string;
 
-    @oneToOne(AIFeature)
+    @oneToOne(AIFeatureSingle)
     @required()
-    features!: AIFeature;
+    features!: AIFeatureSingle;
 
     constructor(arg?: ModelArg<AIModelSimple>) {
       super(arg);
@@ -108,9 +99,9 @@ describe("table creations", () => {
     @pk()
     name!: string;
 
-    // @manyToMany(AIFeature)
+    @oneToMany(AIFeatureSingle)
     @required()
-    features!: AIFeature[];
+    features!: AIFeatureSingle[];
 
     constructor(arg?: ModelArg<AIModelSimple>) {
       super(arg);
@@ -140,8 +131,7 @@ describe("table creations", () => {
      * @description List of features supported by this AI model
      * @summary Collection of AI features that this model supports
      */
-    @oneToMany(AIFeature)
-    // @list([AIFeature, String])
+    @oneToMany(AIFeatureSingle)
     @minlength(1)
     @required()
     features!: AIFeatures[];
@@ -165,8 +155,8 @@ describe("table creations", () => {
 
   @table("ai_vendors")
   @model()
-  class AIVendor extends Model {
-    @type(String.name)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  class AIVendorSingle extends Model {
     @pk()
     name!: AIVendors;
     /**
@@ -182,17 +172,17 @@ describe("table creations", () => {
     @min(1)
     subscriptionPrice!: number;
 
-    constructor(arg?: ModelArg<AIVendor>) {
+    constructor(arg?: ModelArg<AIVendorSingle>) {
       super(arg);
     }
   }
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName);
+      await TypeORMAdapter.deleteDatabase(con, dbName);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) {
         throw e;
@@ -200,20 +190,20 @@ describe("table creations", () => {
     }
 
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createNotifyFunction(con, admin);
-      await con.end();
+      await TypeORMAdapter.createNotifyFunction(con, admin);
+      await con.destroy();
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
 
-    con = await PostgresAdapter.connect(
+    con = await TypeORMAdapter.connect(
       Object.assign({}, config, {
         user: admin,
         password: admin_password,
@@ -221,28 +211,40 @@ describe("table creations", () => {
       })
     );
 
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
+    adapter["_native" as keyof typeof TypeORMAdapter] = con;
   });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName);
-    await con.end();
+    await con.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName);
+    await con.destroy();
   });
 
-  it("creates from nested models", async () => {
+  it(`creates table for ${AIFeatureSingle.name}`, async () => {
     try {
-      await PostgresAdapter.createTable(adapter.native, AIModelSimple);
+      await TypeORMAdapter.createTable(adapter.native, AIFeatureSingle);
     } catch (e: unknown) {
       console.log(e);
       throw e;
     }
   });
 
-  // for (const m of [AIFeature, AIModel] as Constructor<Model>[]) {
-  //   it(`creates ${Repository.table(m)} table from model`, async () => {
-  //     await PostgresAdapter.createTable(adapter.native, m);
-  //   });
-  // }
+  it(`creates table for ${AIModelSimple.name}`, async () => {
+    try {
+      await TypeORMAdapter.createTable(adapter.native, AIModelSimple);
+    } catch (e: unknown) {
+      console.log(e);
+      throw e;
+    }
+  });
+
+  it.skip(`creates table for ${AIModelLessSimple.name}`, async () => {
+    try {
+      await TypeORMAdapter.createTable(adapter.native, AIModelLessSimple);
+    } catch (e: unknown) {
+      console.log(e);
+      throw e;
+    }
+  });
 });

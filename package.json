@@ -120,6 +120,9 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/reflection": "latest",
     "pg": "^8.16.3",
-    "reflect-metadata": "^0.2.1"
+    "reflect-metadata": "^0.2.2"
+  },
+  "dependencies": {
+    "typeorm": "^0.3.25"
   }
 }

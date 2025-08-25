@@ -1,6 +1,8 @@
 import { Dispatch } from "@decaf-ts/core";
-import { Pool, PoolClient, Notification } from "pg";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { TypeORMAdapter } from "./TypeORMAdapter";
+import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
 
 /**
  * @description Dispatcher for PostgreSQL database change events
@@ -8,7 +10,7 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
  * notifying observers when records are created, updated, or deleted
  * @template Pool - The pg Pool type
  * @param {number} [timeout=5000] - Timeout in milliseconds for notification requests
- * @class PostgresDispatch
+ * @class TypeORMDispatch
  * @example
  * ```typescript
  * // Create a dispatcher for a PostgreSQL database
@@ -42,10 +44,9 @@ import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
  *   }
  *   Dispatch <|-- PostgreSQLDispatch
  */
-export class PostgresDispatch extends Dispatch<Pool> {
+export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
   private observerLastUpdate?: string;
   private attemptCounter: number = 0;
-  private client?: PoolClient;
 
   constructor(private timeout = 5000) {
     super();
@@ -69,9 +70,7 @@ export class PostgresDispatch extends Dispatch<Pool> {
    *   D->>D: Update observerLastUpdate
    *   D->>L: Log successful dispatch
    */
-  protected async notificationHandler(
-    notification: Notification
-  ): Promise<void> {
+  protected async notificationHandler(notification: any): Promise<void> {
     const log = this.log.for(this.notificationHandler);
 
     try {
@@ -146,52 +145,33 @@ export class PostgresDispatch extends Dispatch<Pool> {
    *   end
    */
   protected override async initialize(): Promise<void> {
-    const log = this.log.for(this.initialize);
-
-    async function subscribeToPostgres(this: PostgresDispatch): Promise<void> {
+    async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
       if (!this.adapter || !this.native) {
         throw new InternalError(`No adapter/native observed for dispatch`);
       }
 
+      const adapter = this.adapter as TypeORMAdapter;
+
       try {
-        this.client = await this.native.connect();
+        if (!adapter.dataSource.isInitialized)
+          await adapter.dataSource.initialize();
 
-        this.client.on("notification", this.notificationHandler.bind(this));
-
-        // Listen for table change notifications
-        // This assumes you have set up triggers in PostgreSQL to NOTIFY on table changes
-        const res = await this.client.query("LISTEN user_table_changes");
-
-        this.attemptCounter = 0;
-      } catch (e: unknown) {
-        if (this.client) {
-          this.client.release();
-          this.client = undefined;
-        }
-
-        if (++this.attemptCounter > 3) {
-          return log.error(
-            `Failed to subscribe to Postgres notifications: ${e}`
-          );
-        }
-
-        log.info(
-          `Failed to subscribe to Postgres notifications: ${e}. Retrying in ${this.timeout}ms...`
+        adapter.dataSource.subscribers.push(
+          new TypeORMEventSubscriber(adapter)
         );
-
-        await new Promise((resolve) => setTimeout(resolve, this.timeout));
-        return subscribeToPostgres.call(this);
+      } catch (e: unknown) {
+        throw new InternalError(e as Error);
       }
     }
 
-    subscribeToPostgres
+    subscribeToTypeORM
       .call(this)
       .then(() => {
-        this.log.info(`Subscribed to Postgres notifications`);
+        this.log.info(`Subscribed to TypeORM notifications`);
       })
       .catch((e: unknown) => {
         throw new InternalError(
-          `Failed to subscribe to Postgres notifications: ${e}`
+          `Failed to subscribe to TypeORM notifications: ${e}`
         );
       });
   }
@@ -200,9 +180,10 @@ export class PostgresDispatch extends Dispatch<Pool> {
    * Cleanup method to release resources when the dispatcher is no longer needed
    */
   public cleanup(): void {
-    if (this.client) {
-      this.client.release();
-      this.client = undefined;
-    }
+    // if (this.adapter) {
+    //
+    //   const adapter = this.adapter as TypeORMAdapter;
+    //   await adapter.dataSource.destroy();
+    // }
   }
 }

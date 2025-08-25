@@ -1,13 +1,18 @@
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { repository, Repository } from "@decaf-ts/core";
+import {
+  type Constructor,
+  Model,
+  ModelKeys,
+} from "@decaf-ts/decorator-validation";
+import { Repository, uses } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
   OperationKeys,
   ValidationError,
 } from "@decaf-ts/db-decorators";
-import { PostgresAdapter } from "./adapter";
-import { PostgresFlags, PostgresQuery } from "./types";
+import { TypeORMFlags, TypeORMQuery } from "./types";
+import { TypeORMAdapter } from "./TypeORMAdapter";
+import { TypeORMFlavour } from "./constants";
 
 /**
  * @description Type for PostgreSQL database repositories
@@ -16,15 +21,43 @@ import { PostgresFlags, PostgresQuery } from "./types";
  * @template M - Type extending Model that this repository will manage
  * @memberOf module:for-postgres
  */
-export class PostgresRepository<M extends Model> extends Repository<
+@uses(TypeORMFlavour)
+export class TypeORMRepository<M extends Model> extends Repository<
   M,
-  PostgresQuery,
-  PostgresAdapter,
-  PostgresFlags,
-  Context<PostgresFlags>
+  TypeORMQuery<M, any>,
+  TypeORMAdapter,
+  TypeORMFlags,
+  Context<TypeORMFlags>
 > {
-  constructor(adapter: PostgresAdapter, model: Constructor<M>, ...args: any[]) {
+  constructor(adapter: TypeORMAdapter, model: Constructor<M>, ...args: any[]) {
     super(adapter, model, ...args);
+  }
+
+  queryBuilder() {
+    const repo = this.adapter.dataSource.getRepository(
+      this.class[ModelKeys.ANCHOR as keyof typeof this.class]
+    );
+    return repo.createQueryBuilder();
+  }
+
+  override async create(model: M, ...args: any[]): Promise<M> {
+    // eslint-disable-next-line prefer-const
+    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    record = await this.adapter.create(
+      (this.class as any)[ModelKeys.ANCHOR] as any,
+      id,
+      model as any,
+      ...args
+    );
+    let c: Context<TypeORMFlags> | undefined = undefined;
+    if (args.length) c = args[args.length - 1] as Context<TypeORMFlags>;
+    return this.adapter.revert<M>(
+      record,
+      this.class,
+      this.pk,
+      id,
+      c && c.get("rebuildWithTransient") ? transient : undefined
+    );
   }
 
   /**
@@ -40,11 +73,23 @@ export class PostgresRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M> {
     const m = await this.adapter.read(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       id as string,
       this.pk as string
     );
     return this.adapter.revert<M>(m, this.class, this.pk, id);
+  }
+
+  override async update(model: M, ...args: any[]): Promise<M> {
+    // eslint-disable-next-line prefer-const
+    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    record = await this.adapter.update(
+      (this.class as any)[ModelKeys.ANCHOR] as any,
+      id,
+      model,
+      ...args
+    );
+    return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
   }
 
   /**
@@ -59,7 +104,7 @@ export class PostgresRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M> {
     const m = await this.adapter.delete(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       id as string,
       this.pk as string,
       ...args
@@ -114,9 +159,9 @@ export class PostgresRepository<M extends Model> extends Repository<
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       ids as (string | number)[],
-      records,
+      models,
       ...args
     );
     return records.map((r, i) =>
@@ -129,12 +174,12 @@ export class PostgresRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M[]> {
     const records = await this.adapter.readAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       keys,
       this.pk as string,
       ...args
     );
-    return records.map((r, i) =>
+    return records.map((r: Record<string, any>, i: number) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])
     );
   }
@@ -142,13 +187,13 @@ export class PostgresRepository<M extends Model> extends Repository<
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
     const updated = await this.adapter.updateAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       records.map((r) => r.id),
-      records.map((r) => r.record),
+      models,
       this.pk as string,
       ...args
     );
-    return updated.map((u, i) =>
+    return updated.map((u: Record<string, any>, i: number) =>
       this.adapter.revert(u, this.class, this.pk, records[i].id)
     );
   }
@@ -158,12 +203,12 @@ export class PostgresRepository<M extends Model> extends Repository<
     ...args: any[]
   ): Promise<M[]> {
     const results = await this.adapter.deleteAll(
-      this.tableName,
+      (this.class as any)[ModelKeys.ANCHOR] as any,
       keys,
       this.pk as string,
       ...args
     );
-    return results.map((r, i) =>
+    return results.map((r: Record<string, any>, i: number) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])
     );
   }

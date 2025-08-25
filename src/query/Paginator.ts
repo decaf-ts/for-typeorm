@@ -1,7 +1,9 @@
-import { Paginator } from "@decaf-ts/core";
-import { PostgresQuery } from "../types";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { PostgresAdapter } from "../adapter";
+import { Paginator, PagingError, Repository, Sequence } from "@decaf-ts/core";
+import { TypeORMQuery } from "../types";
+import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { TypeORMAdapter } from "../TypeORMAdapter";
+import { FindManyOptions, Repository as Repo } from "typeorm";
+import { findPrimaryKey } from "@decaf-ts/db-decorators";
 
 /**
  * @description Paginator for PostgreSQL query results
@@ -9,10 +11,10 @@ import { PostgresAdapter } from "../adapter";
  * @template M - The model type that extends Model
  * @template R - The result type
  * @param {PostgresAdapter<any, any, any>} adapter - The PostgreSQL adapter
- * @param {PostgresQuery} query - The PostgresSQL query to paginate
+ * @param {TypeORMQuery} query - The PostgresSQL query to paginate
  * @param {number} size - The page size
  * @param {Constructor<M>} clazz - The model constructor
- * @class PostgresPaginator
+ * @class TypeORMPaginator
  * @example
  * // Example of using PostgreSQLPaginator
  * const adapter = new MyPostgreSQLAdapter(pool);
@@ -25,10 +27,10 @@ import { PostgresAdapter } from "../adapter";
  * // Get the next page
  * const page2 = await paginator.page(2);
  */
-export class PostgresPaginator<M extends Model, R> extends Paginator<
+export class TypeORMPaginator<M extends Model, R> extends Paginator<
   M,
   R,
-  PostgresQuery
+  TypeORMQuery
 > {
   /**
    * @description Gets the total number of pages
@@ -48,17 +50,28 @@ export class PostgresPaginator<M extends Model, R> extends Paginator<
     return this._recordCount;
   }
 
+  private __repo?: Repo<any>;
+
+  protected get repo() {
+    if (!this.__repo) {
+      this.__repo = (this.adapter as TypeORMAdapter).dataSource.getRepository(
+        this.clazz[ModelKeys.ANCHOR as keyof typeof this.clazz]
+      );
+    }
+    return this.__repo;
+  }
+
   /**
    * @description Creates a new PostgreSQLPaginator instance
    * @summary Initializes a paginator for PostgreSQL query results
-   * @param {PostgresAdapter} adapter - The PostgreSQL adapter
-   * @param {PostgreSQLQuery} query - The PostgreSQL query to paginate
+   * @param {TypeORMAdapter} adapter - The PostgreSQL adapter
+   * @param {TypeORMQuery} query - The PostgreSQL query to paginate
    * @param {number} size - The page size
    * @param {Constructor<M>} clazz - The model constructor
    */
   constructor(
-    adapter: PostgresAdapter,
-    query: PostgresQuery,
+    adapter: TypeORMAdapter,
+    query: TypeORMQuery,
     size: number,
     clazz: Constructor<M>
   ) {
@@ -68,11 +81,11 @@ export class PostgresPaginator<M extends Model, R> extends Paginator<
   /**
    * @description Prepares a query for pagination
    * @summary Modifies the raw query to include pagination parameters
-   * @param {PostgresQuery} rawStatement - The original PostgreSQL query
-   * @return {PostgresQuery} The prepared query with pagination parameters
+   * @param {TypeORMQuery} rawStatement - The original PostgreSQL query
+   * @return {TypeORMQuery} The prepared query with pagination parameters
    */
-  protected prepare(rawStatement: PostgresQuery): PostgresQuery {
-    const query: PostgresQuery = { ...rawStatement };
+  protected prepare(rawStatement: TypeORMQuery): TypeORMQuery {
+    const query: TypeORMQuery = { ...rawStatement };
     return query;
   }
 
@@ -131,64 +144,40 @@ export class PostgresPaginator<M extends Model, R> extends Paginator<
    *     PostgreSQLPaginator-->>Client: Return results
    *   end
    */
+
   async page(page: number = 1): Promise<R[]> {
-    throw new Error(`Not implemented yet`);
-    // const statement = { ...this.statement };
-    //
-    // // Get total count if not already calculated
-    // if (!this._recordCount || !this._totalPages) {
-    //   this._totalPages = this._recordCount = 0;
-    //
-    //   // Create a count query based on the original query
-    //   const countQuery: PostgresQuery = {
-    //     ...statement,
-    //     count: true,
-    //     limit: undefined,
-    //     offset: undefined,
-    //   };
-    //
-    //   const countResult: QueryResult = await this.adapter.raw(
-    //     countQuery,
-    //     false
-    //   );
-    //   this._recordCount = parseInt(countResult.rows[0]?.count || "0", 10);
-    //
-    //   if (this._recordCount > 0) {
-    //     const size = statement?.limit || this.size;
-    //     this._totalPages = Math.ceil(this._recordCount / size);
-    //   }
-    // }
-    //
+    const statement = { ...this.statement };
+
+    // Get total count if not already calculated
+    if (!this._recordCount || !this._totalPages) {
+      this._totalPages = this._recordCount = 0;
+    }
+
+    const opts: FindManyOptions<M> = Object.assign(statement, {
+      skip: (this.current || 0) * this.size,
+      take: this.size,
+    });
+
     // this.validatePage(page);
-    //
-    // // Calculate offset based on page number
-    // const offset = (page - 1) * this.size;
-    // statement.limit = this.size;
-    // statement.offset = offset;
-    //
-    // const result: PostgreSQLResponse<any> = await this.adapter.raw(
-    //   statement,
-    //   false
-    // );
-    //
-    // if (!this.clazz) throw new PagingError("No statement target defined");
-    //
-    // const pkDef = findPrimaryKey(new this.clazz());
-    // const rows = result.rows || [];
-    //
-    // const results =
-    //   statement.columns && statement.columns.length
-    //     ? rows // has columns means it's not full model
-    //     : rows.map((row: any) => {
-    //         return this.adapter.revert(
-    //           row,
-    //           this.clazz,
-    //           pkDef.id,
-    //           Sequence.parseValue(pkDef.props.type, row[PostgreSQLKeys.ID])
-    //         );
-    //       });
-    //
-    // this._currentPage = page;
-    // return results as R[];
+
+    const result = await this.repo.findAndCount(opts);
+
+    this._recordCount = result[1];
+    this._totalPages = Math.ceil(this._recordCount / this.size);
+
+    if (!this.clazz) throw new PagingError("No statement target defined");
+
+    const pkDef = findPrimaryKey(new this.clazz());
+    const rows = result[0] || [];
+
+    const results =
+      // statement.columns && statement.columns.length
+      //   ? rows // has columns means it's not full model
+      rows.map((row: any) => {
+        return this.adapter.revert(row, this.clazz, pkDef.id, row[pkDef.id]);
+      });
+
+    this._currentPage = page;
+    return results as unknown as R[];
   }
 }

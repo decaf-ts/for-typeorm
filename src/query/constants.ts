@@ -3,10 +3,10 @@ import { SQLOperator } from "../types";
 /**
  * @description Default query limit for PostgreSQL queries
  * @summary Maximum number of rows to return in a single query
- * @const PostgreSQLQueryLimit
+ * @const TypeORMQueryLimit
  * @memberOf module:for-postgres
  */
-export const PostgreSQLQueryLimit = 250;
+export const TypeORMQueryLimit = 250;
 
 /**
  * @description Mapping of operator names to PostgreSQL SQL operators
@@ -27,11 +27,11 @@ export const PostgreSQLQueryLimit = 250;
  * @property {string} BETWEEN - Range operator (BETWEEN)
  * @property {string} IS_NULL - NULL check operator (IS NULL)
  * @property {string} IS_NOT_NULL - NOT NULL check operator (IS NOT NULL)
- * @const PostgreSQLOperator
+ * @const TypeORMOperator
  * @type {PostgreSQLOperatorType}
  * @memberOf module:for-postgres
  */
-export const PostgreSQLOperator: Record<string, SQLOperator | string> = {
+export const TypeORMOperator: Record<string, SQLOperator | string> = {
   EQUAL: SQLOperator.EQUAL,
   DIFFERENT: SQLOperator.NOT_EQUAL,
   BIGGER: SQLOperator.GREATER_THAN,
@@ -55,11 +55,11 @@ export const PostgreSQLOperator: Record<string, SQLOperator | string> = {
  * @typedef {Object} PostgreSQLGroupOperatorType
  * @property {string} AND - Logical AND operator (AND)
  * @property {string} OR - Logical OR operator (OR)
- * @const PostgreSQLGroupOperator
+ * @const TypeORMGroupOperator
  * @type {PostgreSQLGroupOperatorType}
  * @memberOf module:for-postgres
  */
-export const PostgreSQLGroupOperator: Record<string, string> = {
+export const TypeORMGroupOperator: Record<string, string> = {
   AND: "AND",
   OR: "OR",
 };
@@ -69,10 +69,9 @@ export const PostgreSQLGroupOperator: Record<string, string> = {
  * @summary String constants representing special values in PostgreSQL
  * @typedef {Object} PostgreSQLConstType
  * @property {string} NULL - String representation of null value
- * @const PostgreSQLConst
- * @type {PostgreSQLConstType}
+ * @const TypeORMConst
  * @memberOf module:for-postgres
  */
-export const PostgreSQLConst: Record<string, string> = {
+export const TypeORMConst: Record<string, string> = {
   NULL: "NULL",
 };

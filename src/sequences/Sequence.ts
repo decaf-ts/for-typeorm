@@ -1,7 +1,7 @@
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { SequenceOptions } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
-import { PostgresAdapter } from "../adapter";
+import { TypeORMAdapter } from "../TypeORMAdapter";
 
 /**
  * @summary Abstract implementation of a Sequence
@@ -9,13 +9,13 @@ import { PostgresAdapter } from "../adapter";
  *
  * @param {SequenceOptions} options
  *
- * @class PostgresSequence
+ * @class TypeORMSequence
  * @implements Sequence
  */
-export class PostgresSequence extends Sequence {
+export class TypeORMSequence extends Sequence {
   constructor(
     options: SequenceOptions,
-    protected adapter: PostgresAdapter
+    protected adapter: TypeORMAdapter
   ) {
     super(options);
   }
@@ -27,13 +27,10 @@ export class PostgresSequence extends Sequence {
   async current(): Promise<string | number | bigint> {
     const { name } = this.options;
     try {
-      const seq: any = await this.adapter.raw(
-        {
-          query: `SELECT current_value FROM information_schema.sequences WHERE sequence_name = $1`,
-          values: [name],
-        },
-        true
-      );
+      const seq: any = await this.adapter.raw({
+        query: `SELECT current_value FROM information_schema.sequences WHERE sequence_name = $1`,
+        values: [name],
+      });
       return this.parse(seq.current_value as string | number);
     } catch (e: unknown) {
       throw this.adapter.parseError(e as Error);
@@ -69,22 +66,16 @@ export class PostgresSequence extends Sequence {
       );
     let next: string | number | bigint;
     try {
-      next = await this.adapter.raw(
-        {
-          query: `SELECT nextval($1);`,
-          values: [name],
-        },
-        true
-      );
+      next = await this.adapter.raw({
+        query: `SELECT nextval($1);`,
+        values: [name],
+      });
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
-      next = await this.adapter.raw(
-        {
-          query: `CREATE SEQUENCE IF NOT EXISTS $1 START WITH $2 INCREMENT BY $3 NO CYCLE;`,
-          values: [name, startWith, incrementBy],
-        },
-        true
-      );
+      next = await this.adapter.raw({
+        query: `CREATE SEQUENCE IF NOT EXISTS $1 START WITH $2 INCREMENT BY $3 NO CYCLE;`,
+        values: [name, startWith, incrementBy],
+      });
     }
 
     return next as string | number | bigint;

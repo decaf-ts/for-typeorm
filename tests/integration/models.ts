@@ -12,29 +12,32 @@ import {
   Cascade,
   column,
   index,
+  manyToOne,
   oneToMany,
   oneToOne,
   pk,
   table,
   uses,
 } from "@decaf-ts/core";
-import { PGBaseModel } from "./baseModel";
-import { PostgresFlavour } from "../../src";
+import { TypeORMBaseModel } from "./baseModel";
+import { TypeORMFlavour } from "../../src";
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_country")
 @model()
-export class TestCountryModel extends PGBaseModel {
-  @pk()
+export class TestCountryModel extends TypeORMBaseModel {
+  @pk({ type: "Number" })
   id!: number;
 
+  @column("tst_name")
   @required()
   name!: string;
 
-  @required()
   @column("tst_country_code")
+  @required()
   countryCode!: string;
 
+  @column("tst_locale")
   @required()
   @pattern(/[a-z]{2}(?:_[A-Z]{2})?/g)
   locale!: string;
@@ -44,36 +47,41 @@ export class TestCountryModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_address")
 @model()
-export class TestAddressModel extends PGBaseModel {
-  @pk()
+export class TestAddressModel extends TypeORMBaseModel {
+  @pk({ type: "Number" })
   id!: number;
 
+  @column("tst_street")
   @required()
   street!: string;
 
-  @required()
   @column("tst_door_number")
+  @required()
   doorNumber!: string;
 
-  @prop()
   @column("tst_apartment_number")
+  @prop()
   apartmentNumber?: string;
 
-  @required()
   @column("tst_area_code")
+  @required()
   areaCode!: string;
 
+  @column("tst_city")
   @required()
   city!: string;
 
-  @oneToOne(TestCountryModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  @required()
+  @oneToOne(
+    TestCountryModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
   country!: TestCountryModel;
 
   constructor(m?: ModelArg<TestAddressModel>) {
@@ -81,79 +89,19 @@ export class TestAddressModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
-@table("tst_phone")
-@model()
-export class TestPhoneModel extends PGBaseModel {
-  @pk()
-  id!: number;
-
-  @required()
-  @column("tst_area_code")
-  areaCode!: string;
-
-  @required()
-  @column("tst_phone_number")
-  phoneNumber!: string;
-
-  constructor(m?: ModelArg<TestPhoneModel>) {
-    super(m);
-  }
-}
-
-@uses(PostgresFlavour)
-@table("tst_user")
-@model()
-export class TestUserModel extends PGBaseModel {
-  @pk()
-  id!: number;
-
-  @required()
-  @index()
-  name!: string;
-
-  @required()
-  @email()
-  @index()
-  email!: string;
-
-  @required()
-  @min(18)
-  @index()
-  age!: number;
-
-  @oneToOne(TestAddressModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  @required()
-  address!: TestAddressModel;
-
-  @oneToMany(TestPhoneModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  @required()
-  @minlength(1)
-  phones!: TestPhoneModel[];
-
-  constructor(m?: ModelArg<TestUserModel>) {
-    super(m);
-  }
-}
-
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_dummy_country")
 @model()
-export class TestDummyCountry extends PGBaseModel {
-  @pk()
+export class TestDummyCountry extends TypeORMBaseModel {
+  @pk({ type: "Number" })
   id!: number;
 
+  @column("tst_name")
   @required()
   name!: string;
 
-  @required()
   @column("tst_country_code")
+  @required()
   countryCode!: string;
 
   constructor(m?: ModelArg<TestDummyCountry>) {
@@ -161,11 +109,11 @@ export class TestDummyCountry extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_no_populate_once")
 @model()
-export class NoPopulateOnceModel extends PGBaseModel {
-  @pk()
+export class NoPopulateOnceModel extends TypeORMBaseModel {
+  @pk({ type: "Number" })
   id!: number;
 
   @oneToOne(
@@ -173,7 +121,6 @@ export class NoPopulateOnceModel extends PGBaseModel {
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },
     false
   )
-  @required()
   country!: TestDummyCountry;
 
   constructor(m?: ModelArg<NoPopulateOnceModel>) {
@@ -181,47 +128,45 @@ export class NoPopulateOnceModel extends PGBaseModel {
   }
 }
 
-@uses(PostgresFlavour)
+@uses(TypeORMFlavour)
 @table("tst_dummy_phone")
 @model()
-export class TestDummyPhone extends PGBaseModel {
-  @pk()
+export class TestDummyPhone extends TypeORMBaseModel {
+  @pk({ type: "Number" })
   id!: number;
-  @required()
   @column("tst_area_code")
-  areaCode!: string;
   @required()
+  areaCode!: string;
   @column("tst_phone_number")
+  @required()
   phoneNumber!: string;
 
   constructor(m?: ModelArg<TestDummyPhone>) {
     super(m);
   }
 }
-@uses(PostgresFlavour)
-@table("tst_no_populate_many")
-@model()
-export class NoPopulateManyModel extends PGBaseModel {
-  @pk()
-  id!: number;
-
-  @required()
-  @index()
-  name!: string;
-
-  @oneToMany(
-    TestDummyPhone,
-    { update: Cascade.CASCADE, delete: Cascade.CASCADE },
-    false
-  )
-  @required()
-  @minlength(1)
-  phones!: TestDummyPhone[];
-
-  constructor(m?: ModelArg<NoPopulateManyModel>) {
-    super(m);
-  }
-}
+// @uses(TypeORMFlavour)
+// @table("tst_no_populate_many")
+// @model()
+// export class NoPopulateManyModel extends TypeORMBaseModel {
+//   @pk({ type: "Number" })
+//   id!: number;
+//
+//   @required()
+//   @index()
+//   name!: string;
+//
+//   @oneToMany(
+//     TestDummyPhone,
+//     { update: Cascade.CASCADE, delete: Cascade.CASCADE },
+//     false
+//   )
+//   phones!: TestDummyPhone[];
+//
+//   constructor(m?: ModelArg<NoPopulateManyModel>) {
+//     super(m);
+//   }
+// }
 
 export function testCountry(country: TestCountryModel) {
   expect(country).toBeDefined();
@@ -238,27 +183,4 @@ export function testAddress(address: TestAddressModel) {
   expect(address.createdOn).toBeDefined();
   expect(address.updatedOn).toBeDefined();
   testCountry(address.country as TestCountryModel);
-}
-
-export function testPhone(p: TestPhoneModel) {
-  expect(p).toBeInstanceOf(TestPhoneModel);
-  expect(p.id).toBeDefined();
-  expect(p.createdOn).toBeDefined();
-  expect(p.updatedOn).toBeDefined();
-}
-
-export function testUser(user: TestUserModel) {
-  expect(user).toBeDefined();
-  expect(user).toBeInstanceOf(TestUserModel);
-  expect(user.id).toBeDefined();
-  expect(user.createdOn).toBeDefined();
-  expect(user.updatedOn).toBeDefined();
-
-  const { address, phones } = user as TestUserModel;
-
-  testAddress(address as TestAddressModel);
-
-  expect(phones).toBeDefined();
-  expect(phones.length).toBeGreaterThan(1);
-  phones.forEach((p) => testPhone(p));
 }

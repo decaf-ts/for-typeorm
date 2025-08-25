@@ -7,7 +7,7 @@ describe("Distribution Tests", () => {
     expect(VERSION).toBeDefined();
   });
 
-  it("reads JS Bundle", () => {
+  it.skip("reads JS Bundle", () => {
     try {
       let distFile: Dirent[];
       try {

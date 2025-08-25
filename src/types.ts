@@ -1,4 +1,6 @@
 import { RepositoryFlags } from "@decaf-ts/db-decorators";
+import { QueryBuilder, SelectQueryBuilder } from "typeorm";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description SQL operators available in PostgreSQL queries
@@ -27,26 +29,28 @@ export enum SQLOperator {
   SOME = "SOME",
 }
 
-export interface PostgresQuery {
-  query: string;
-  values: any[];
-  valueCount?: number;
+export interface TypeORMQuery<
+  M extends Model = Model,
+  T extends string | SelectQueryBuilder<M> = string,
+> {
+  query: T;
+  values?: any[];
 }
 
 /**
  * @description Configuration flags for Postgres database operations
  * @summary Extended repository flags that include user authentication information for Postgres database connections
- * @interface PostgresFlags
+ * @interface TypeORMFlags
  * @memberOf module:for-postgres
  */
-export interface PostgresFlags extends RepositoryFlags {
+export interface TypeORMFlags extends RepositoryFlags {
   /**
    * @description User authentication information for Postgres database connections
    */
   user: string;
 }
 
-export type PostgresTableSpec = PostgresQuery & {
+export type TypeORMTableSpec = TypeORMQuery & {
   primaryKey: boolean;
   constraints: string[];
   foreignKeys: string[];

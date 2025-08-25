@@ -4,10 +4,10 @@ import {
   PersistenceKeys,
   Repository,
 } from "@decaf-ts/core";
-import { PostgresKeys } from "../constants";
+import { TypeORMKeys } from "../constants";
 import { DefaultSeparator } from "@decaf-ts/db-decorators";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { PostgresQuery } from "../types";
+import { TypeORMQuery } from "../types";
 
 /**
  * @description Generates a name for a CouchDB index
@@ -26,10 +26,10 @@ function generateIndexName(
   separator = DefaultSeparator
 ) {
   return [
-    ...name.map((n) => (n === PostgresKeys.TABLE ? "table" : n)),
+    ...name.map((n) => (n === TypeORMKeys.TABLE ? "table" : n)),
     ...(compositions || []),
     ...(direction ? [direction] : []),
-    PostgresKeys.INDEX,
+    TypeORMKeys.INDEX,
   ].join(separator);
 }
 
@@ -38,7 +38,7 @@ function generateIndexName(
  * @summary Creates a set of CouchDB index configurations based on the metadata of the provided models
  * @template M - The model type that extends Model
  * @param models - Array of model constructors to generate indexes for
- * @return {PostgresQuery} Array of CouchDB index configurations
+ * @return {TypeORMQuery} Array of CouchDB index configurations
  * @function generateIndexes
  * @memberOf module:for-couchdb
  * @mermaid
@@ -82,9 +82,9 @@ function generateIndexName(
  */
 export function generateIndexes<M extends Model>(
   models: Constructor<M>[]
-): PostgresQuery[] {
-  const tableName = generateIndexName([PostgresKeys.TABLE]);
-  const indexes: Record<string, PostgresQuery> = {};
+): TypeORMQuery[] {
+  const tableName = generateIndexName([TypeORMKeys.TABLE]);
+  const indexes: Record<string, TypeORMQuery> = {};
   indexes[tableName] = {
     query: ``,
     values: [],

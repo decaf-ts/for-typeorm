@@ -1,12 +1,30 @@
-import { Pool, PoolConfig } from "pg";
+import { DataSource, DataSourceOptions } from "typeorm";
+import { TypeORMAdapter, TypeORMFlavour, TypeORMRepository } from "../../src";
+import { Logging, LogLevel } from "@decaf-ts/logging";
+
+const admin = "alfred";
+const admin_password = "password";
+const user = "query_user";
+const user_password = "password";
+const dbHost = "localhost";
+
+const config: DataSourceOptions = {
+  type: "postgres",
+  username: admin,
+  password: admin_password,
+  database: "alfred",
+  host: dbHost,
+  port: 5432,
+  ssl: false,
+};
+let con: DataSource;
+Logging.setConfig({
+  level: LogLevel.debug,
+});
+const adapter = new TypeORMAdapter(config);
+
 import {
-  PostgresAdapter,
-  PostgresFlavour,
-  PostgresRepository,
-} from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
-import {
+  column,
   Condition,
   index,
   Observer,
@@ -19,8 +37,10 @@ import {
 import {
   min,
   minlength,
+  Model,
   model,
   ModelArg,
+  ModelKeys,
   required,
   type,
 } from "@decaf-ts/decorator-validation";
@@ -30,102 +50,93 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 
-import { PGBaseModel } from "./baseModel";
-
-const admin = "alfred";
-const admin_password = "password";
-const user = "query_user";
-const user_password = "password";
-const dbHost = "localhost";
-
-const config: PoolConfig = {
-  user: admin,
-  password: admin_password,
-  database: "alfred",
-  host: dbHost,
-  port: 5432,
-  ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
-};
-
+import { TypeORMBaseModel } from "./baseModel";
 const dbName = "queries_db";
 
 jest.setTimeout(50000);
 
-describe("Queries", () => {
-  @uses(PostgresFlavour)
-  @table("tst_query_user")
-  @model()
-  class QueryUser extends PGBaseModel {
-    @pk()
-    id!: number;
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
 
-    @required()
-    @min(18)
-    @index([OrderDirection.DSC, OrderDirection.ASC])
-    age!: number;
+@uses(TypeORMFlavour)
+@table("tst_query_user")
+@model()
+class QueryUser extends TypeORMBaseModel {
+  @pk({ type: "Number" })
+  id!: number;
 
-    @required()
-    @minlength(5)
-    name!: string;
+  @column("tst_age")
+  @required()
+  @min(18)
+  @index([OrderDirection.DSC, OrderDirection.ASC])
+  age!: number;
 
-    @required()
-    @readonly()
-    @type([String.name])
-    sex!: "M" | "F";
+  @column("tst_name")
+  @required()
+  @minlength(5)
+  name!: string;
 
-    constructor(arg?: ModelArg<QueryUser>) {
-      super(arg);
-    }
+  @column("tst_sex")
+  @required()
+  @readonly()
+  @type([String.name])
+  sex!: "M" | "F";
+
+  constructor(arg?: ModelArg<QueryUser>) {
+    super(arg);
   }
+}
+
+describe("Queries", () => {
+  let dataSource: DataSource;
+
+  let repo: TypeORMRepository<QueryUser>;
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await PostgresAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [QueryUser[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
-
-    try {
-      await PostgresAdapter.createTable(con, QueryUser);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
+    repo = new TypeORMRepository(adapter, QueryUser);
   });
 
   let observer: Observer;
@@ -148,28 +159,47 @@ describe("Queries", () => {
   // });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName, user);
-    await PostgresAdapter.deleteUser(con, user, admin);
-    await con.end();
+    if (con) await con.destroy();
+    await dataSource.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
+    await con.destroy();
   });
 
-  let created: QueryUser[];
+  let created: QueryUser[] = [];
+  const size = 20;
+
+  it.skip("creates single model", async () => {
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
+      QueryUser,
+      TypeORMRepository<QueryUser>
+    >(QueryUser);
+    const m = new QueryUser({
+      age: 18,
+      name: "single",
+      sex: "M",
+    });
+    const created = await repo.create(m);
+    expect(created).toBeDefined();
+    expect(created.hasErrors()).toBeFalsy();
+  });
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
-    const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
-      (i) =>
-        new QueryUser({
-          age: Math.floor(18 + (i - 1) / 3),
-          name: "user_name_" + i,
-          sex: i % 2 === 0 ? "M" : "F",
-        })
-    );
+    const models = Object.keys(new Array(size).fill(0))
+      .map((e) => parseInt(e) + 1)
+      .map(
+        (i) =>
+          new QueryUser({
+            age: Math.floor(18 + (i - 1) / 3),
+            name: "user_name_" + i,
+            sex: i % 2 === 0 ? "M" : "F",
+          })
+      );
     created = await repo.createAll(models);
     expect(created).toBeDefined();
     expect(Array.isArray(created)).toEqual(true);
@@ -178,17 +208,18 @@ describe("Queries", () => {
   });
 
   it("Performs simple queries - full object", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel(QueryUser);
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel(QueryUser);
     const selected = await repo.select().execute();
+    expect(selected.length).toEqual(created.length);
     expect(
       created.every((c) => c.equals(selected.find((s: any) => (s.id = c.id))))
     );
   });
 
   it("Performs simple queries - attributes only", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const selected = await repo.select(["age", "sex"]).execute();
     expect(selected).toEqual(
@@ -205,9 +236,9 @@ describe("Queries", () => {
   });
 
   it("Performs conditional queries - full object", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const condition = Condition.attribute<QueryUser>("age").eq(20);
     const selected = await repo.select().where(condition).execute();
@@ -215,9 +246,9 @@ describe("Queries", () => {
   });
 
   it("Performs conditional queries - selected attributes", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const condition = Condition.attribute<QueryUser>("age").eq(20);
     const selected = await repo
@@ -239,9 +270,9 @@ describe("Queries", () => {
   });
 
   it("Performs AND conditional queries - full object", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel<
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel<
       QueryUser,
-      PostgresRepository<QueryUser>
+      TypeORMRepository<QueryUser>
     >(QueryUser);
     const condition = Condition.attribute<QueryUser>("age")
       .eq(20)
@@ -253,20 +284,30 @@ describe("Queries", () => {
   });
 
   it("Performs OR conditional queries - full object", async () => {
-    const repo = Repository.forModel<QueryUser, PostgresRepository<QueryUser>>(
+    const repo = Repository.forModel<QueryUser, TypeORMRepository<QueryUser>>(
       QueryUser
     );
     const condition = Condition.attribute<QueryUser>("age")
       .eq(20)
       .or(Condition.attribute<QueryUser>("age").eq(19));
+
+    const tableName = Repository.table(QueryUser);
+
     const selected = await repo.select().where(condition).execute();
+    // const selected = await repo
+    //   .queryBuilder()
+    //   .select(tableName)
+    //   .from(QueryUser[ModelKeys.ANCHOR], tableName)
+    //   .where(`${tableName}.age = :age1`, { age1: 20 })
+    //   .orWhere(`${tableName}.age = :age2`, { age2: 19 })
+    //   .getMany();
     expect(selected.length).toEqual(
       created.filter((c) => c.age === 20 || c.age === 19).length
     );
   });
 
   it("Sorts attribute", async () => {
-    const repo: PostgresRepository<QueryUser> = Repository.forModel(QueryUser);
+    const repo: TypeORMRepository<QueryUser> = Repository.forModel(QueryUser);
     const sorted = await repo
       .select()
       .orderBy(["age", OrderDirection.DSC])

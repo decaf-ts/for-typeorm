@@ -1,5 +1,5 @@
 import { GroupOperator, Operator } from "@decaf-ts/core";
-import { PostgreSQLGroupOperator, PostgreSQLOperator } from "./constants";
+import { TypeORMGroupOperator, TypeORMOperator } from "./constants";
 import { QueryError } from "@decaf-ts/core";
 import { SQLOperator } from "../types";
 
@@ -17,9 +17,9 @@ import { SQLOperator } from "../types";
  *   participant translateOperators
  *   participant PostgreSQLOperator
  *   participant PostgreSQLGroupOperator
- *   
+ *
  *   Caller->>translateOperators: operator
- *   
+ *
  *   translateOperators->>PostgreSQLOperator: Check for match
  *   alt Found in PostgreSQLOperator
  *     PostgreSQLOperator-->>translateOperators: Return matching operator
@@ -37,7 +37,7 @@ import { SQLOperator } from "../types";
 export function translateOperators(
   operator: GroupOperator | Operator
 ): SQLOperator | string {
-  for (const operators of [PostgreSQLOperator, PostgreSQLGroupOperator]) {
+  for (const operators of [TypeORMOperator, TypeORMGroupOperator]) {
     const el = Object.keys(operators).find((k) => k === operator);
     if (el) return operators[el];
   }

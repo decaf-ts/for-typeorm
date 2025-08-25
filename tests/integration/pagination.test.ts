@@ -1,12 +1,4 @@
-import { Pool, PoolConfig } from "pg";
-import { PostgresAdapter, PostgresRepository } from "../../src";
-let con: Pool;
-const adapter = new PostgresAdapter(con);
-
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
-import { TestCountryModel } from "./models";
-import { Repository } from "@decaf-ts/core";
+import { TypeORMAdapter, TypeORMRepository } from "../../src";
 
 const admin = "alfred";
 const admin_password = "password";
@@ -14,70 +6,83 @@ const user = "pagination_user";
 const user_password = "password";
 const dbHost = "localhost";
 
-const config: PoolConfig = {
-  user: admin,
+const config: DataSourceOptions = {
+  type: "postgres",
+  username: admin,
   password: admin_password,
   database: "alfred",
   host: dbHost,
   port: 5432,
   ssl: false,
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-  statement_timeout: 10000,
 };
+let con: DataSource;
+const adapter = new TypeORMAdapter(config);
+
+import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
+import { TestCountryModel } from "./models";
+import { Repository } from "@decaf-ts/core";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { DataSource } from "typeorm";
+import { ModelKeys } from "@decaf-ts/decorator-validation";
+
 const dbName = "pagination_db";
 
 jest.setTimeout(500000);
 
+const typeOrmCfg = {
+  type: "postgres",
+  host: dbHost,
+  port: 5432,
+  username: user,
+  password: user_password,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
+
 describe(`Pagination`, function () {
-  let repo: PostgresRepository<TestCountryModel>;
+  let dataSource: DataSource;
+
+  let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {
-    con = await PostgresAdapter.connect(config);
+    con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
 
     try {
-      await PostgresAdapter.deleteDatabase(con, dbName, user);
+      await TypeORMAdapter.deleteDatabase(con, dbName, user);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.deleteUser(con, user, admin);
+      await TypeORMAdapter.deleteUser(con, user, admin);
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
     }
     try {
-      await PostgresAdapter.createDatabase(con, dbName);
-      await con.end();
-      con = await PostgresAdapter.connect(
+      await TypeORMAdapter.createDatabase(con, dbName);
+      await con.destroy();
+      con = await TypeORMAdapter.connect(
         Object.assign({}, config, {
           database: dbName,
         })
       );
-      await PostgresAdapter.createUser(con, dbName, user, user_password);
-      await PostgresAdapter.createNotifyFunction(con, user);
-      await con.end();
+      await TypeORMAdapter.createUser(con, dbName, user, user_password);
+      await TypeORMAdapter.createNotifyFunction(con, user);
+      await con.destroy();
+      con = undefined;
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-
-    con = await PostgresAdapter.connect(
-      Object.assign({}, config, {
-        user: user,
-        password: user_password,
-        database: dbName,
-      })
+    dataSource = new DataSource(
+      Object.assign({}, typeOrmCfg, {
+        entities: [TestCountryModel[ModelKeys.ANCHOR]],
+      }) as DataSourceOptions
     );
-
-    adapter["_native" as keyof typeof PostgresAdapter] = con;
-    repo = Repository.forModel(TestCountryModel);
-
-    try {
-      await PostgresAdapter.createTable(con, TestCountryModel);
-    } catch (e: unknown) {
-      if (!(e instanceof ConflictError)) throw e;
-    }
+    await dataSource.initialize();
+    adapter["_dataSource"] = dataSource;
+    repo = new TypeORMRepository(adapter, TestCountryModel);
   });
 
   let observer: Observer;
@@ -100,32 +105,35 @@ describe(`Pagination`, function () {
   // });
 
   afterAll(async () => {
-    await con.end();
-    con = await PostgresAdapter.connect(config);
-    await PostgresAdapter.deleteDatabase(con, dbName, user);
-    await PostgresAdapter.deleteUser(con, user, admin);
-    await con.end();
+    if (con) await con.destroy();
+    await dataSource.destroy();
+    con = await TypeORMAdapter.connect(config);
+    await TypeORMAdapter.deleteDatabase(con, dbName, user);
+    await TypeORMAdapter.deleteUser(con, user, admin);
+    await con.destroy();
   });
 
   let created: TestCountryModel[];
   const size = 100;
-
+  const pageSize = 10;
   let selected: TestCountryModel[];
 
   it("Creates in bulk", async () => {
-    const repo: PostgresRepository<TestCountryModel> = Repository.forModel<
+    const repo: TypeORMRepository<TestCountryModel> = Repository.forModel<
       TestCountryModel,
-      PostgresRepository<TestCountryModel>
+      TypeORMRepository<TestCountryModel>
     >(TestCountryModel);
-    const models = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
-      (i) =>
-        new TestCountryModel({
-          age: Math.floor(18 + (i - 1) / 3),
-          name: "user_name_" + i,
-          countryCode: "M" + i,
-          locale: "pt_PT",
-        })
-    );
+    const models = Object.keys(new Array(size).fill(0))
+      .map((e) => parseInt(e) + 1)
+      .map(
+        (i) =>
+          new TestCountryModel({
+            age: Math.floor(18 + (i - 1) / 3),
+            name: "user_name_" + i,
+            countryCode: "M" + i,
+            locale: "pt_PT",
+          })
+      );
     created = await repo.createAll(models);
     expect(created).toBeDefined();
     expect(Array.isArray(created)).toEqual(true);
@@ -143,15 +151,15 @@ describe(`Pagination`, function () {
     expect(created.every((c, i) => c.equals(selected[i]))).toEqual(true);
   });
 
-  it.skip("paginates", async () => {
+  it("paginates", async () => {
     const paginator: Paginator<TestCountryModel> = await repo
       .select()
       .orderBy(["id", OrderDirection.DSC])
-      .paginate(10);
+      .paginate(pageSize);
 
     expect(paginator).toBeDefined();
 
-    expect(paginator.size).toEqual(10);
+    expect(paginator.size).toEqual(pageSize);
     expect(paginator.current).toEqual(undefined);
 
     const page1 = await paginator.page();
@@ -186,7 +194,7 @@ describe(`Pagination`, function () {
       expect.arrayContaining(ids.map((e) => e - 30))
     );
 
-    expect(() => paginator.count).toThrow();
-    expect(() => paginator.total).toThrow();
+    expect(paginator.count).toEqual(created.length);
+    expect(paginator.total).toEqual(Math.ceil(size / pageSize));
   });
 });
