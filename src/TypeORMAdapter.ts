@@ -9,7 +9,6 @@ import {
   Repository,
   Sequence,
   type SequenceOptions,
-  uses,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -69,6 +68,9 @@ import {
   ManyToMany,
   SelectQueryBuilder,
   VersionColumn,
+  OneToMany,
+  ManyToOne,
+  JoinTable,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -77,9 +79,6 @@ import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { OneToMany } from "./overrides/OneToMany";
-import { ManyToOne } from "./overrides/ManyToOne";
-import { JoinTable } from "./overrides/JoinTable";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,

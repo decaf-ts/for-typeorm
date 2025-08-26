@@ -1,4 +1,4 @@
-import { Dispatch } from "@decaf-ts/core";
+import { Dispatch, EventIds } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { TypeORMAdapter } from "./TypeORMAdapter";
@@ -42,7 +42,9 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
   /**
    * @description Processes TypeORM notification events.
    * @summary Handles change notifications (translated from TypeORM events) and notifies observers about record changes.
-   * @param {any} notification The notification payload.
+   * @param {string} table The notification payload.
+   * @param {OperationKeys} operation The notification payload.
+   * @param {EventIds} ids The notification payload.
    * @return {Promise<void>} A promise that resolves when all notifications have been processed.
    * @mermaid
    * sequenceDiagram
@@ -56,37 +58,15 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
    *   D->>D: Update observerLastUpdate
    *   D->>L: Log successful dispatch
    */
-  protected async notificationHandler(notification: any): Promise<void> {
+  protected async notificationHandler(
+    table: string,
+    operation: OperationKeys,
+    ids: EventIds
+  ): Promise<void> {
     const log = this.log.for(this.notificationHandler);
-
     try {
-      // Parse the notification payload (expected format: table:operation:id1,id2,...)
-      const payload = notification.payload as string;
-      const [table, operation, idsString] = payload.split(":");
-      const ids = idsString.split(",");
-
-      if (!table || !operation || !ids.length) {
-        return log.error(`Invalid notification format: ${payload}`);
-      }
-
-      // Map operation string to OperationKeys
-      let operationKey: OperationKeys;
-      switch (operation.toLowerCase()) {
-        case "insert":
-          operationKey = OperationKeys.CREATE;
-          break;
-        case "update":
-          operationKey = OperationKeys.UPDATE;
-          break;
-        case "delete":
-          operationKey = OperationKeys.DELETE;
-          break;
-        default:
-          return log.error(`Unknown operation: ${operation}`);
-      }
-
       // Notify observers
-      await this.updateObservers(table, operationKey, ids);
+      await this.updateObservers(table, operation, ids);
       this.observerLastUpdate = new Date().toISOString();
       log.verbose(`Observer refresh dispatched by ${operation} for ${table}`);
       log.debug(`pks: ${ids}`);
@@ -134,7 +114,7 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
           await adapter.dataSource.initialize();
 
         adapter.dataSource.subscribers.push(
-          new TypeORMEventSubscriber(adapter)
+          new TypeORMEventSubscriber(this.notificationHandler.bind(this))
         );
       } catch (e: unknown) {
         throw new InternalError(e as Error);

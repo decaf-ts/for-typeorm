@@ -19,8 +19,6 @@ let con: DataSource;
 const adapter = new TypeORMAdapter(config);
 
 import {
-  NoPopulateManyModel,
-  NoPopulateOnceModel,
   testAddress,
   TestAddressModel,
   testCountry,
@@ -46,7 +44,6 @@ import {
   pk,
   uses,
 } from "@decaf-ts/core";
-import { sequenceNameForModel } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { TestPhoneModel, testPhone } from "./models/TestModelPhone";
@@ -428,55 +425,6 @@ describe(`Complex Database`, function () {
 
       let created: TestUserModel;
       let updated: TestUserModel;
-
-      it.skip("Ensure no population when populate is disabled in a one-to-many relation", async () => {
-        const phones = [
-          {
-            areaCode: "351",
-            number: "000-0000000",
-          },
-          {
-            areaCode: "351",
-            number: "000-0000001",
-          },
-        ];
-
-        const sequencePhone = await adapter.Sequence({
-          name: Sequence.pk(TestDummyPhone),
-          type: "Number",
-          startWith: 0,
-          incrementBy: 1,
-          cycle: false,
-        });
-
-        const currPhone = (await sequencePhone.current()) as number;
-
-        const m = new NoPopulateManyModel({
-          name: "Robert",
-          phones: phones,
-        });
-        const created = await noPopulateManyModelRepository.create(m);
-        expect(created.phones).toEqual([currPhone + 1, currPhone + 2]);
-
-        const read = await noPopulateManyModelRepository.read(created.id);
-        expect(read.phones).toEqual([currPhone + 1, currPhone + 2]);
-
-        read.phones = [
-          new TestDummyPhone({
-            areaCode: "352",
-            phoneNumber: "000-0000002",
-          }),
-          new TestDummyPhone({
-            areaCode: "51",
-            phoneNumber: "000-0000000",
-          }),
-        ];
-        const updated = await noPopulateManyModelRepository.update(read);
-        expect(updated.phones).toEqual([currPhone + 3, currPhone + 4]);
-
-        const deleted = await noPopulateManyModelRepository.delete(created.id);
-        expect(deleted.phones).toEqual([currPhone + 3, currPhone + 4]);
-      });
 
       it("Creates a one to many relation", async () => {
         created = await userRepository.create(new TestUserModel(user));

@@ -5,9 +5,8 @@ import {
   RemoveEvent,
   UpdateEvent,
 } from "typeorm";
-import { Repository } from "@decaf-ts/core";
+import { EventIds, Repository } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { TypeORMAdapter } from "./TypeORMAdapter";
 import { Model } from "@decaf-ts/decorator-validation";
 
 /**
@@ -40,7 +39,13 @@ import { Model } from "@decaf-ts/decorator-validation";
  */
 @EventSubscriber()
 export class TypeORMEventSubscriber implements EntitySubscriberInterface {
-  constructor(protected readonly adapter: TypeORMAdapter) {}
+  constructor(
+    protected readonly handler: (
+      tableName: string,
+      operation: OperationKeys,
+      ids: EventIds
+    ) => void
+  ) {}
 
   /**
    * @description Handles post-insert events.
@@ -56,9 +61,7 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
       );
     const tableName = Repository.table(constructor);
 
-    return this.adapter.updateObservers(tableName, OperationKeys.CREATE, [
-      event.entityId as any,
-    ]);
+    this.handler(tableName, OperationKeys.CREATE, [event.entityId as any]);
   }
 
   /**
@@ -75,9 +78,7 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
       );
     const tableName = Repository.table(constructor);
 
-    return this.adapter.updateObservers(tableName, OperationKeys.DELETE, [
-      event.entityId as any,
-    ]);
+    this.handler(tableName, OperationKeys.DELETE, [event.entityId as any]);
   }
 
   /**
@@ -94,7 +95,7 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
       );
     const tableName = Repository.table(constructor);
 
-    return this.adapter.updateObservers(tableName, OperationKeys.UPDATE, [
+    return this.handler(tableName, OperationKeys.UPDATE, [
       (event.entity as any)["id"] as any,
     ]);
   }

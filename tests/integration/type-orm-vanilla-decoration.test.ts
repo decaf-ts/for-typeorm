@@ -23,14 +23,14 @@ import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
 import {
   Column,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
-import { OneToOne } from "../../src/overrides/OneToOne";
-import { JoinColumn } from "../../src/overrides/JoinColumn";
 import { BaseModel } from "./models/vanilla/BaseModel";
 
 jest.setTimeout(50000);
