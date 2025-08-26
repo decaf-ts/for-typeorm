@@ -1,4 +1,4 @@
-import { GeneratedMetadataArgs } from "typeorm/metadata-args/GeneratedMetadataArgs";
+import type { GeneratedMetadataArgs } from "typeorm/metadata-args/GeneratedMetadataArgs";
 import {
   ColumnOptions,
   ColumnType,
@@ -12,16 +12,15 @@ import {
   WithPrecisionColumnType,
   WithWidthColumnType,
 } from "typeorm/driver/types/ColumnTypes";
-import { ColumnCommonOptions } from "typeorm/decorator/options/ColumnCommonOptions";
-import { SpatialColumnOptions } from "typeorm/decorator/options/SpatialColumnOptions";
-import { ColumnWithLengthOptions } from "typeorm/decorator/options/ColumnWithLengthOptions";
-import { ColumnWithWidthOptions } from "typeorm/decorator/options/ColumnWithWidthOptions";
-import { ColumnNumericOptions } from "typeorm/decorator/options/ColumnNumericOptions";
-import { ColumnEnumOptions } from "typeorm/decorator/options/ColumnEnumOptions";
-import { ColumnHstoreOptions } from "typeorm/decorator/options/ColumnHstoreOptions";
-import { ColumnEmbeddedOptions } from "typeorm/decorator/options/ColumnEmbeddedOptions";
-import { EmbeddedMetadataArgs } from "typeorm/metadata-args/EmbeddedMetadataArgs";
-import { ColumnMetadataArgs } from "typeorm/metadata-args/ColumnMetadataArgs";
+import type { ColumnCommonOptions } from "typeorm/decorator/options/ColumnCommonOptions";
+import type { SpatialColumnOptions } from "typeorm/decorator/options/SpatialColumnOptions";
+import type { ColumnWithLengthOptions } from "typeorm/decorator/options/ColumnWithLengthOptions";
+import type { ColumnWithWidthOptions } from "typeorm/decorator/options/ColumnWithWidthOptions";
+import type { ColumnNumericOptions } from "typeorm/decorator/options/ColumnNumericOptions";
+import type { ColumnEnumOptions } from "typeorm/decorator/options/ColumnEnumOptions";
+import type { ColumnHstoreOptions } from "typeorm/decorator/options/ColumnHstoreOptions";
+import type { ColumnEmbeddedOptions } from "typeorm/decorator/options/ColumnEmbeddedOptions";
+import type { EmbeddedMetadataArgs } from "typeorm/metadata-args/EmbeddedMetadataArgs";
 import { aggregateOrNewColumn } from "./utils";
 
 /**
