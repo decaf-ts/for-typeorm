@@ -5,8 +5,7 @@ import {
   getMetadataArgsStorage,
   PrimaryColumnCannotBeNullableError,
 } from "typeorm";
-import { ColumnMetadataArgs } from "typeorm/metadata-args/ColumnMetadataArgs";
-import { GeneratedMetadataArgs } from "typeorm/metadata-args/GeneratedMetadataArgs";
+import type { GeneratedMetadataArgs } from "typeorm/metadata-args/GeneratedMetadataArgs";
 import { aggregateOrNewColumn } from "./utils";
 
 /**

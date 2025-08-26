@@ -1,6 +1,6 @@
 import { EntityOptions, getMetadataArgsStorage } from "typeorm";
-import { ObjectUtils } from "typeorm/util/ObjectUtils";
-import { TableMetadataArgs } from "typeorm/metadata-args/TableMetadataArgs";
+import type { TableMetadataArgs } from "typeorm/metadata-args/TableMetadataArgs";
+import { ObjectUtils } from "./ObjectUtils";
 
 /**
  * This decorator is used to mark classes that will be an entity (table or document depend on database type).

@@ -1,10 +1,10 @@
-import { ObjectUtils } from "typeorm/util/ObjectUtils";
-import { PrimaryGeneratedColumnNumericOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnNumericOptions";
-import { PrimaryGeneratedColumnUUIDOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnUUIDOptions";
-import { PrimaryGeneratedColumnIdentityOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnIdentityOptions";
+import type { PrimaryGeneratedColumnNumericOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnNumericOptions";
+import type { PrimaryGeneratedColumnUUIDOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnUUIDOptions";
+import type { PrimaryGeneratedColumnIdentityOptions } from "typeorm/decorator/options/PrimaryGeneratedColumnIdentityOptions";
 import { ColumnOptions, getMetadataArgsStorage } from "typeorm";
 import { GeneratedMetadataArgs } from "typeorm/metadata-args/GeneratedMetadataArgs";
 import { aggregateOrNewColumn } from "./utils";
+import { ObjectUtils } from "./ObjectUtils";
 
 /**
  * Column decorator is used to mark a specific class property as a table column.
