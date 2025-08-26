@@ -1,9 +1,9 @@
 import { BaseError } from "@decaf-ts/db-decorators";
 
 /**
- * @description Error thrown when there is an issue with CouchDB indexes
- * @summary Represents an error related to CouchDB index operations
- * @param {string|Error} msg - The error message or Error object
+ * @description Error thrown when there is an issue with TypeORM indexes.
+ * @summary Represents an error related to index generation or handling within the TypeORM adapter.
+ * @param {string|Error} msg The error message or Error object.
  * @class
  * @category Errors
  * @example

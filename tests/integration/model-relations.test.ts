@@ -19,8 +19,6 @@ let con: DataSource;
 const adapter = new TypeORMAdapter(config);
 
 import {
-  NoPopulateManyModel,
-  NoPopulateOnceModel,
   testAddress,
   TestAddressModel,
   testCountry,
@@ -28,14 +26,30 @@ import {
   TestDummyCountry,
   TestDummyPhone,
 } from "./models";
-import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import {
+  Model,
+  ModelArg,
+  ModelKeys,
+  required,
+  model,
+} from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Condition, Observer } from "@decaf-ts/core";
-import { sequenceNameForModel } from "@decaf-ts/core";
+import {
+  Cascade,
+  Condition,
+  manyToMany,
+  Observer,
+  table,
+  column,
+  pk,
+  uses,
+} from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { TestPhoneModel, testPhone } from "./models/TestModelPhone";
 import { TestUserModel, testUser } from "./models/TestUserModel";
+import { TypeORMBaseModel } from "./baseModel";
+import { TypeORMFlavour } from "../../src";
 
 const dbName = "complex_db";
 
@@ -53,6 +67,44 @@ const typeOrmCfg = {
   synchronize: true,
   logging: false,
 };
+
+@uses(TypeORMFlavour)
+@table("tst_section")
+@model()
+class TestSection extends TypeORMBaseModel {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @column("tst_section_text")
+  @required()
+  text!: string;
+
+  constructor(arg?: ModelArg<TestSection>) {
+    super(arg);
+  }
+}
+
+@uses(TypeORMFlavour)
+@table("tst_text")
+@model()
+class TestText extends TypeORMBaseModel {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @manyToMany(
+    () => TestSection,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
+  sections!: TestSection[];
+
+  constructor(arg?: ModelArg<TestText>) {
+    super(arg);
+  }
+}
 
 describe(`Complex Database`, function () {
   let dataSource: DataSource;
@@ -95,6 +147,8 @@ describe(`Complex Database`, function () {
           TestAddressModel[ModelKeys.ANCHOR],
           TestDummyCountry[ModelKeys.ANCHOR],
           TestDummyPhone[ModelKeys.ANCHOR],
+          TestSection[ModelKeys.ANCHOR],
+          // TestText[ModelKeys.ANCHOR],
           // NoPopulateOnceModel[ModelKeys.ANCHOR],
           // NoPopulateManyModel[ModelKeys.ANCHOR],
         ],
@@ -142,7 +196,7 @@ describe(`Complex Database`, function () {
   // let noPopulateOnceModelRepository: TypeORMRepository<NoPopulateOnceModel>;
   // let noPopulateManyModelRepository: TypeORMRepository<NoPopulateManyModel>;
 
-  let model: any;
+  let m: any;
 
   beforeAll(async () => {
     userRepository = new TypeORMRepository(adapter, TestUserModel);
@@ -172,7 +226,7 @@ describe(`Complex Database`, function () {
     //   NoPopulateManyModel
     // );
 
-    model = {
+    m = {
       name: "test country",
       countryCode: "tst",
       locale: "ts_TS",
@@ -183,7 +237,7 @@ describe(`Complex Database`, function () {
     let cached: TestCountryModel;
 
     it("creates a new record", async () => {
-      const record = new TestCountryModel(model);
+      const record = new TestCountryModel(m);
       const created = await testCountryModelRepository.create(record);
       expect(created).toBeDefined();
       expect(
@@ -277,7 +331,7 @@ describe(`Complex Database`, function () {
           apartmentNumber: "test number",
           areaCode: "test area code",
           city: "test city",
-          country: model,
+          country: m,
         });
         created = (await testAddressModelRepository.create(
           address
@@ -371,55 +425,6 @@ describe(`Complex Database`, function () {
 
       let created: TestUserModel;
       let updated: TestUserModel;
-
-      it.skip("Ensure no population when populate is disabled in a one-to-many relation", async () => {
-        const phones = [
-          {
-            areaCode: "351",
-            number: "000-0000000",
-          },
-          {
-            areaCode: "351",
-            number: "000-0000001",
-          },
-        ];
-
-        const sequencePhone = await adapter.Sequence({
-          name: Sequence.pk(TestDummyPhone),
-          type: "Number",
-          startWith: 0,
-          incrementBy: 1,
-          cycle: false,
-        });
-
-        const currPhone = (await sequencePhone.current()) as number;
-
-        const m = new NoPopulateManyModel({
-          name: "Robert",
-          phones: phones,
-        });
-        const created = await noPopulateManyModelRepository.create(m);
-        expect(created.phones).toEqual([currPhone + 1, currPhone + 2]);
-
-        const read = await noPopulateManyModelRepository.read(created.id);
-        expect(read.phones).toEqual([currPhone + 1, currPhone + 2]);
-
-        read.phones = [
-          new TestDummyPhone({
-            areaCode: "352",
-            phoneNumber: "000-0000002",
-          }),
-          new TestDummyPhone({
-            areaCode: "51",
-            phoneNumber: "000-0000000",
-          }),
-        ];
-        const updated = await noPopulateManyModelRepository.update(read);
-        expect(updated.phones).toEqual([currPhone + 3, currPhone + 4]);
-
-        const deleted = await noPopulateManyModelRepository.delete(created.id);
-        expect(deleted.phones).toEqual([currPhone + 3, currPhone + 4]);
-      });
 
       it("Creates a one to many relation", async () => {
         created = await userRepository.create(new TestUserModel(user));
@@ -661,6 +666,25 @@ describe(`Complex Database`, function () {
           );
         }
         expect(created).toBeUndefined();
+      });
+    });
+
+    describe.skip("many-to-many relations", () => {
+      it("creates a many to many relation", async () => {
+        const text = new TestText({
+          sections: [
+            new TestSection({
+              text: "section1",
+            }),
+            new TestSection({
+              text: "section2",
+            }),
+          ],
+        });
+        const repo = new TypeORMRepository(adapter, TestText);
+        const created = await repo.create(text);
+        expect(created).toBeDefined();
+        expect(created.hasErrors()).toBeUndefined();
       });
     });
   });

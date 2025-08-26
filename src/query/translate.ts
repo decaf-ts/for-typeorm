@@ -4,13 +4,13 @@ import { QueryError } from "@decaf-ts/core";
 import { SQLOperator } from "../types";
 
 /**
- * @description Translates core operators to PostgreSQL SQL operators
- * @summary Converts Decaf.ts core operators to their equivalent PostgreSQL SQL operators
- * @param {GroupOperator | Operator} operator - The core operator to translate
- * @return {SQLOperator | string} The equivalent PostgreSQL SQL operator
- * @throws {QueryError} If no translation exists for the given operator
+ * @description Translates core operators to TypeORM SQL operators.
+ * @summary Converts Decaf.ts core operators to their equivalent SQL operators used by the TypeORM adapter.
+ * @param {GroupOperator | Operator} operator The core operator to translate.
+ * @return {SQLOperator | string} The equivalent SQL operator.
+ * @throws {QueryError} If no translation exists for the given operator.
  * @function translateOperators
- * @memberOf module:for-postgres
+ * @memberOf module:for-typeorm
  * @mermaid
  * sequenceDiagram
  *   participant Caller

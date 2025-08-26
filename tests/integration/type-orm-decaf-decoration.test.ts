@@ -3,9 +3,9 @@ import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "orm_decoration_user";
+const user = "orm_decoration_decaf_user";
 const user_password = "password";
-const dbName = "orm_decoration_db";
+const dbName = "orm_decoration_decaf_db";
 const dbHost = "localhost";
 
 const config: DataSourceOptions = {
@@ -21,7 +21,6 @@ let con: DataSource;
 const adapter = new TypeORMAdapter(config);
 
 import {
-  Model,
   model,
   ModelArg,
   ModelKeys,

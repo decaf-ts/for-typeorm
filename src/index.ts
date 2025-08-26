@@ -14,14 +14,15 @@ export * from "./types";
 export * from "./utils";
 
 /**
- * @description TypeORM adapter for Decaf.ts
- * @summary A TypeScript adapter for TypeORM database operations, providing a seamless integration with the Decaf.ts framework. This module includes classes, interfaces, and utilities for working with PostgreSQL databases, including support for SQL queries, table operations, and sequence management.
- * @module for-postgres
+ * @description TypeORM integration for Decaf.ts.
+ * @summary Provides the TypeORM-backed implementation of the Decaf.ts data access abstractions, including the adapter, repository, statement builder, pagination utilities, index helpers, and type definitions. Key exports include {@link TypeORMAdapter}, {@link TypeORMRepository}, {@link TypeORMStatement}, {@link TypeORMPaginator}, and index generation utilities.
+ * @module for-typeorm
  */
 
 /**
- * @description Stores the current package version
- * @summary The version string of the for-postgres package
+ * @description Stores the current package version.
+ * @summary The version string of the for-typeorm package.
  * @const VERSION
+ * @memberOf module:for-typeorm
  */
 export const VERSION = "##VERSION##";

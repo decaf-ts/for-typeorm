@@ -1,4 +1,4 @@
-import { Paginator, PagingError, Repository, Sequence } from "@decaf-ts/core";
+import { Paginator, PagingError } from "@decaf-ts/core";
 import { TypeORMQuery } from "../types";
 import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { TypeORMAdapter } from "../TypeORMAdapter";
@@ -6,25 +6,19 @@ import { FindManyOptions, Repository as Repo } from "typeorm";
 import { findPrimaryKey } from "@decaf-ts/db-decorators";
 
 /**
- * @description Paginator for PostgreSQL query results
- * @summary Implements pagination for PostgreSQL queries using LIMIT and OFFSET for efficient navigation through result sets
- * @template M - The model type that extends Model
- * @template R - The result type
- * @param {PostgresAdapter<any, any, any>} adapter - The PostgreSQL adapter
- * @param {TypeORMQuery} query - The PostgresSQL query to paginate
- * @param {number} size - The page size
- * @param {Constructor<M>} clazz - The model constructor
+ * @description Paginator for TypeORM query results.
+ * @summary Implements pagination for TypeORM-built queries using take/skip for efficient navigation through result sets.
+ * @template M The model type that extends Model.
+ * @template R The result type.
+ * @param {TypeORMAdapter} adapter The TypeORM adapter.
+ * @param {TypeORMQuery} query The query container to paginate.
+ * @param {number} size The page size.
+ * @param {Constructor<M>} clazz The model constructor.
  * @class TypeORMPaginator
  * @example
- * // Example of using PostgreSQLPaginator
- * const adapter = new MyPostgreSQLAdapter(pool);
- * const query = { table: "users" };
- * const paginator = new PostgreSQLPaginator(adapter, query, 10, User);
- *
- * // Get the first page
+ * // Example of using TypeORMPaginator
+ * const paginator = new TypeORMPaginator(adapter, { query: qb }, 10, User);
  * const page1 = await paginator.page(1);
- *
- * // Get the next page
  * const page2 = await paginator.page(2);
  */
 export class TypeORMPaginator<M extends Model, R> extends Paginator<
@@ -62,12 +56,12 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
   }
 
   /**
-   * @description Creates a new PostgreSQLPaginator instance
-   * @summary Initializes a paginator for PostgreSQL query results
-   * @param {TypeORMAdapter} adapter - The PostgreSQL adapter
-   * @param {TypeORMQuery} query - The PostgreSQL query to paginate
-   * @param {number} size - The page size
-   * @param {Constructor<M>} clazz - The model constructor
+   * @description Creates a new TypeORMPaginator instance.
+   * @summary Initializes a paginator for TypeORM query results.
+   * @param {TypeORMAdapter} adapter The TypeORM adapter.
+   * @param {TypeORMQuery} query The TypeORM query container to paginate.
+   * @param {number} size The page size.
+   * @param {Constructor<M>} clazz The model constructor.
    */
   constructor(
     adapter: TypeORMAdapter,
@@ -90,59 +84,36 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
   }
 
   /**
-   * @description Retrieves a specific page of results
-   * @summary Executes the query with pagination and processes the results
-   * @param {number} [page=1] - The page number to retrieve
-   * @return {Promise<R[]>} A promise that resolves to an array of results
-   * @throws {PagingError} If trying to access an invalid page or if no class is defined
+   * @description Retrieves a specific page of results.
+   * @summary Executes the query with pagination and processes the results.
+   * @param {number} [page=1] The page number to retrieve.
+   * @return {Promise<R[]>} A promise that resolves to an array of results.
+   * @throws {PagingError} If trying to access an invalid page or if no class is defined.
    * @mermaid
    * sequenceDiagram
    *   participant Client
-   *   participant PostgreSQLPaginator
+   *   participant Paginator as TypeORMPaginator
    *   participant Adapter
-   *   participant PostgreSQL
+   *   participant DB as Database
    *
-   *   Client->>PostgreSQLPaginator: page(pageNumber)
-   *   Note over PostgreSQLPaginator: Clone statement
+   *   Client->>Paginator: page(pageNumber)
+   *   Note over Paginator: Prepare options (skip/take)
    *
    *   alt First time or need count
-   *     PostgreSQLPaginator->>Adapter: Get total count
-   *     Adapter->>PostgreSQL: Execute COUNT query
-   *     PostgreSQL-->>Adapter: Return count
-   *     Adapter-->>PostgreSQLPaginator: Return count
-   *     PostgreSQLPaginator->>PostgreSQLPaginator: Calculate total pages
+   *     Paginator->>Adapter: Get count
+   *     Adapter->>DB: Execute COUNT
+   *     DB-->>Adapter: count
+   *     Adapter-->>Paginator: count
+   *     Paginator->>Paginator: Calculate total pages
    *   end
    *
-   *   PostgreSQLPaginator->>PostgreSQLPaginator: validatePage(page)
-   *   PostgreSQLPaginator->>PostgreSQLPaginator: Calculate offset
-   *   PostgreSQLPaginator->>PostgreSQLPaginator: Add limit and offset to query
+   *   Paginator->>Adapter: Execute query
+   *   Adapter->>DB: findAndCount(options)
+   *   DB-->>Adapter: rows, count
+   *   Adapter-->>Paginator: rows, count
    *
-   *   PostgreSQLPaginator->>Adapter: raw(statement, false)
-   *   Adapter->>PostgreSQL: Execute query
-   *   PostgreSQL-->>Adapter: Return results
-   *   Adapter-->>PostgreSQLPaginator: Return PostgreSQLResponse
-   *
-   *   Note over PostgreSQLPaginator: Process results
-   *
-   *   PostgreSQLPaginator->>PostgreSQLPaginator: Check for clazz
-   *
-   *   alt No clazz
-   *     PostgreSQLPaginator-->>Client: Throw PagingError
-   *   else Has clazz
-   *     PostgreSQLPaginator->>PostgreSQLPaginator: Find primary key
-   *
-   *     alt Has columns in statement
-   *       PostgreSQLPaginator->>PostgreSQLPaginator: Use rows directly
-   *     else No columns
-   *       PostgreSQLPaginator->>PostgreSQLPaginator: Process each row
-   *       loop For each row
-   *         PostgreSQLPaginator->>Adapter: revert(row, clazz, pkDef.id, id)
-   *       end
-   *     end
-   *
-   *     PostgreSQLPaginator->>PostgreSQLPaginator: Update currentPage
-   *     PostgreSQLPaginator-->>Client: Return results
-   *   end
+   *   Paginator->>Paginator: Map rows to models
+   *   Paginator-->>Client: results
    */
 
   async page(page: number = 1): Promise<R[]> {

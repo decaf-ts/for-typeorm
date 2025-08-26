@@ -67,6 +67,10 @@ import {
   JoinColumn,
   ManyToMany,
   SelectQueryBuilder,
+  VersionColumn,
+  OneToMany,
+  ManyToOne,
+  JoinTable,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -75,8 +79,6 @@ import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { OneToMany } from "./overrides/OneToMany";
-import { ManyToOne } from "./overrides/ManyToOne";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -101,15 +103,36 @@ export async function createdByOnPostgresCreateUpdate<
 }
 
 /**
- * @description Abstract adapter for Postgres database operations
- * @summary Provides a base implementation for Postgres database operations, including CRUD operations, sequence management, and error handling
- * @template Y - The scope type
- * @template F - The repository flags type
- * @template C - The context type
- * @param {Y} scope - The scope for the adapter
- * @param {string} flavour - The flavour of the adapter
- * @param {string} [alias] - Optional alias for the adapter
- * @class PostgresAdapter
+ * @description Adapter for TypeORM-backed persistence operations.
+ * @summary Implements the Decaf.ts Adapter over a TypeORM DataSource, providing CRUD operations, query/statement factories, sequence management, error parsing, and decoration helpers.
+ * @template Y The native configuration type (TypeORM DataSourceOptions).
+ * @template F The repository flags type.
+ * @template C The context type.
+ * @param {DataSourceOptions} scope The DataSource options for the adapter.
+ * @param {string} flavour The flavour of the adapter.
+ * @param {string} [alias] Optional alias for the adapter.
+ * @class TypeORMAdapter
+ * @example
+ * const adapter = new TypeORMAdapter({ type: 'postgres', /* ... *\/ });
+ * await adapter.initialize();
+ * const repo = new (adapter.repository<User>())(adapter, User);
+ * const created = await repo.create(new User({ name: 'Alice' }));
+ *
+ * @mermaid
+ * sequenceDiagram
+ *   participant App
+ *   participant Adapter as TypeORMAdapter
+ *   participant Repo as TypeORMRepository
+ *   participant DS as TypeORM DataSource
+ *
+ *   App->>Adapter: new TypeORMAdapter(opts)
+ *   Adapter->>DS: initialize()
+ *   App->>Adapter: repository()
+ *   Adapter-->>App: TypeORMRepository
+ *   App->>Repo: create(model)
+ *   Repo->>Adapter: prepare/create/revert
+ *   Adapter-->>Repo: Model
+ *   Repo-->>App: Model
  */
 export class TypeORMAdapter extends Adapter<
   DataSourceOptions,
@@ -1176,6 +1199,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .extend(Column({ nullable: false }))
       .apply();
 
+    // @version => @VersionColumn()
+    const versionKey = Repository.key(DBKeys.VERSION);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(versionKey)
+      .define(type(Number.name), VersionColumn())
+      .apply();
+
     function ValidationUpdateKey(key: string) {
       return UpdateValidationKeys.REFLECT + key;
     }
@@ -1460,14 +1490,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
-            type([
-              (typeof clazz === "function" && !clazz.name
-                ? clazz
-                : clazz.name) as any,
-              String.name,
-              Number.name,
-              BigInt.name,
-            ]),
+            list(clazz),
             propMetadata(manyToManyKey, metadata),
             ManyToMany(
               () => {
@@ -1479,11 +1502,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
               (model: any) => {
+                if (!clazz.name) clazz = (clazz as any)();
                 const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
                 return model[pk];
               },
               ormMeta
-            )
+            ),
+            JoinTable()
           );
         },
       })

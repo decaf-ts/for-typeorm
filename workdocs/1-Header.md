@@ -1,4 +1,3 @@
-[![Banner](./workdocs/assets/Banner.png)](https://decaf-ts.github.io/ts-workspace/)
-## PostgreSQL Adapter for Decaf-TS
+# Decaf.ts for TypeORM
 
-A TypeScript library that provides a robust PostgreSQL adapter for the Decaf-TS framework, enabling seamless integration with PostgreSQL databases. This adapter implements the repository pattern and offers comprehensive functionality for database operations, query building, pagination, sequences, and real-time notifications.
+The for-typeorm package integrates Decaf.ts data-access abstractions with TypeORM. It provides a TypeORM-backed Adapter and Repository, a fluent Statement builder and Paginator, model decorators aligned with TypeORM (Entity/Column/Relations/Date columns/Primary keys), sequence utilities, index generation helpers, typed SQL operators and query containers, plus small utilities for regex and raw Postgres typings. This lets you use Decaf.ts models and repositories seamlessly on top of a TypeORM DataSource.

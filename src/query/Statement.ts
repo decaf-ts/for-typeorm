@@ -19,18 +19,15 @@ import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
 import { FindOptionsOrder } from "typeorm/find-options/FindOptionsOrder";
 
 /**
- * @description Statement builder for PostgreSQL queries
- * @summary Provides a fluent interface for building PostgreSQL queries with type safety
- * @template M - The model type that extends Model
- * @template R - The result type
- * @param adapter - The PostgreSQL adapter
+ * @description Statement builder for TypeORM-backed queries.
+ * @summary Provides a fluent interface for building SQL queries via TypeORM's SelectQueryBuilder with type safety and Decaf.ts abstractions.
+ * @template M The model type that extends Model.
+ * @template R The result type returned from execution.
+ * @param {TypeORMAdapter} adapter The TypeORM adapter.
  * @class TypeORMStatement
  * @example
- * // Example of using PostgreSQLStatement
- * const adapter = new MyPostgreSQLAdapter(pool);
- * const statement = new PostgreSQLStatement<User, User[]>(adapter);
- *
- * // Build a query
+ * // Example using TypeORMStatement
+ * const statement = new TypeORMStatement<User, User[]>(adapter);
  * const users = await statement
  *   .from(User)
  *   .where(Condition.attribute<User>('age').gt(18))
@@ -50,10 +47,10 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   }
 
   /**
-   * @description Builds a PostgreSQL query from the statement
-   * @summary Converts the statement's conditions, selectors, and options into a PostgreSQL query
-   * @return {TypeORMQuery} The built PostgreSQL query
-   * @throws {Error} If there are invalid query conditions
+   * @description Builds a TypeORM SelectQueryBuilder from the statement.
+   * @summary Converts the statement's conditions, selectors, and options into a TypeORM-backed query object.
+   * @return {TypeORMQuery} The built TypeORM query container.
+   * @throws {Error} If there are invalid query conditions.
    * @mermaid
    * sequenceDiagram
    *   participant Statement
@@ -154,12 +151,12 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   }
 
   /**
-   * @description Creates a paginator for the statement
-   * @summary Builds the query and returns a PostgreSQLPaginator for paginated results
-   * @template R - The result type
-   * @param {number} size - The page size
-   * @return {Promise<Paginator<M, R, PostgreSQLQuery>>} A promise that resolves to a paginator
-   * @throws {InternalError} If there's an error building the query
+   * @description Creates a paginator for the statement.
+   * @summary Builds the query and returns a TypeORMPaginator for paginated results.
+   * @template R The result type.
+   * @param {number} size The page size.
+   * @return {Promise<Paginator<M, R, TypeORMQuery>>} A promise that resolves to a paginator.
+   * @throws {InternalError} If there's an error building the query.
    */
   async paginate<R>(size: number): Promise<Paginator<M, R, TypeORMQuery>> {
     try {
@@ -189,12 +186,12 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   }
 
   /**
-   * @description Processes a record from PostgreSQL
-   * @summary Converts a raw PostgreSQL record to a model instance
-   * @param {any} r - The raw record from PostgreSQL
-   * @param pkAttr - The primary key attribute of the model
-   * @param {"Number" | "BigInt" | undefined} sequenceType - The type of the sequence
-   * @return {any} The processed record
+   * @description Processes a record.
+   * @summary Converts a raw result row to a model instance using the adapter.
+   * @param {any} r The raw record.
+   * @param {keyof M} pkAttr The primary key attribute of the model.
+   * @param {"Number" | "BigInt" | undefined} sequenceType The type of the sequence.
+   * @return {any} The processed record.
    */
   private processRecord(r: any, pkAttr: keyof M) {
     if (typeof r[pkAttr] !== "undefined") {
@@ -204,11 +201,11 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   }
 
   /**
-   * @description Executes a raw PostgreSQL query
-   * @summary Sends a raw PostgreSQL query to the database and processes the results
-   * @template R - The result type
-   * @param {TypeORMQuery} rawInput - The raw PostgreSQL query to execute
-   * @return {Promise<R>} A promise that resolves to the query results
+   * @description Executes a raw TypeORM query builder.
+   * @summary Sends the built SelectQueryBuilder to the database via TypeORM and returns the results.
+   * @template R The result type.
+   * @param {TypeORMQuery} rawInput The query container to execute.
+   * @return {Promise<R>} A promise that resolves to the query results.
    */
   override async raw<R>(rawInput: TypeORMQuery<M>): Promise<R> {
     const log = this.log.for(this.raw);
