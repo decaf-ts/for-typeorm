@@ -68,6 +68,7 @@ import {
   JoinColumn,
   ManyToMany,
   SelectQueryBuilder,
+  VersionColumn,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -1197,6 +1198,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     Decoration.flavouredAs(TypeORMFlavour)
       .for(requiredKey)
       .extend(Column({ nullable: false }))
+      .apply();
+
+    // @version => @VersionColumn()
+    const versionKey = Repository.key(DBKeys.VERSION);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(versionKey)
+      .define(type(Number.name), VersionColumn())
       .apply();
 
     function ValidationUpdateKey(key: string) {
