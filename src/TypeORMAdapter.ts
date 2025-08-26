@@ -9,6 +9,7 @@ import {
   Repository,
   Sequence,
   type SequenceOptions,
+  uses,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -67,7 +68,6 @@ import {
   JoinColumn,
   ManyToMany,
   SelectQueryBuilder,
-  JoinTable,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -78,6 +78,7 @@ import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
 import { OneToMany } from "./overrides/OneToMany";
 import { ManyToOne } from "./overrides/ManyToOne";
+import { JoinTable } from "./overrides/JoinTable";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -1482,14 +1483,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           };
           return apply(
             prop(PersistenceKeys.RELATIONS),
-            type([
-              (typeof clazz === "function" && !clazz.name
-                ? clazz
-                : clazz.name) as any,
-              String.name,
-              Number.name,
-              BigInt.name,
-            ]),
+            list(clazz),
             propMetadata(manyToManyKey, metadata),
             ManyToMany(
               () => {
@@ -1501,6 +1495,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                 return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
               },
               (model: any) => {
+                if (!clazz.name) clazz = (clazz as any)();
                 const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
                 return model[pk];
               },

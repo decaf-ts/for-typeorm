@@ -20,7 +20,13 @@ const config: DataSourceOptions = {
 const adapter = new TypeORMAdapter(config);
 
 import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import {
+  Column,
+  Entity,
+  JoinTable,
+  ManyToMany,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { OneToOne } from "../../src/overrides/OneToOne";
@@ -88,6 +94,39 @@ class TypeORMVanilla extends BaseModel {
   }
 }
 
+@Entity()
+class TypeORMChildVanilla extends BaseModel {
+  @PrimaryGeneratedColumn()
+  id!: number;
+  @Column({ nullabe: false })
+  text!: string;
+
+  constructor(arg?: ModelArg<TypeORMChildVanilla>) {
+    super(arg);
+    Model.fromObject(this, arg);
+  }
+}
+
+@Entity()
+class TypeORMParentVanilla extends BaseModel {
+  @PrimaryGeneratedColumn()
+  id!: number;
+
+  @ManyToMany(() => TypeORMChildVanilla, (child) => child.id, {
+    cascade: true,
+    onDelete: "CASCADE",
+    onUpdate: "CASCADE",
+    eager: true,
+  })
+  @JoinTable()
+  children: TypeORMVanillaChild[];
+
+  constructor(arg?: ModelArg<TypeORMParentVanilla>) {
+    super(arg);
+    Model.fromObject(this as any, arg);
+  }
+}
+
 describe("TypeORM Vanilla decoration", () => {
   let dataSource: DataSource;
 
@@ -122,7 +161,12 @@ describe("TypeORM Vanilla decoration", () => {
     }
     dataSource = new DataSource(
       Object.assign({}, typeOrmCfg, {
-        entities: [TypeORMVanilla, TypeORMVanillaChild],
+        entities: [
+          TypeORMVanilla,
+          TypeORMVanillaChild,
+          TypeORMChildVanilla,
+          TypeORMParentVanilla,
+        ],
       }) as DataSourceOptions
     );
     await dataSource.initialize();
@@ -188,6 +232,36 @@ describe("TypeORM Vanilla decoration", () => {
     expect(repo).toBeDefined();
     const record = await repo.findOneBy({
       id: created.id,
+    });
+    expect(record).toBeDefined();
+    expect(record.hasErrors()).toBeDefined();
+  });
+
+  let manyToMany: TypeORMParentVanilla;
+  it("creates a record vanilla many to many nested", async () => {
+    const repo = dataSource.getRepository(TypeORMParentVanilla);
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMParentVanilla({
+      children: [
+        new TypeORMVanillaChild({
+          text: "text1",
+        }),
+        new TypeORMVanillaChild({
+          text: "text2",
+        }),
+      ],
+    });
+
+    const record = await repo.save(toCreate);
+    expect(record).toBeDefined();
+    manyToMany = record;
+  });
+
+  it("read a record vanilla many to many nested", async () => {
+    const repo = dataSource.getRepository(TypeORMParentVanilla);
+    expect(repo).toBeDefined();
+    const record = await repo.findOneBy({
+      id: manyToMany.id,
     });
     expect(record).toBeDefined();
     expect(record.hasErrors()).toBeDefined();
