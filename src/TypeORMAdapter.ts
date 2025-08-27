@@ -8,6 +8,7 @@ import {
   RelationsMetadata,
   Repository,
   Sequence,
+  sequenceNameForModel,
   type SequenceOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
@@ -71,6 +72,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinTable,
+  ColumnType,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -79,6 +81,7 @@ import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
+import { PrimaryGeneratedColumnType } from "typeorm/driver/types/ColumnTypes";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -1152,9 +1155,43 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         readonly(),
         propMetadata(pkKey, options),
       ];
-      if (options.type) decorators.push(PrimaryGeneratedColumn());
-      else decorators.push(PrimaryColumn({ unique: true }));
-      return apply(...decorators);
+      return function pkDec(original: any, prop: any) {
+        let type =
+          options.type || Reflection.getTypeFromDecorator(original, prop);
+        if (!type)
+          throw new InternalError(
+            `Missing type information for property ${prop} of ${original.name}`
+          );
+        if (options.generated) {
+          const name = options.name || sequenceNameForModel(original, "pk");
+          decorators.push(
+            PrimaryGeneratedColumn({
+              name: name,
+            })
+          );
+        } else {
+          switch (type.toLowerCase()) {
+            case "number":
+              type = "numeric";
+              break;
+            case "string":
+              type = "varchar";
+              break;
+            case "bigint":
+              type = "bigint";
+              break;
+            default:
+              throw new InternalError(`Unsupported type: ${type}`);
+          }
+          decorators.push(
+            PrimaryColumn({
+              type: type as ColumnType,
+              unique: true,
+            })
+          );
+        }
+        return apply(...decorators)(original, prop);
+      };
     }
 
     Decoration.flavouredAs(TypeORMFlavour)
