@@ -1394,16 +1394,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                     );
                     if (!decs || !decs.decorators || !decs.decorators.length)
                       return false;
-                    const designType = Reflect.getMetadata(
-                      ModelKeys.TYPE,
-                      m,
-                      k
-                    );
-                    if (!designType)
-                      throw new InternalError(
-                        `No Type Definition found for ${k} in ${m.constructor.name}`
-                      );
-                    return designType.name === obj.constructor.name;
+                    const dec = decs.decorators[0];
+                    const clazz =
+                      typeof dec.props.class === "function" &&
+                      !dec.props.class.name
+                        ? dec.props.class()
+                        : dec.props.class;
+                    return clazz.name === obj.constructor.name;
                   });
                   if (!crossRelationKey)
                     throw new InternalError(
