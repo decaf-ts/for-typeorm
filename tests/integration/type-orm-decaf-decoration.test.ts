@@ -36,8 +36,10 @@ import {
   Repository,
   table,
   unique,
+  uses,
 } from "@decaf-ts/core";
 import { TypeORMBaseModel } from "./baseModel";
+import { TypeORMFlavour } from "../../src";
 
 jest.setTimeout(50000);
 
@@ -98,6 +100,28 @@ class TypeORMDecaf extends TypeORMBaseModel {
   }
 }
 
+enum TestEnum {
+  VALUE1 = "test",
+  VALUES2 = "test2",
+}
+
+@uses(TypeORMFlavour)
+@table("type_orm_enum")
+@model()
+class TypeORMEnum extends TypeORMBaseModel {
+  // @ts-expect-error overriding value
+  @pk({ type: "String", generated: false })
+  id!: TestEnum;
+
+  @column()
+  @required()
+  name!: string;
+
+  constructor(arg?: ModelArg<TypeORMEnum>) {
+    super(arg);
+  }
+}
+
 describe("TypeORM Decaf decoration", () => {
   let dataSource: DataSource;
 
@@ -135,6 +159,7 @@ describe("TypeORM Decaf decoration", () => {
         entities: [
           TypeORMDecaf[ModelKeys.ANCHOR],
           TypeORMDecafChild[ModelKeys.ANCHOR],
+          TypeORMEnum[ModelKeys.ANCHOR],
         ],
       }) as DataSourceOptions
     );
@@ -222,6 +247,19 @@ describe("TypeORM Decaf decoration", () => {
         firstName: "JohnChild4",
         lastName: "DoeChild4",
       },
+    });
+    const record = await repo.create(toCreate);
+    expect(record).toBeDefined();
+    expect(record.hasErrors()).toBeUndefined();
+  });
+
+  it("creates a record decaf enum via Repository.forModel", async () => {
+    const repo = Repository.forModel(TypeORMEnum);
+
+    expect(repo).toBeDefined();
+    const toCreate = new TypeORMEnum({
+      id: TestEnum.VALUE1,
+      name: "test",
     });
     const record = await repo.create(toCreate);
     expect(record).toBeDefined();
