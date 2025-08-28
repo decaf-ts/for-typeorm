@@ -247,7 +247,8 @@ describe(`Complex Database`, function () {
           "updatedOn",
           "createdBy",
           "updatedBy",
-          "id"
+          "id",
+          "version"
         )
       ).toEqual(true);
       expect(created.id).toEqual(1);

@@ -265,4 +265,9 @@ describe("TypeORM Decaf decoration", () => {
     expect(record).toBeDefined();
     expect(record.hasErrors()).toBeUndefined();
   });
+
+  it("infers repos properly", async () => {
+    const repo = Repository.forModel(TypeORMDecaf);
+    await repo.select(["id"]).execute();
+  });
 });

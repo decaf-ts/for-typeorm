@@ -243,7 +243,9 @@ $$ LANGUAGE plpgsql;`
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name")).toEqual(true); // minus the expected changes
+    expect(updated.equals(created, "updatedOn", "name", "version")).toEqual(
+      true
+    ); // minus the expected changes
   });
 
   it("deletes", async () => {
