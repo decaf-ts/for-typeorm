@@ -3,13 +3,14 @@ import { aggregateOrNewColumn } from "./utils";
 
 export function UpdateDateColumn(options?: ColumnOptions): PropertyDecorator {
   return function (object: any, propertyName: any) {
-    const columns = getMetadataArgsStorage().columns;
+    const metadata = getMetadataArgsStorage();
     aggregateOrNewColumn(
       object.constructor,
       propertyName,
-      columns,
+      metadata.columns,
       options || {},
-      "updateDate"
+      "updateDate",
+      metadata.relations
     );
   };
 }

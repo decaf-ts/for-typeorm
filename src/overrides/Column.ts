@@ -196,8 +196,15 @@ export function Column(
           columns: [propertyName],
         });
 
-      const columns = getMetadataArgsStorage().columns;
-      aggregateOrNewColumn(object.constructor, propertyName, columns, options);
+      const metadata = getMetadataArgsStorage();
+      aggregateOrNewColumn(
+        object.constructor,
+        propertyName,
+        metadata.columns,
+        options,
+        "regular",
+        metadata.relations
+      );
 
       if (options.generated) {
         getMetadataArgsStorage().generations.push({

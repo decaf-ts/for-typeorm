@@ -13,7 +13,7 @@ import { TypeORMFlavour } from "../../src";
 @table("tst_country")
 @model()
 export class TestCountryModel extends TypeORMBaseModel {
-  // @column("tst_name")
+  @column("tst_id")
   @pk({ type: "Number" })
   id!: number;
 
@@ -39,6 +39,7 @@ export class TestCountryModel extends TypeORMBaseModel {
 @table("tst_address")
 @model()
 export class TestAddressModel extends TypeORMBaseModel {
+  @column("tst_id")
   @pk({ type: "Number" })
   id!: number;
 
@@ -70,6 +71,7 @@ export class TestAddressModel extends TypeORMBaseModel {
     },
     true
   )
+  // @required()
   country!: TestCountryModel;
 
   constructor(m?: ModelArg<TestAddressModel>) {
@@ -104,6 +106,7 @@ export class NoPopulateOnceModel extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 
+  @required()
   @oneToOne(
     TestDummyCountry,
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },

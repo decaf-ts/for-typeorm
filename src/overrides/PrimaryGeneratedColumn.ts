@@ -101,8 +101,15 @@ export function PrimaryGeneratedColumn(
     // explicitly set a primary and generated to column options
     options.primary = true;
 
-    const columns = getMetadataArgsStorage().columns;
-    aggregateOrNewColumn(object.constructor, propertyName, columns, options);
+    const metadata = getMetadataArgsStorage();
+    aggregateOrNewColumn(
+      object.constructor,
+      propertyName,
+      metadata.columns,
+      options,
+      "regular",
+      metadata.relations
+    );
     // register generated metadata args
     getMetadataArgsStorage().generations.push({
       target: object.constructor,

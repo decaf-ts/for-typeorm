@@ -77,8 +77,15 @@ export function PrimaryColumn(
     // explicitly set a primary to column options
     options.primary = true;
 
-    const columns = getMetadataArgsStorage().columns;
-    aggregateOrNewColumn(object.constructor, propertyName, columns, options);
+    const metadata = getMetadataArgsStorage();
+    aggregateOrNewColumn(
+      object.constructor,
+      propertyName,
+      metadata.columns,
+      options,
+      "regular",
+      metadata.relations
+    );
 
     if (options.generated) {
       getMetadataArgsStorage().generations.push({

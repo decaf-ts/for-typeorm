@@ -354,6 +354,39 @@ describe(`Complex Database`, function () {
         expect(read2.equals(created.country)).toEqual(true);
       });
 
+      it("Creates a one to one relation with nested entries", async () => {
+        const address = new TestAddressModel({
+          street: "test street",
+          doorNumber: "test door",
+          apartmentNumber: "test number",
+          areaCode: "test area code",
+          city: "test city",
+          country: {
+            name: "test country",
+            countryCode: "ta",
+            locale: "ta_TA",
+          },
+        });
+        created = (await testAddressModelRepository.create(
+          address
+        )) as TestAddressModel;
+
+        testAddress(created);
+
+        const read = (await testAddressModelRepository.read(
+          created.id
+        )) as TestAddressModel;
+        testAddress(read);
+        expect(created.equals(read)).toEqual(true);
+        expect(created.country.equals(read.country)).toEqual(true);
+
+        const read2 = (await testCountryModelRepository.read(
+          created.country.id
+        )) as TestCountryModel;
+        testCountry(read2);
+        expect(read2.equals(created.country)).toEqual(true);
+      });
+
       it("Updates a one to one relation", async () => {
         const address = new TestAddressModel(
           Object.assign({}, created, {

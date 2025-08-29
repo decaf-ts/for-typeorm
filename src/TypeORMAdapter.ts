@@ -64,13 +64,9 @@ import {
   In,
   InsertResult,
   RelationOptions,
-  OneToOne,
   JoinColumn,
-  ManyToMany,
   SelectQueryBuilder,
   VersionColumn,
-  OneToMany,
-  ManyToOne,
   JoinTable,
   ColumnType,
   ColumnOptions,
@@ -79,10 +75,14 @@ import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
 import { UpdateDateColumn } from "./overrides/UpdateDateColumn";
 import { CreateDateColumn } from "./overrides/CreateDateColumn";
+import { OneToOne } from "./overrides/OneToOne";
+import { OneToMany } from "./overrides/OneToMany";
+import { ManyToOne } from "./overrides/ManyToOne";
+import { ManyToMany } from "./overrides/ManyToMany";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { assign, BaseKey, Metadata, property } from "./decorators";
+import { assign, Metadata, property } from "./decorators";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -1137,7 +1137,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     }
   }
 
-  static decoration() {
+  static override decoration() {
+    super.decoration();
+
     // @table() => @Entity()
     const tableKey = Adapter.key(PersistenceKeys.TABLE);
     Decoration.flavouredAs(TypeORMFlavour)
@@ -1559,3 +1561,5 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .apply();
   }
 }
+
+Adapter.setCurrent(TypeORMFlavour);
