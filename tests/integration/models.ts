@@ -71,7 +71,7 @@ export class TestAddressModel extends TypeORMBaseModel {
     },
     true
   )
-  // @required()
+  @required()
   country!: TestCountryModel;
 
   constructor(m?: ModelArg<TestAddressModel>) {

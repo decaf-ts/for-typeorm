@@ -22,7 +22,6 @@ export class AIFeature extends TypeORMBaseModel {
    * @description Display name of the feature
    * @summary Human-readable name for the feature
    */
-  // @ts-expect-error because
   @pk({ type: "String", generated: false })
   @type(String.name)
   name!: AIFeatures;

@@ -31,7 +31,6 @@ export class AIModel extends TypeORMActiveModel {
    * @description Unique identifier for the AI model
    * @summary The model's unique identifier string
    */
-  // @ts-expect-error because
   @pk({ type: "String", generated: false })
   name!: string;
 
@@ -56,6 +55,7 @@ export class AIModel extends TypeORMActiveModel {
     },
     true
   )
+  @required()
   features!: AIFeature[];
 
   @column("price_subscription")

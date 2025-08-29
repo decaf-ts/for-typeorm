@@ -91,6 +91,7 @@ class TestText extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 
+  @required()
   @manyToMany(
     () => TestSection,
     {
