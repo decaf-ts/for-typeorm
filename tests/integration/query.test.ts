@@ -96,7 +96,6 @@ class QueryUser extends TypeORMBaseModel {
 
 describe("Queries", () => {
   let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -133,7 +132,6 @@ describe("Queries", () => {
     );
     await dataSource.initialize();
     adapter["_dataSource"] = dataSource;
-    repo = new TypeORMRepository(adapter, QueryUser);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
