@@ -21,6 +21,8 @@ import {
   findPrimaryKey,
   InternalError,
   NotFoundError,
+  onCreate,
+  onCreateUpdate,
   OperationKeys,
   readonly,
   UpdateValidationKeys,
@@ -84,14 +86,13 @@ import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
 import { assign, Metadata, property } from "./decorators";
 
-export async function createdByOnPostgresCreateUpdate<
+export async function createdByOnTypeORMCreateUpdate<
   M extends Model,
   R extends TypeORMRepository<M>,
-  V extends RelationsMetadata,
 >(
   this: R,
   context: Context<TypeORMFlags>,
-  data: V,
+  data: any,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -1558,6 +1559,27 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           );
         },
       })
+      .apply();
+
+    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(createdByKey)
+      .define(
+        onCreate(createdByOnTypeORMCreateUpdate, {}),
+        required(),
+        propMetadata(createdByKey, {})
+        // assign(`pk.${prop}`, options)
+      )
+      .apply();
+
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(updatedByKey)
+      .define(
+        onCreateUpdate(createdByOnTypeORMCreateUpdate, {}),
+        required(),
+        propMetadata(updatedByKey, {})
+      )
       .apply();
   }
 }

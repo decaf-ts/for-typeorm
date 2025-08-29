@@ -23,11 +23,13 @@ const adapter = new TypeORMAdapter(config);
 
 import {
   column,
+  createdBy,
   Observer,
   pk,
   Repository,
   table,
   unique,
+  updatedBy,
   uses,
 } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
@@ -73,6 +75,14 @@ class TestModel extends TypeORMBaseModel {
   @maxlength(9)
   @required()
   nif!: string;
+
+  @column()
+  @createdBy()
+  createdBy!: string;
+
+  @column()
+  @updatedBy()
+  updatedBy!: string;
 
   constructor(arg?: ModelArg<TestModel>) {
     super(arg);
