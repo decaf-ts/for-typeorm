@@ -73,6 +73,7 @@ import {
   ManyToOne,
   JoinTable,
   ColumnType,
+  ColumnOptions,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -81,7 +82,7 @@ import { CreateDateColumn } from "./overrides/CreateDateColumn";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { PrimaryGeneratedColumnType } from "typeorm/driver/types/ColumnTypes";
+import { assign, BaseKey, Metadata, property } from "./decorators";
 
 export async function createdByOnPostgresCreateUpdate<
   M extends Model,
@@ -1150,12 +1151,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     const pkKey = Repository.key(DBKeys.ID);
 
     function pkDec(options: SequenceOptions) {
-      const decorators: any[] = [
-        required(),
-        readonly(),
-        propMetadata(pkKey, options),
-      ];
       return function pkDec(original: any, prop: any) {
+        const decorators: any[] = [
+          required(),
+          readonly(),
+          propMetadata(pkKey, options),
+          assign(`pk.${prop}`, options),
+        ];
         let type =
           options.type || Reflection.getTypeFromDecorator(original, prop);
         if (!type)
@@ -1201,6 +1203,11 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       })
       .apply();
 
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(ModelKeys.ATTRIBUTE)
+      .extend(property())
+      .apply();
+
     // @column("columnName") => @Column({name: "columnName"})
     const columnKey = Adapter.key(PersistenceKeys.COLUMN);
     Decoration.flavouredAs(TypeORMFlavour)
@@ -1208,10 +1215,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .extend({
         decorator: function columm(name: string) {
           return function column(obj: any, prop: any) {
-            return Column({
-              name: name || prop,
-              nullable: true,
-            })(obj, prop);
+            const opts: ColumnOptions = {};
+            if (name) opts.name = name;
+            const pk = Metadata.get(obj, "pk");
+            if (pk !== prop) {
+              opts.nullable = true;
+            }
+            return Column(opts)(obj, prop);
           };
         },
         transform: (args: any[]) => {

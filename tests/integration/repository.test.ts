@@ -46,7 +46,6 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "./baseModel";
-import { getTypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 
 jest.setTimeout(50000);
 

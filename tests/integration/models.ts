@@ -1,24 +1,11 @@
 import {
-  email,
-  min,
-  minlength,
   model,
   ModelArg,
   pattern,
   prop,
   required,
 } from "@decaf-ts/decorator-validation";
-import {
-  Cascade,
-  column,
-  index,
-  manyToOne,
-  oneToMany,
-  oneToOne,
-  pk,
-  table,
-  uses,
-} from "@decaf-ts/core";
+import { Cascade, column, oneToOne, pk, table, uses } from "@decaf-ts/core";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 
@@ -26,6 +13,7 @@ import { TypeORMFlavour } from "../../src";
 @table("tst_country")
 @model()
 export class TestCountryModel extends TypeORMBaseModel {
+  // @column("tst_name")
   @pk({ type: "Number" })
   id!: number;
 
