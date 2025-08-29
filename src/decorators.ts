@@ -129,7 +129,9 @@ export class Metadata {
 export function assign(key: string, value: any) {
   return function assign(
     model: object,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     prop?: any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     descriptor?: PropertyDescriptor
   ) {
     Metadata.set(model as any, key, value);

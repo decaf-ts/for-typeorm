@@ -14,7 +14,6 @@ export default [
       "gulpfile.js",
       "workdocs",
       "!src/**/*",
-      "!tests/**/*",
       "tests/bundling/**/*",
       "tests/web/**/*",
     ],

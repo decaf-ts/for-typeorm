@@ -85,6 +85,7 @@ describe(`Pagination`, function () {
     repo = new TypeORMRepository(adapter, TestCountryModel);
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {

@@ -44,7 +44,6 @@ import {
   pk,
   uses,
 } from "@decaf-ts/core";
-import { Sequence } from "@decaf-ts/core";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { TestPhoneModel, testPhone } from "./models/TestModelPhone";
 import { TestUserModel, testUser } from "./models/TestUserModel";
@@ -159,6 +158,7 @@ describe(`Complex Database`, function () {
     adapter["_dataSource"] = dataSource;
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {
@@ -188,6 +188,7 @@ describe(`Complex Database`, function () {
   });
 
   let userRepository: TypeORMRepository<TestUserModel>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let testDummyCountryModelRepository: TypeORMRepository<TestDummyCountry>;
   let testPhoneModelRepository: TypeORMRepository<TestPhoneModel>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -298,9 +299,6 @@ describe(`Complex Database`, function () {
   });
 
   describe("Complex relations Test", () => {
-    let sequenceModel: Sequence;
-    let sequenceCountry: Sequence;
-
     describe("One to one relations", () => {
       let created: TestAddressModel;
       let updated: TestAddressModel;

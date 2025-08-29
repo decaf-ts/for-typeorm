@@ -4,17 +4,8 @@ import {
   type ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import {
-  Cascade,
-  column,
-  manyToMany,
-  manyToOne,
-  pk,
-  table,
-  uses,
-} from "@decaf-ts/core";
+import { Cascade, column, manyToMany, pk, table, uses } from "@decaf-ts/core";
 import { AIFeature } from "./AIFeature";
-import { AIVendor } from "./AIVendor";
 import { TypeORMActiveModel } from "./TypeORMActiveModel";
 import { TypeORMFlavour } from "../../../src";
 

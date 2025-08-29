@@ -17,12 +17,11 @@ const config: DataSourceOptions = {
   port: 5432,
 } as PostgresConnectionOptions;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adapter = new TypeORMAdapter(config);
 
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
-import { OneToOne } from "../../src/overrides/OneToOne";
-import { JoinColumn } from "../../src/overrides/JoinColumn";
 import { TypeORMVanillaRel } from "./models/vanilla/TypeORMVanillaRel";
 import { TypeORMVanillaChildRel } from "./models/vanilla/TypeORMVanillaChildRel";
 

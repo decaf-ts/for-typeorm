@@ -189,6 +189,7 @@ describe("Bulk operations", () => {
         attr1: "updated_name_" + i,
       });
     });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const c = created;
     updated = await repo.updateAll(toUpdate);
     expect(updated).toBeDefined();
