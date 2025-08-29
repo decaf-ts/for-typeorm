@@ -133,6 +133,7 @@ describe("Adapter Integration", () => {
     repo = new TypeORMRepository(adapter, TestModel);
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {

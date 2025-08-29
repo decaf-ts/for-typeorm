@@ -50,6 +50,7 @@ const typeOrmCfg = {
 @uses(TypeORMFlavour)
 @table("tst_section")
 @model()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class TestRelationCross extends TypeORMBaseModel {
   @column("tst_cross_id")
   @pk({ type: "Number" })
@@ -122,6 +123,7 @@ describe(`cross decoration`, function () {
     adapter["_dataSource"] = dataSource;
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {
@@ -151,6 +153,7 @@ describe(`cross decoration`, function () {
   });
 
   it("handles @column() in pk", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const repo = Repository.forModel(TestIdCross);
   });
 });

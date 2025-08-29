@@ -1,12 +1,6 @@
-import {
-  column,
-  createdBy,
-  updatedBy,
-  createdAt,
-  updatedAt,
-} from "@decaf-ts/core";
+import { column, createdAt, updatedAt } from "@decaf-ts/core";
 import { Model, ModelArg } from "@decaf-ts/decorator-validation";
-import { OperationKeys, timestamp, version } from "@decaf-ts/db-decorators";
+import { version } from "@decaf-ts/db-decorators";
 
 export class TypeORMBaseModel extends Model {
   @column("created_on")

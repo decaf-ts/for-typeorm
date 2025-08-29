@@ -121,6 +121,7 @@ describe("repositories 2nd", () => {
     adapter["_dataSource"] = dataSource;
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {

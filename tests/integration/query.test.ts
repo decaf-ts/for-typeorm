@@ -37,7 +37,6 @@ import {
 import {
   min,
   minlength,
-  Model,
   model,
   ModelArg,
   ModelKeys,
@@ -98,8 +97,6 @@ class QueryUser extends TypeORMBaseModel {
 describe("Queries", () => {
   let dataSource: DataSource;
 
-  let repo: TypeORMRepository<QueryUser>;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -139,6 +136,7 @@ describe("Queries", () => {
     repo = new TypeORMRepository(adapter, QueryUser);
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {
@@ -290,8 +288,6 @@ describe("Queries", () => {
     const condition = Condition.attribute<QueryUser>("age")
       .eq(20)
       .or(Condition.attribute<QueryUser>("age").eq(19));
-
-    const tableName = Repository.table(QueryUser);
 
     const selected = await repo.select().where(condition).execute();
     // const selected = await repo

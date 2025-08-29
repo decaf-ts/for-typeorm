@@ -109,7 +109,6 @@ enum TestEnum {
 @table("type_orm_enum")
 @model()
 class TypeORMEnum extends TypeORMBaseModel {
-  // @ts-expect-error overriding value
   @pk({ type: "String", generated: false })
   id!: TestEnum;
 

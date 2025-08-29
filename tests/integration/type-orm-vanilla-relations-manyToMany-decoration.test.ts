@@ -19,6 +19,7 @@ const config: DataSourceOptions = {
   port: 5432,
 } as PostgresConnectionOptions;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adapter = new TypeORMAdapter(config);
 
 import { Cascade, column, manyToMany, pk, table, uses } from "@decaf-ts/core";
