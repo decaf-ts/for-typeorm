@@ -1309,13 +1309,15 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         decorator: function oneToOne(
           clazz: Constructor<any> | (() => Constructor<any>),
           cascade: CascadeMetadata,
-          populate: boolean
+          populate: boolean,
+          fk?: string
         ) {
           const metadata: RelationsMetadata = {
             class: (clazz.name ? clazz.name : clazz) as string,
             cascade: cascade,
             populate: populate,
           };
+          if (fk) metadata.name = fk;
           const ormMeta: RelationOptions = {
             cascade:
               cascade.update === Cascade.CASCADE ||
@@ -1351,7 +1353,13 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
               },
               ormMeta
             ),
-            JoinColumn()
+            JoinColumn(
+              metadata.name
+                ? {
+                    foreignKeyConstraintName: metadata.name,
+                  }
+                : (undefined as any)
+            )
           );
         },
       })
@@ -1477,7 +1485,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                 (model: any) => {
                   if (!clazz.name) clazz = (clazz as any)();
                   const m = new (clazz as Constructor<any>)();
-                  const crossRelationKey = Object.keys(m).find((k) => {
+                  let crossRelationKey = Object.keys(m).find((k) => {
                     const decs = Reflection.getPropertyDecorators(
                       Repository.key(PersistenceKeys.ONE_TO_MANY),
                       m,
@@ -1499,9 +1507,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                     return name === obj.constructor.name;
                   });
                   if (!crossRelationKey)
-                    throw new InternalError(
-                      `Cross relation not found. Did you use @manyToOne on the ${clazz.name}?`
-                    );
+                    crossRelationKey = findPrimaryKey(
+                      new (clazz as Constructor<any>)()
+                    ).id as string;
                   return model[crossRelationKey];
                 }
               )(obj, prop);
