@@ -27,3 +27,30 @@ export enum AIFeatures {
   RESEARCH = "research",
   DEEP_RESEARCH = "deep-research",
 }
+
+export enum PromptBlockType {
+  /** The role or instruction perspective (e.g., "You are a helpful assistant") */
+  ROLE = "role",
+  /** A persona definition that influences tone and behavior */
+  PERSONA = "persona",
+  /** The task description detailing what must be done */
+  TASK = "task",
+  /** Tools or capabilities to be used or referenced */
+  TOOL = "tool",
+  /** Concrete examples illustrating expected behavior or format */
+  EXAMPLE = "example",
+  /** Persistence rules such as memory or state handling */
+  PERSISTENCE = "persistence",
+  /** Explicit requirements or acceptance criteria */
+  REQUIREMENTS = "requirements",
+  /** Planning steps or strategies to reach the goal */
+  PLANNING = "planning",
+  /** Main content or payload for the prompt */
+  CONTENT = "content",
+  /** External context or background information */
+  CONTEXT = "context",
+  /** Output formatting instructions */
+  FORMAT = "format",
+  /** Footnotes or additional observations */
+  FOOTNOTE = "footnote",
+}
