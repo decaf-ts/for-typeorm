@@ -3,7 +3,7 @@ import {
   Model,
   ModelKeys,
 } from "@decaf-ts/decorator-validation";
-import { Repository, uses } from "@decaf-ts/core";
+import { Adapter, Repository, uses } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
@@ -13,6 +13,8 @@ import {
 import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMAdapter } from "./TypeORMAdapter";
 import { TypeORMFlavour } from "./constants";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { QueryBuilder } from "typeorm";
 
 /**
  * @description Repository implementation backed by TypeORM.
@@ -57,21 +59,30 @@ import { TypeORMFlavour } from "./constants";
 export class TypeORMRepository<M extends Model> extends Repository<
   M,
   TypeORMQuery<M, any>,
-  TypeORMAdapter,
+  Adapter<DataSourceOptions, TypeORMQuery, TypeORMFlags, Context<TypeORMFlags>>,
   TypeORMFlags,
   Context<TypeORMFlags>
 > {
-  constructor(adapter: TypeORMAdapter, model: Constructor<M>, ...args: any[]) {
+  constructor(
+    adapter: Adapter<
+      DataSourceOptions,
+      TypeORMQuery,
+      TypeORMFlags,
+      Context<TypeORMFlags>
+    >,
+    model: Constructor<M>,
+    ...args: any[]
+  ) {
     super(adapter, model, ...args);
   }
 
   /**
    * @description Creates a TypeORM query builder for the repository entity.
    * @summary Returns a SelectQueryBuilder bound to this repository's entity for advanced querying.
-   * @return {import("typeorm").SelectQueryBuilder<any>} A TypeORM SelectQueryBuilder instance.
+   * @return {QueryBuilder<any>} A TypeORM SelectQueryBuilder instance.
    */
-  queryBuilder() {
-    const repo = this.adapter.dataSource.getRepository(
+  queryBuilder(): QueryBuilder<any> {
+    const repo = (this.adapter as any).dataSource.getRepository(
       this.class[ModelKeys.ANCHOR as keyof typeof this.class]
     );
     return repo.createQueryBuilder();
