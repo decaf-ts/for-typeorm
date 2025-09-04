@@ -102,6 +102,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
       (this.class as any)[ModelKeys.ANCHOR] as any,
       id,
       model as any,
+      this.pk,
       ...args
     );
     let c: Context<TypeORMFlags> | undefined = undefined;
@@ -149,6 +150,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
       (this.class as any)[ModelKeys.ANCHOR] as any,
       id,
       model,
+      this.pk,
       ...args
     );
     return this.adapter.revert<M>(record, this.class, this.pk, id, transient);

@@ -411,12 +411,25 @@ export class TypeORMAdapter extends Adapter<
     tableName: string,
     id: string | number,
     model: Record<string, any>,
+    pk: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    const repo = this.dataSource.getRepository(m);
+    if (typeof id !== "undefined") {
+      const existing = await repo.findOne({
+        where: {
+          [pk]: id,
+        },
+      });
+      if (existing) {
+        throw new ConflictError(
+          `Record already exists in table ${Repository.table(m)} with id: ${id}`
+        );
+      }
+    }
     try {
-      const repo = this.dataSource.getRepository(m);
       return await repo.save(model);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -469,9 +482,11 @@ export class TypeORMAdapter extends Adapter<
     tableName: string,
     id: string | number,
     model: Record<string, any>,
+    pk: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<Record<string, any>> {
+    await this.read(tableName, id, pk);
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
       const repo = this.dataSource.getRepository(m);
@@ -497,9 +512,9 @@ export class TypeORMAdapter extends Adapter<
     ...args: any[]
   ): Promise<Record<string, any>> {
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    const model = await this.read(tableName, id, pk);
     try {
       const repo = this.dataSource.getRepository(m);
-      const model = await this.read(tableName, id, pk);
       const res = await repo.delete(id);
       return model;
     } catch (e: unknown) {
@@ -555,7 +570,7 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<Record<string, any>[]> {
     const result = [];
     for (const m of model) {
-      result.push(await this.update(tableName, m[pk], m, ...args));
+      result.push(await this.update(tableName, m[pk], m, pk, ...args));
     }
     return result;
   }
