@@ -48,15 +48,12 @@ export function splitEagerRelations<M extends Model>(
     );
   }
   const rels = Repository.relations(m);
-  const log = Logging.for(splitEagerRelations);
   cache[m.name] = cache[m.name] || undefined;
   if (cache[m.name]) {
-    log.info(`Returning cached relations for ${m.name}`);
     return cache[m.name];
   }
   const relations = rels.reduce(
     (accum: { relations: string[]; nonEager: string[] }, attr) => {
-      log.info(`Retrieving decorators for property ${attr} on model ${m.name}`);
       const decorators = Reflection.getPropertyDecorators(
         Repository.key(PersistenceKeys.RELATION),
         instance,
@@ -75,9 +72,6 @@ export function splitEagerRelations<M extends Model>(
         throw new InternalError(
           `Multiple decorators found for property ${attr} on model ${m.name}`
         );
-      log.info(
-        `Decorators found: ${JSON.stringify(decorators.decorators, null, 2)}`
-      );
       const decorator: any = decorators.decorators[0];
       const eager = decorator.props.populate;
       let clazz = decorator.props.class;
@@ -88,10 +82,6 @@ export function splitEagerRelations<M extends Model>(
           `Could not find class for property ${attr} on model ${m.name}`
         );
 
-      log.info(
-        `Relation on prop ${attr} of ${m.name} found: ${clazz.name} with eager: ${eager}`
-      );
-
       if (!eager) {
         accum.nonEager.push(attr);
       } else {
@@ -99,16 +89,7 @@ export function splitEagerRelations<M extends Model>(
       }
 
       if (accum.relations.includes(attr)) {
-        log.info(
-          `Getting relations for ${clazz.name} in prop ${attr} of ${m.name} with eager: ${eager}`
-        );
         const { nonEager, relations } = splitEagerRelations(clazz, cache);
-        log.info(
-          `Relations for ${attr} of ${clazz.name}: ${JSON.stringify(relations, null, 2)}`
-        );
-        log.info(
-          `Non eager for ${attr} of ${clazz.name}: ${JSON.stringify(nonEager, null, 2)}`
-        );
         if (nonEager.length && accum.relations.includes(attr)) {
           const nonEagerRelations = nonEager.map((ne) => `${attr}.${ne}`);
           accum.nonEager.push(...nonEagerRelations);
@@ -118,12 +99,6 @@ export function splitEagerRelations<M extends Model>(
           const rels = relations.map((ne) => `${attr}.${ne}`);
           accum.relations.push(...rels);
         }
-        log.info(
-          `calculated Relations for ${attr} of ${clazz.name}: ${JSON.stringify(relations, null, 2)}`
-        );
-        log.info(
-          `calculated Non eager for ${attr} of ${clazz.name}: ${JSON.stringify(nonEager, null, 2)}`
-        );
       }
 
       return accum;
@@ -131,8 +106,5 @@ export function splitEagerRelations<M extends Model>(
     { nonEager: [], relations: [] }
   );
   cache[m.name] = relations;
-  Logging.for(splitEagerRelations).info(
-    `Relations for ${m.name}: ${JSON.stringify(relations, null, 2)}`
-  );
   return relations;
 }

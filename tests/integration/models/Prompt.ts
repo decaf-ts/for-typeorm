@@ -5,7 +5,6 @@ import {
   type ModelArg,
   required,
   description,
-  Model,
 } from "@decaf-ts/decorator-validation";
 import { PromptBlock } from "./PromptBlock";
 import {
@@ -14,7 +13,6 @@ import {
   index,
   manyToMany,
   manyToOne,
-  oneToOne,
   pk,
   table,
   unique,

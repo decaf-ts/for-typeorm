@@ -221,4 +221,14 @@ describe(`Prompt Relations`, function () {
     const read = await repo.read(prompt.id);
     expect(read).toBeDefined();
   });
+
+  it("selects a prompt", async () => {
+    const repo = Repository.forModel(Prompt);
+    const read = await repo
+      .select()
+      .where(Condition.attr<Prompt>("id").eq(prompt.id))
+      .execute();
+    expect(read).toBeDefined();
+    expect(read.length).toBe(1);
+  });
 });

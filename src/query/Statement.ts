@@ -17,6 +17,7 @@ import { TypeORMAdapter } from "../TypeORMAdapter";
 import { FindManyOptions, SelectQueryBuilder } from "typeorm";
 import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
 import { FindOptionsOrder } from "typeorm/find-options/FindOptionsOrder";
+import { splitEagerRelations } from "../utils";
 
 /**
  * @description Statement builder for TypeORM-backed queries.
@@ -108,11 +109,6 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
         this.selectSelector.map((s) => `${tableName}.${s as string}`)
       );
     else q.query = q.query.select();
-    //
-    // q.query = (q.query as SelectQueryBuilder<any>).from(
-    //   this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector],
-    //   tableName
-    // );
 
     if (this.whereCondition)
       q.query = this.parseCondition(
@@ -212,6 +208,18 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     log.debug(
       `Executing raw query: ${(rawInput.query as unknown as SelectQueryBuilder<M>).getSql()}`
     );
+
+    const { nonEager, relations } = splitEagerRelations(this.fromSelector);
+    // for (const relation of relations) {
+    rawInput.query = (
+      rawInput.query as unknown as SelectQueryBuilder<M>
+    ).setFindOptions({
+      loadEagerRelations: true,
+      loadRelationIds: {
+        relations: nonEager,
+      },
+    }) as any;
+    // }
     return (await (
       rawInput.query as unknown as SelectQueryBuilder<M>
     ).getMany()) as R;
