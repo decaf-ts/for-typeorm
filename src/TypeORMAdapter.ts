@@ -687,7 +687,8 @@ export class TypeORMAdapter extends Adapter<
 
     if (code.match(/duplicate key|already exists/g))
       return new ConflictError(code);
-    if (code.match(/does not exist|not found/g)) return new NotFoundError(code);
+    if (code.match(/does not exist|not found|Could not find/g))
+      return new NotFoundError(code);
 
     // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
     switch (code.toString()) {

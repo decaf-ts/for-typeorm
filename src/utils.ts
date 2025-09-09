@@ -39,7 +39,14 @@ export function splitEagerRelations<M extends Model>(
   m: Constructor<M>,
   cache: Record<string, any> = {}
 ): { nonEager: string[]; relations: string[] } {
-  const instance = new m();
+  let instance: M;
+  try {
+    instance = new m();
+  } catch (e: unknown) {
+    throw new InternalError(
+      `Could not instantiate model ${m.name} for eager relation calculation: ${e}`
+    );
+  }
   const rels = Repository.relations(m);
   const log = Logging.for(splitEagerRelations);
   cache[m.name] = cache[m.name] || undefined;
@@ -74,9 +81,12 @@ export function splitEagerRelations<M extends Model>(
       const decorator: any = decorators.decorators[0];
       const eager = decorator.props.populate;
       let clazz = decorator.props.class;
-      if (typeof clazz === "function" && !clazz.name) {
-        clazz = clazz();
-      }
+      if (typeof clazz === "string") clazz = Model.get(clazz) as Constructor<M>;
+      if (typeof clazz === "function" && !clazz.name) clazz = clazz();
+      if (!clazz)
+        throw new InternalError(
+          `Could not find class for property ${attr} on model ${m.name}`
+        );
 
       log.info(
         `Relation on prop ${attr} of ${m.name} found: ${clazz.name} with eager: ${eager}`

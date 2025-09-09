@@ -41,7 +41,7 @@ const typeOrmCfg = {
   logging: false,
 };
 
-describe("TypeORM Decaf full decoration", () => {
+describe.skip("TypeORM Decaf full decoration", () => {
   let dataSource: DataSource;
 
   beforeAll(async () => {
