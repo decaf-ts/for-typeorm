@@ -203,7 +203,8 @@ export function Column(
         metadata.columns,
         options,
         "regular",
-        metadata.relations
+        metadata.relations,
+        options.unique ? metadata.indices : undefined
       );
 
       if (options.generated) {

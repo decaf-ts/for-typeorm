@@ -1,4 +1,12 @@
-import { Cascade, column, manyToOne, pk, table, uses } from "@decaf-ts/core";
+import {
+  Cascade,
+  column,
+  index,
+  manyToOne,
+  pk,
+  table,
+  uses,
+} from "@decaf-ts/core";
 import { TypeORMFlavour } from "../../../src";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "../baseModel";
@@ -11,6 +19,7 @@ export class TestPhoneModel extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 
+  @index(["phoneNumber"])
   @column("tst_area_code")
   @required()
   areaCode!: string;
@@ -19,10 +28,14 @@ export class TestPhoneModel extends TypeORMBaseModel {
   @required()
   phoneNumber!: string;
 
-  @manyToOne(() => TestUserModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
+  @manyToOne(
+    () => TestUserModel,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.NONE,
+    },
+    false
+  )
   user!: TestUserModel;
 
   constructor(m?: ModelArg<TestPhoneModel>) {

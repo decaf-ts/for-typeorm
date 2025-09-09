@@ -44,10 +44,14 @@ export class TestUserModel extends TypeORMBaseModel {
   @index()
   age!: number;
 
-  @oneToOne(() => TestAddressModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
+  @oneToOne(
+    () => TestAddressModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
   address!: TestAddressModel;
 
   @oneToMany(

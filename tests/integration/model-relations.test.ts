@@ -478,9 +478,11 @@ describe(`Complex Database`, function () {
         const read3 = await testCountryModelRepository.read(address.country.id);
         testCountry(read3);
         expect(read3.equals(address.country)).toEqual(true);
-        phones.forEach((p: any) => {
+
+        for (let p of phones) {
+          p = await testPhoneModelRepository.read(p.id);
           testPhone(p);
-        });
+        }
       });
 
       it("Updates a one to many relation", async () => {

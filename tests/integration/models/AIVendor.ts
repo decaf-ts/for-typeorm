@@ -19,7 +19,6 @@ export class AIVendor extends TypeORMActiveModel {
    * @description Unique identifier for the AI provider
    * @summary The provider's unique identifier string
    */
-  // @ts-expect-error because
   @pk({ type: "String", generated: false })
   @type(String.name)
   name!: AIVendors;
