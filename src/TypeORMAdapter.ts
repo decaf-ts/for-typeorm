@@ -10,6 +10,9 @@ import {
   Sequence,
   sequenceNameForModel,
   type SequenceOptions,
+  JoinTableOptions,
+  OrderDirection,
+  JoinTableMultipleColumnsOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -59,7 +62,7 @@ import { apply, Reflection } from "@decaf-ts/reflection";
 import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
-import { convertJsRegexToPostgres } from "./utils";
+import { convertJsRegexToPostgres, splitEagerRelations } from "./utils";
 import {
   DataSource,
   FindOneOptions,
@@ -72,6 +75,8 @@ import {
   JoinTable,
   ColumnType,
   ColumnOptions,
+  Index,
+  JoinColumnOptions,
 } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { Column } from "./overrides/Column";
@@ -453,19 +458,21 @@ export class TypeORMAdapter extends Adapter<
     let result: any;
     try {
       const repo = this.dataSource.getRepository(m);
+      const { nonEager, relations } = splitEagerRelations(m);
+
       const q: FindOneOptions = {
         where: {
           [pk]: id,
         },
+        relations: relations,
+        loadRelationIds: {
+          relations: nonEager,
+        },
       };
-      result = (await repo.findOne(q)) as Record<string, any>;
+      result = (await repo.findOneOrFail(q)) as Record<string, any>;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
-    if (!result)
-      throw new NotFoundError(
-        `Record with id: ${id} not found in table ${typeof tableName === "string" ? tableName : Repository.table(tableName)}`
-      );
     return result;
   }
 
@@ -515,6 +522,7 @@ export class TypeORMAdapter extends Adapter<
     const model = await this.read(tableName, id, pk);
     try {
       const repo = this.dataSource.getRepository(m);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const res = await repo.delete(id);
       return model;
     } catch (e: unknown) {
@@ -679,7 +687,8 @@ export class TypeORMAdapter extends Adapter<
 
     if (code.match(/duplicate key|already exists/g))
       return new ConflictError(code);
-    if (code.match(/does not exist|not found/g)) return new NotFoundError(code);
+    if (code.match(/does not exist|not found|Could not find/g))
+      return new NotFoundError(code);
 
     // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
     switch (code.toString()) {
@@ -1325,13 +1334,15 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           clazz: Constructor<any> | (() => Constructor<any>),
           cascade: CascadeMetadata,
           populate: boolean,
+          joinColumnOpts?: JoinColumnOptions,
           fk?: string
         ) {
           const metadata: RelationsMetadata = {
-            class: (clazz.name ? clazz.name : clazz) as string,
+            class: clazz.name ? clazz.name : (clazz as any),
             cascade: cascade,
             populate: populate,
           };
+          if (joinColumnOpts) metadata.joinTable = joinColumnOpts;
           if (fk) metadata.name = fk;
           const ormMeta: RelationOptions = {
             cascade:
@@ -1369,7 +1380,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
               ormMeta
             ),
             JoinColumn(
-              metadata.name
+              joinColumnOpts || metadata.name
                 ? {
                     foreignKeyConstraintName: metadata.name,
                   }
@@ -1388,17 +1399,22 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         decorator: function oneToMany(
           clazz: Constructor<any> | (() => Constructor<any>),
           cascade: CascadeMetadata,
-          populate: boolean
+          populate: boolean,
+          joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
+          fk?: string
         ) {
-          const metadata: RelationsMetadata = {
-            class: (clazz.name ? clazz.name : clazz) as string,
+          const meta: RelationsMetadata = {
+            class: clazz.name ? clazz.name : (clazz as any),
             cascade: cascade,
             populate: populate,
           };
-          return apply(
+          if (joinTableOpts) meta.joinTable = joinTableOpts;
+          if (fk) meta.name = fk;
+
+          const decorators = [
             prop(PersistenceKeys.RELATIONS),
             list(clazz),
-            propMetadata(oneToManyKey, metadata),
+            propMetadata(oneToManyKey, meta),
             function OneToManyWrapper(obj: any, prop: any): any {
               const ormMeta: RelationOptions = {
                 cascade:
@@ -1446,8 +1462,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                 },
                 ormMeta
               )(obj, prop);
-            }
-          );
+            },
+          ];
+          return apply(...decorators);
         },
       })
       .apply();
@@ -1460,19 +1477,23 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         decorator: function manyToOne(
           clazz: Constructor<any> | (() => Constructor<any>),
           cascade: CascadeMetadata,
-          populate: boolean
+          populate: boolean,
+          joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
+          fk?: string
         ) {
           const metadata: RelationsMetadata = {
             class: (clazz.name ? clazz.name : clazz) as string,
             cascade: cascade,
             populate: populate,
           };
+          if (joinTableOpts) metadata.joinTable = joinTableOpts;
+          if (fk) metadata.name = fk;
           const ormMeta: RelationOptions = {
             cascade:
               cascade.update === Cascade.CASCADE ||
               cascade.delete === Cascade.CASCADE,
-            onDelete: cascade.delete ? "CASCADE" : "DEFAULT",
-            onUpdate: cascade.update ? "CASCADE" : "DEFAULT",
+            onDelete: cascade.delete ? "CASCADE" : "NO ACTION",
+            onUpdate: cascade.update ? "CASCADE" : "NO ACTION",
             nullable: true,
             eager: populate,
           };
@@ -1526,7 +1547,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
                       new (clazz as Constructor<any>)()
                     ).id as string;
                   return model[crossRelationKey];
-                }
+                },
+                ormMeta
               )(obj, prop);
             }
           );
@@ -1542,13 +1564,17 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
         decorator: function manyToMany(
           clazz: Constructor<any> | (() => Constructor<any>),
           cascade: CascadeMetadata,
-          populate: boolean
+          populate: boolean,
+          joinTableOpts?: JoinTableOptions,
+          fk?: string
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name,
+            class: clazz.name ? clazz.name : (clazz as any),
             cascade: cascade,
             populate: populate,
           };
+          if (joinTableOpts) metadata.joinTable = joinTableOpts;
+          if (fk) metadata.name = fk;
           const ormMeta: RelationOptions = {
             cascade:
               cascade.update === Cascade.CASCADE ||
@@ -1578,8 +1604,50 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
               },
               ormMeta
             ),
-            JoinTable()
+            JoinTable(joinTableOpts as any)
           );
+        },
+      })
+      .apply();
+
+    // @index() => @Index()
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(PersistenceKeys.INDEX)
+      .extend({
+        decorator: function index(
+          directions?: OrderDirection[] | string[] | string,
+          compositions?: string[] | string,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          name?: string
+        ) {
+          return function index(obj: any, prop: any) {
+            if (typeof directions === "string") {
+              name = directions;
+              directions = undefined;
+              compositions = undefined;
+            }
+            if (typeof compositions === "string") {
+              name = compositions;
+              compositions = undefined;
+            }
+            if (!compositions && directions) {
+              if (
+                directions.find(
+                  (d) =>
+                    ![OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
+                )
+              ) {
+                compositions = directions as string[];
+                directions = undefined;
+              }
+            }
+
+            if (compositions && compositions.length) {
+              return Index([prop, ...compositions])(obj);
+            }
+
+            return Index()(obj, prop);
+          };
         },
       })
       .apply();

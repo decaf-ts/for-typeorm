@@ -3,6 +3,7 @@ import { RelationMetadataArgs } from "typeorm/metadata-args/RelationMetadataArgs
 import { InternalError } from "@decaf-ts/db-decorators";
 import { UnsupportedError } from "@decaf-ts/core";
 import { ValidationKeys } from "@decaf-ts/decorator-validation";
+import { IndexMetadataArgs } from "typeorm/metadata-args/IndexMetadataArgs";
 
 export function extractForRelations(
   target: any,
@@ -42,7 +43,8 @@ export function aggregateOrNewColumn(
   columns: ColumnMetadataArgs[],
   options: any = {},
   mode: string = "regular",
-  relations: RelationMetadataArgs[]
+  relations: RelationMetadataArgs[],
+  indexes?: IndexMetadataArgs[]
 ) {
   const cols = columns.filter(
     (c: ColumnMetadataArgs) =>
@@ -53,6 +55,16 @@ export function aggregateOrNewColumn(
     (c: RelationMetadataArgs) =>
       c.target === target && c.propertyName === property
   );
+
+  if (indexes) {
+    const indx = indexes.filter(
+      (c: IndexMetadataArgs) =>
+        c.target === target && (c.columns as string[]).includes(property)
+    );
+    indx.forEach((i) => {
+      Object.assign(i, options);
+    });
+  }
 
   if (cols.length > 1)
     throw new InternalError(

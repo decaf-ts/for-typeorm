@@ -5,7 +5,15 @@ import {
   prop,
   required,
 } from "@decaf-ts/decorator-validation";
-import { Cascade, column, oneToOne, pk, table, uses } from "@decaf-ts/core";
+import {
+  Cascade,
+  column,
+  index,
+  oneToOne,
+  pk,
+  table,
+  uses,
+} from "@decaf-ts/core";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 
@@ -17,6 +25,7 @@ export class TestCountryModel extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 
+  @index()
   @column("tst_name")
   @required()
   name!: string;
@@ -59,6 +68,7 @@ export class TestAddressModel extends TypeORMBaseModel {
   @required()
   areaCode!: string;
 
+  @index()
   @column("tst_city")
   @required()
   city!: string;
@@ -86,6 +96,7 @@ export class TestDummyCountry extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
 
+  @index(["countryCode"])
   @column("tst_name")
   @required()
   name!: string;
@@ -125,6 +136,7 @@ export class NoPopulateOnceModel extends TypeORMBaseModel {
 export class TestDummyPhone extends TypeORMBaseModel {
   @pk({ type: "Number" })
   id!: number;
+  @index(["areaCode", "phoneNumber"])
   @column("tst_area_code")
   @required()
   areaCode!: string;

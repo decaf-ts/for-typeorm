@@ -4,10 +4,19 @@ import {
   type ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { Cascade, column, manyToMany, pk, table, uses } from "@decaf-ts/core";
+import {
+  Cascade,
+  column,
+  manyToMany,
+  manyToOne,
+  pk,
+  table,
+  uses,
+} from "@decaf-ts/core";
 import { AIFeature } from "./AIFeature";
 import { TypeORMActiveModel } from "./TypeORMActiveModel";
 import { TypeORMFlavour } from "../../../src";
+import { AIVendor } from "./AIVendor";
 
 /**
  * @description AI model representation with capabilities and features
@@ -60,9 +69,16 @@ export class AIModel extends TypeORMActiveModel {
   @column("price_per_token_output")
   @required()
   pricePerTokenOutput!: number;
-  //
-  // @manyToOne(() => AIVendor)
-  // vendor!: AIVendor;
+
+  @manyToOne(
+    () => AIVendor,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.NONE,
+    },
+    false
+  )
+  vendor!: AIVendor;
 
   constructor(arg?: ModelArg<AIModel>) {
     super(arg);
