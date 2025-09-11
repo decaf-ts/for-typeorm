@@ -464,7 +464,7 @@ export class TypeORMAdapter extends Adapter<
         where: {
           [pk]: id,
         },
-        relations: relations,
+        loadEagerRelations: true,
         loadRelationIds: {
           relations: nonEager,
         },

@@ -231,4 +231,11 @@ describe(`Prompt Relations`, function () {
     expect(read).toBeDefined();
     expect(read.length).toBe(1);
   });
+
+  it("reads a vendor", async () => {
+    const repo = Repository.forModel(AIVendor);
+    const read = await repo.read(vendor.name);
+    expect(read).toBeDefined();
+    expect(read.hasErrors()).toBeUndefined();
+  });
 });
