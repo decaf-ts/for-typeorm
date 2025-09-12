@@ -69,12 +69,16 @@ Typical usage flow
    - Import from `@decaf-ts/for-typeorm` index. It calls TypeORMAdapter.decoration() on import to ensure decorators are wired.
 2. Configure adapter and data source
    - Construct a TypeORMAdapter with DataSourceOptions, then initialize/connect.
-3. Define models with decorators
-   - Use @Entity, @PrimaryGeneratedColumn, @Column, @CreateDateColumn, @UpdateDateColumn, and relation decorators to define your schema and relationships.
+3. Define models with decaf-ts decorators, keeping it consistent decorators:
+   - use @table() instead of @Entity();
+   - use @column() instead of @Column();
+   - always use decaf-ts decorators instead of TypeORM decorators. Decaf's will be wired to TypeORM's metadata storage.
 4. Use repositories
-   - Get a TypeORMRepository for your model from the adapter, perform create/read/update/delete and batch operations.
+   - Use Repository.forModel to get a decaf repository for your model.
+   - Get a TypeORMRepository native features use repository.nativeRepository().
 5. Build queries
-   - Create a TypeORMStatement via repository.queryBuilder() to compose filters ordering, and pagination; call paginate(size) to obtain a TypeORMPaginator.
+   - Using the decaf query api, all queries are guaranteed to use prepared statements via repository.select()
+   - Use repository.queryBuilder() to use native typeorm query builder for edge cases or advanced queries.
 6. Sequences and indexes
    - Use TypeORMSequence for sequence values and generateIndexes to pre-create DB indexes.
 7. Observe changes

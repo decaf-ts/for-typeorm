@@ -1,3 +1,8 @@
-# Decaf.ts for TypeORM
+# Decaf.ts — TypeORM Integration
 
-The for-typeorm package integrates Decaf.ts data-access abstractions with TypeORM. It provides a TypeORM-backed Adapter and Repository, a fluent Statement builder and Paginator, model decorators aligned with TypeORM (Entity/Column/Relations/Date columns/Primary keys), sequence utilities, index generation helpers, typed SQL operators and query containers, plus small utilities for regex and raw Postgres typings. This lets you use Decaf.ts models and repositories seamlessly on top of a TypeORM DataSource.
+A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories and query primitives into relational databases via TypeORM, keeping the same API you use across other Decaf adapters. It provides:
+- TypeORMAdapter: connection management, CRUD/bulk ops, raw SQL, schema helpers, sequences, indexes, error translation
+- TypeORMRepository: typed CRUD with validation, context/flags, observers, and access to the native TypeORM repository
+- Query layer: TypeORMStatement and TypeORMPaginator for translating Decaf statements to TypeORM options/builders and paginating results
+- Decorator wiring: automatically wires Decaf decorators to TypeORM metadata on import (no need to use TypeORM decorators directly)
+- Utilities and types: constants, operator translation, raw Postgres types, and small helpers like convertJsRegexToPostgres
