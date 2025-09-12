@@ -27,6 +27,13 @@ import { aggregateOrNewColumn } from "./utils";
  * Column decorator is used to mark a specific class property as a table column. Only properties decorated with this
  * decorator will be persisted to the database when entity be saved.
  */
+/**
+ * @description Decorator to mark a class property as a database column.
+ * @summary Provides multiple overloads to define column metadata such as type, length, precision, width, enum, set, hstore, and embedded types. Aggregates with existing metadata to avoid duplicates and delegates to TypeORM metadata storage.
+ * @return {PropertyDecorator} A property decorator to be applied on an entity field.
+ * @function Column
+ * @memberOf module:for-typeorm
+ */
 export function Column(): PropertyDecorator;
 
 /**
@@ -65,6 +72,8 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType} type Type of the column.
+ * @param {ColumnWithWidthOptions} [options] Options for the column.
  */
 export function Column(
   type: WithWidthColumnType,
@@ -74,6 +83,8 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType} type Type of the column.
+ * @param {ColumnNumericOptions} [options] Options for the column.
  */
 export function Column(
   type: WithPrecisionColumnType,
@@ -83,6 +94,8 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType} type Type of the column.
+ * @param {ColumnEnumOptions} [options] Options for the column.
  */
 export function Column(
   type: "enum",
@@ -92,6 +105,8 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType} type Type of the column.
+ * @param {ColumnEnumOptions} [options] Options for the column.
  */
 export function Column(
   type: "simple-enum",
@@ -101,6 +116,8 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType} type Type of the column.
+ * @param {ColumnEnumOptions} [options] Options for the column.
  */
 export function Column(
   type: "set",
@@ -110,6 +127,8 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType} type Type of the column.
+ * @param {ColumnHstoreOptions} [options] Options for the column.
  */
 // @ts-expect-error some typeorm thing
 export function Column(
@@ -124,6 +143,8 @@ export function Column(
  * Property in entity can be marked as Embedded, and on persist all columns from the embedded are mapped to the
  * single table of the entity where Embedded is used. And on hydration all columns which supposed to be in the
  * embedded will be mapped to it from the single table.
+ * @param {function(any): Function} type Type of the embedded.
+ * @param {ColumnEmbeddedOptions} [options] Options for the embedded.
  */
 export function Column(
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -134,6 +155,9 @@ export function Column(
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
+ * @param {ColumnType|ColumnOptions|function(any): Function} [typeOrOptions] Either an explicit column type or the column options.
+ * @param {ColumnOptions} [options] The column options when a type is specified.
+ * @return {PropertyDecorator} A property decorator to be applied on an entity field.
  */
 export function Column(
   typeOrOptions?: // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type

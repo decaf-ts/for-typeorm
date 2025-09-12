@@ -5,6 +5,10 @@ import { extractForRelations } from "./utils";
  * A one-to-many relation allows creating the type of relation where Entity1 can have multiple instances of Entity2,
  * but Entity2 has only one Entity1. Entity2 is the owner of the relationship, and stores the id of Entity1 on its
  * side of the relation.
+ * @template T
+ * @param {string | function(any): ObjectType<T>} typeFunctionOrTarget
+ * @param {string | function(T): any} inverseSide
+ * @param {RelationOptions} options
  */
 export function OneToMany<T>(
   typeFunctionOrTarget: string | ((type?: any) => ObjectType<T>),

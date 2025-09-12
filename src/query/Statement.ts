@@ -185,8 +185,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @description Processes a record.
    * @summary Converts a raw result row to a model instance using the adapter.
    * @param {any} r The raw record.
-   * @param {keyof M} pkAttr The primary key attribute of the model.
-   * @param {"Number" | "BigInt" | undefined} sequenceType The type of the sequence.
+   * @param {string} pkAttr The primary key attribute of the model.
    * @return {any} The processed record.
    */
   private processRecord(r: any, pkAttr: keyof M) {

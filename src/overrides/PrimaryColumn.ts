@@ -12,12 +12,27 @@ import { aggregateOrNewColumn } from "./utils";
  * Describes all primary key column's options.
  * If specified, the nullable field must be set to false.
  */
+/**
+ * @description Options for a primary key column.
+ * @summary Extends TypeORM ColumnOptions enforcing that primary columns cannot be nullable.
+ * @template T Extends ColumnOptions to define primary-specific options.
+ * @interface PrimaryColumnOptions
+ * @memberOf module:for-typeorm
+ */
 export type PrimaryColumnOptions = ColumnOptions & { nullable?: false };
 
 /**
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
  * Primary columns also creates a PRIMARY KEY for this column in a db.
+ */
+/**
+ * @description Decorator to mark a property as a primary key column.
+ * @summary Registers a non-nullable column as PRIMARY KEY in the underlying database. Supports optional type and generation strategies via ColumnOptions.
+ * @param {PrimaryColumnOptions} [options] Column options when no explicit type is provided.
+ * @return {PropertyDecorator} A property decorator to be applied on an entity field.
+ * @function PrimaryColumn
+ * @memberOf module:for-typeorm
  */
 export function PrimaryColumn(
   options?: PrimaryColumnOptions
@@ -37,6 +52,28 @@ export function PrimaryColumn(
  * Column decorator is used to mark a specific class property as a table column.
  * Only properties decorated with this decorator will be persisted to the database when entity be saved.
  * Primary columns also creates a PRIMARY KEY for this column in a db.
+ */
+/**
+ * @description Decorator to mark a property as a primary key column with optional explicit type.
+ * @summary Normalizes parameters, enforces non-nullability, sets primary flag, aggregates column metadata, and registers generation strategy when specified.
+ * @param {ColumnType|PrimaryColumnOptions} [typeOrOptions] Either an explicit column type or the column options.
+ * @param {PrimaryColumnOptions} [options] The column options when a type is specified.
+ * @return {PropertyDecorator} A property decorator to be applied on an entity field.
+ * @function PrimaryColumn
+ * @memberOf module:for-typeorm
+ * @mermaid
+ * sequenceDiagram
+ *   participant Dev as Developer Code
+ *   participant Decor as PrimaryColumn
+ *   participant Meta as TypeORM Metadata
+ *   Dev->>Decor: @PrimaryColumn(typeOrOptions, options)
+ *   Decor->>Dev: returns PropertyDecorator
+ *   Dev->>Decor: apply on target property
+ *   Decor->>Decor: normalize params, enforce non-nullable
+ *   Decor->>Meta: aggregateOrNewColumn(...)
+ *   alt options.generated
+ *     Decor->>Meta: generations.push({ strategy })
+ *   end
  */
 export function PrimaryColumn(
   typeOrOptions?: ColumnType | PrimaryColumnOptions,

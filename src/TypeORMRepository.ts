@@ -14,7 +14,7 @@ import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMAdapter } from "./TypeORMAdapter";
 import { TypeORMFlavour } from "./constants";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
-import { QueryBuilder } from "typeorm";
+import { QueryBuilder, Repository as NativeRepo } from "typeorm";
 
 /**
  * @description Repository implementation backed by TypeORM.
@@ -56,7 +56,7 @@ import { QueryBuilder } from "typeorm";
  *   Repo-->>App: model
  */
 @uses(TypeORMFlavour)
-export class TypeORMRepository<M extends Model> extends Repository<
+export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
   TypeORMQuery<M, any>,
   Adapter<DataSourceOptions, TypeORMQuery, TypeORMFlags, Context<TypeORMFlags>>,
@@ -79,13 +79,24 @@ export class TypeORMRepository<M extends Model> extends Repository<
   /**
    * @description Creates a TypeORM query builder for the repository entity.
    * @summary Returns a SelectQueryBuilder bound to this repository's entity for advanced querying.
-   * @return {QueryBuilder<any>} A TypeORM SelectQueryBuilder instance.
+   * @return {QueryBuilder<M>} A TypeORM SelectQueryBuilder instance.
    */
-  queryBuilder(): QueryBuilder<any> {
+  queryBuilder(): QueryBuilder<M> {
     const repo = (this.adapter as any).dataSource.getRepository(
       this.class[ModelKeys.ANCHOR as keyof typeof this.class]
     );
     return repo.createQueryBuilder();
+  }
+
+  /**
+   * @description Creates a TypeORM Repository instance for the entity.
+   * @summary Returns a Repository bound to this repository's entity for native functionality.
+   * @return {NativeRepo<M>} A TypeORM Repository instance.
+   */
+  typeormRepo(): NativeRepo<M> {
+    return (this.adapter as any).dataSource.getRepository(
+      this.class[ModelKeys.ANCHOR as keyof typeof this.class]
+    );
   }
 
   /**
@@ -181,7 +192,7 @@ export class TypeORMRepository<M extends Model> extends Repository<
    * @summary Applies decorator-based validations and returns transformed models with context args for createAll.
    * @param {M[]} models The models to be created.
    * @param {...any[]} args Optional arguments/context.
-   * @return {Promise<[M[], ...any[]]>} The prepared models and forwarded args tuple.
+   * @return {Promise<any[]>} The prepared models and forwarded args tuple.
    */
   protected override async createAllPrefix(models: M[], ...args: any[]) {
     const contextArgs = await Context.args(
