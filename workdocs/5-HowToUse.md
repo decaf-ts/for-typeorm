@@ -60,29 +60,246 @@ Use Decaf decorators (@model, @table, @pk, @column, etc.). They are wired to Typ
 
 ```ts
 import { model, ModelArg } from "@decaf-ts/decorator-validation";
-import { table, pk, column, Repository, uses } from "@decaf-ts/core";
+import {
+  table,
+  pk,
+  column,
+  required,
+  oneToOne,
+  oneToMany,
+  manyToOne,
+  manyToMany,
+  Repository,
+  uses,
+} from "@decaf-ts/core";
 import { TypeORMFlavour, TypeORMRepository } from "@decaf-ts/for-typeorm";
+import { Cascade } from "@decaf-ts/db-decorators";
+
+/**
+ * User ↔ Profile: one-to-one
+ * User → Post: one-to-many
+ * Post → User: many-to-one
+ * Post ↔ Tag: many-to-many
+ */
 
 @uses(TypeORMFlavour)
-@table("tst_user")
+@table("app_user")
 @model()
-class User {
+class AppUser extends Model {
   @pk({ type: "Number" })
   id!: number;
 
-  @column("tst_name")
+  @required()
+  @column("name")
+  @minlength(3)
+  @maxlength(255)
+  @index()
   name!: string;
 
-  @column("tst_nif")
-  nif!: string;
+  @required()
+  @column("email")
+  @email()
+  @index()
+  email!: string;
 
-  constructor(arg?: ModelArg<User>) {
-    Object.assign(this, arg);
+  @column("is_active")
+  isActive: boolean = true;
+
+  @column("created_at")
+  @createdAt()
+  createdAt: Date;
+
+  // oneToOne: each user has exactly one profile
+  @oneToOne(
+    () => UserProfile,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.SET_NULL,
+    },
+    true // populate
+  )
+  @required()
+  profile!: UserProfile;
+
+  // oneToMany: user has many posts (inverse in Post.author as manyToOne)
+  @oneToMany(
+    () => Post,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true // populate
+  )
+  posts?: Post[];
+
+  constructor(arg?: ModelArg<AppUser>) {
+    super(arg);
   }
 }
 
-// Get the repository (TypeORMRepository)
-const repo: TypeORMRepository<User> = Repository.forModel(User);
+@uses(TypeORMFlavour)
+@table("user_profile")
+@model()
+class UserProfile extends Model {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @column("bio")
+  bio?: string;
+
+  @column("age")
+  @min(0)
+  @max(150)
+  @step(1)
+  @required()
+  age!: number;
+  
+  @column("avatar_url")
+  @url()
+  avatarUrl?: string;
+
+  @column("phone")
+  @index()
+  phone?: string;
+  
+  @column("created_at")
+  @createdAt()
+  updatedAt: Date;
+  
+  @column("updated_at")
+  @updatedAt()
+  updatedAt: Date;
+
+  // Optional back-reference to the user (many projects omit the reverse one-to-one)
+  @oneToOne(
+    () => AppUser,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
+  @required()
+  user!: AppUser;
+
+  constructor(arg?: ModelArg<UserProfile>) {
+    super(arg)
+  }
+}
+
+@uses(TypeORMFlavour)
+@table("post")
+@model()
+class Post extends Model {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  @column("title")
+  @index()
+  title!: string;
+
+  @required()
+  @column("body")
+  body!: string;
+
+  @column("published_at")
+  publishedAt?: Date;
+
+  @column("is_published")
+  isPublished: boolean = false;
+
+  // manyToOne: each post belongs to a single user (inverse of AppUser.posts)
+  @manyToOne(
+    () => AppUser,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.SET_NULL,
+    },
+    false // only one side of the relation can be eager
+  )
+  author!: AppUser;
+
+  // manyToMany: posts can have many tags and tags can belong to many posts
+  @manyToMany(
+    () => Tag,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.NONE,
+    },
+    true // populate
+  )
+  tags?: Tag[];
+
+  constructor(arg?: ModelArg<Post>) {
+    super(arg)
+  }
+}
+
+@uses(TypeORMFlavour)
+@table()
+@model()
+class Tag extends Model {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  @column()
+  @index()
+  name!: string;
+
+  @column()
+  color?: string;
+
+  // Optional reverse manyToMany side
+  @manyToMany(
+    () => Post,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.NONE,
+    },
+    true
+  )
+  posts?: Post[];
+
+  constructor(arg?: ModelArg<Tag>) {
+    super(arg)
+  }
+}
+
+// Example: create a user with profile, posts and tags in one go
+const userRepo: TypeORMRepository<AppUser> = Repository.forModel(AppUser);
+const tagRepo: TypeORMRepository<Tag> = Repository.forModel(Tag);
+
+const t1 = await tagRepo.create(new Tag({ name: "typescript", color: "#3178C6" }));
+const t2 = await tagRepo.create(new Tag({ name: "orm" }));
+
+const createdUser = await userRepo.create(
+  new AppUser({
+    name: "Alice",
+    email: "alice@example.com",
+    profile: { 
+      bio: "Full-stack dev", 
+      phone: "+1-555-1234" 
+    },
+    posts: [
+      {
+        title: "Hello World",
+        body: "My first post",
+        isPublished: true,
+        tags: [t1, t2],
+      },
+      {
+        title: "TypeORM Tips",
+        body: "Relations and cascading",
+        tags: [t1],
+      },
+    ],
+  })
+);
+
+// Read back with relations populated (populate=true in decorators)
+const fetched = await userRepo.read(createdUser.id);
 ```
 
 ## Repository CRUD operations
@@ -119,116 +336,29 @@ await repo.deleteAll(updatedAll.map(u => u.id));
 
 ## Native TypeORM repository and QueryBuilder access
 
-```ts
+```typescript
+import { TypeORMRepository } from "@decaf-ts/for-typeorm"
 // Access the underlying TypeORM Repository
-const nativeRepo = repo["typeormRepo"]?.(); // or (repo as any).typeormRepo()
+const repo: TypeORMRepository = Repository.forModel(User);
+const nativeRepo = repo.nativeRepository();
 
 // Or build a TypeORM query using queryBuilder()
-const qb = (repo as any).queryBuilder<User>(); // returns a SelectQueryBuilder<User>
+const qb = repo.queryBuilder<User>(); // returns a QueryBuilder<User>
 const rows = await qb.select("user").where({ name: "Alice" }).getMany();
 ```
 
 ## Decaf Statement with pagination
 
 ```ts
-import { Operator } from "@decaf-ts/core";
+import { Operator, Condition, Repository } from "@decaf-ts/core";
+const repo: TypeORMRepository = Repository.forModel(User);
 
 // Build a Decaf statement and paginate
 const stmt = repo
   .select()
-  .where("name", Operator.EQUAL, "Alice")
+  .where(Condition.attr<User>("name").eq("Alice"))
   .orderBy("id")
   .paginate(10); // TypeORMPaginator under the hood
 
 const page1 = await stmt.page(1); // User[]
-```
-
-## translateOperators
-
-```ts
-import { GroupOperator, Operator } from "@decaf-ts/core";
-import { translateOperators } from "@decaf-ts/for-typeorm";
-
-const sqlEq = translateOperators(Operator.EQUAL); // SQLOperator '='
-const sqlAnd = translateOperators(GroupOperator.AND); // 'AND'
-```
-
-## Index generation
-
-```ts
-import { generateIndexes } from "@decaf-ts/for-typeorm";
-import { Constructor } from "@decaf-ts/decorator-validation";
-
-const queries = generateIndexes([User as unknown as Constructor<User>]);
-// Adapter can execute these via raw()
-for (const q of queries) {
-  if (typeof q.query === "string") {
-    await adapter.raw(q);
-  }
-}
-```
-
-## Sequences
-
-```ts
-import { TypeORMSequence } from "@decaf-ts/for-typeorm";
-
-const seq = new TypeORMSequence({
-  name: "user_id_seq",
-  type: "Number",
-  startWith: 1,
-  incrementBy: 1,
-}, adapter);
-
-const current = await seq.current();
-const next = await seq.next();
-const range = await seq.range(5);
-```
-
-## TypeORMDispatch (observe DB changes)
-
-```ts
-import { TypeORMDispatch } from "@decaf-ts/for-typeorm";
-
-const dispatch = new TypeORMDispatch();
-// Provide adapter and native DataSource options
-await dispatch.observe(adapter, adapter.dataSource.options);
-// Observers added on repositories will receive OperationKeys notifications
-```
-
-## Utilities: convertJsRegexToPostgres
-
-```ts
-import { convertJsRegexToPostgres } from "@decaf-ts/for-typeorm";
-
-const pattern = convertJsRegexToPostgres(/foo.*/i); // "foo.*"
-// Use with REGEXP/IREGEXP operators inside custom queries
-```
-
-## Constants and types
-
-```ts
-import { TypeORMKeys, TypeORMFlavour, TypeORMQuery, SQLOperator } from "@decaf-ts/for-typeorm";
-
-// Keys/constants
-console.log(TypeORMKeys.TABLE); // "table_name"
-console.log(TypeORMFlavour); // "type-orm"
-
-// TypeORMQuery typing
-type Q = TypeORMQuery; // { query: string | SelectQueryBuilder<M>; values?: any[] }
-const op: SQLOperator = SQLOperator.EQUAL;
-```
-
-## Errors
-
-```ts
-import { IndexError } from "@decaf-ts/for-typeorm";
-
-try {
-  throw new IndexError("Index not found");
-} catch (e) {
-  if (e instanceof IndexError) {
-    // handle index error
-  }
-}
 ```
