@@ -18,9 +18,8 @@ const config: DataSourceOptions = {
 } as PostgresConnectionOptions;
 
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
-import { ModelKeys } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 import { Repository } from "@decaf-ts/core";
@@ -30,7 +29,7 @@ import { SupportedAIFeatures } from "./models/features.models";
 
 jest.setTimeout(50000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -42,8 +41,6 @@ const typeOrmCfg = {
 };
 
 describe.skip("TypeORM Decaf full decoration", () => {
-  let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -73,19 +70,18 @@ describe.skip("TypeORM Decaf full decoration", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [AIFeature[ModelKeys.ANCHOR], AIModel[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-
-    adapter["_dataSource"] = dataSource;
-    await dataSource.initialize();
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

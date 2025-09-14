@@ -11,16 +11,15 @@ import {
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { TypeORMFlags, TypeORMQuery } from "./types";
-import { TypeORMAdapter } from "./TypeORMAdapter";
 import { TypeORMFlavour } from "./constants";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { QueryBuilder, Repository as NativeRepo } from "typeorm";
 
 /**
  * @description Repository implementation backed by TypeORM.
- * @summary Provides CRUD operations for a given Model using the {@link TypeORMAdapter}, including bulk operations and query builder access while preserving Decaf.ts repository semantics.
+ * @summary Provides CRUD operations for a given Model using the TypeORMAdapter, including bulk operations and query builder access while preserving Decaf.ts repository semantics.
  * @template M Type extending Model that this repository will manage.
- * @param {TypeORMAdapter} adapter The adapter used to execute persistence operations.
+ * @param {Adapter<DataSourceOptions, any, TypeORMQuery, TypeORMFlags, Context<TypeORMFlags>>} adapter The adapter used to execute persistence operations.
  * @param {Constructor<M>} model The Model constructor associated with this repository.
  * @param {...any[]} args Optional arguments forwarded to the base Repository.
  * @class TypeORMRepository
@@ -59,13 +58,20 @@ import { QueryBuilder, Repository as NativeRepo } from "typeorm";
 export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
   TypeORMQuery<M, any>,
-  Adapter<DataSourceOptions, TypeORMQuery, TypeORMFlags, Context<TypeORMFlags>>,
+  Adapter<
+    DataSourceOptions,
+    any,
+    TypeORMQuery,
+    TypeORMFlags,
+    Context<TypeORMFlags>
+  >,
   TypeORMFlags,
   Context<TypeORMFlags>
 > {
   constructor(
     adapter: Adapter<
       DataSourceOptions,
+      any,
       TypeORMQuery,
       TypeORMFlags,
       Context<TypeORMFlags>
@@ -110,7 +116,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.create(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      (this.class as any)[ModelKeys.ANCHOR as keyof typeof this.class],
       id,
       model as any,
       this.pk,

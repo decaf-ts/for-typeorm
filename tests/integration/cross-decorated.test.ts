@@ -16,12 +16,11 @@ const config: DataSourceOptions = {
   ssl: false,
 };
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   Model,
   ModelArg,
-  ModelKeys,
   required,
   model,
 } from "@decaf-ts/decorator-validation";
@@ -36,7 +35,7 @@ Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -83,8 +82,6 @@ class TestIdCross extends TypeORMBaseModel {
 }
 
 describe(`cross decoration`, function () {
-  let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -114,13 +111,13 @@ describe(`cross decoration`, function () {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [TestIdCross[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-    await dataSource.initialize();
-    adapter["_dataSource"] = dataSource;
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -145,7 +142,7 @@ describe(`cross decoration`, function () {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

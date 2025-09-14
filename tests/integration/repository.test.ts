@@ -20,7 +20,7 @@ const config: DataSourceOptions = {
 const dbName = "repository_db";
 
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   column,
@@ -42,7 +42,6 @@ import {
   minlength,
   model,
   ModelArg,
-  ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "./baseModel";
@@ -71,7 +70,7 @@ class TestModelRepo extends TypeORMBaseModel {
   }
 }
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -83,8 +82,6 @@ const typeOrmCfg = {
 };
 
 describe("repositories", () => {
-  let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -114,13 +111,13 @@ describe("repositories", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [TestModelRepo[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-
-    adapter["_dataSource"] = dataSource;
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   let observer: Observer;
@@ -139,7 +136,7 @@ describe("repositories", () => {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -187,7 +184,6 @@ describe("repositories", () => {
   let created: TestModelRepo | undefined;
 
   it("creates a model", async () => {
-    await dataSource.initialize();
     const repo: TypeORMRepository<TestModelRepo> =
       Repository.forModel(TestModelRepo);
 

@@ -1,6 +1,5 @@
 import { Dispatch, EventIds } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { TypeORMAdapter } from "./TypeORMAdapter";
 import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
 
@@ -31,7 +30,7 @@ import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
  *   }
  *   Dispatch <|-- TypeORMDispatch
  */
-export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
+export class TypeORMDispatch extends Dispatch {
   private observerLastUpdate?: string;
   private attemptCounter: number = 0;
 
@@ -103,17 +102,16 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
    */
   protected override async initialize(): Promise<void> {
     async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
-      if (!this.adapter || !this.native) {
+      if (!this.adapter) {
         throw new InternalError(`No adapter/native observed for dispatch`);
       }
 
       const adapter = this.adapter as TypeORMAdapter;
 
       try {
-        if (!adapter.dataSource.isInitialized)
-          await adapter.dataSource.initialize();
+        if (!adapter.client.isInitialized) await adapter.client.initialize();
 
-        adapter.dataSource.subscribers.push(
+        adapter.client.subscribers.push(
           new TypeORMEventSubscriber(this.notificationHandler.bind(this))
         );
       } catch (e: unknown) {
@@ -131,16 +129,5 @@ export class TypeORMDispatch extends Dispatch<DataSourceOptions> {
           `Failed to subscribe to TypeORM notifications: ${e}`
         );
       });
-  }
-
-  /**
-   * Cleanup method to release resources when the dispatcher is no longer needed
-   */
-  public cleanup(): void {
-    // if (this.adapter) {
-    //
-    //   const adapter = this.adapter as TypeORMAdapter;
-    //   await adapter.dataSource.destroy();
-    // }
   }
 }

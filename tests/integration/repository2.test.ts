@@ -20,7 +20,7 @@ const config: DataSourceOptions = {
 const dbName = "repository2_db";
 
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   column,
@@ -36,7 +36,6 @@ import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   model,
   ModelArg,
-  ModelKeys,
   pattern,
   required,
 } from "@decaf-ts/decorator-validation";
@@ -69,7 +68,7 @@ export class TestCountryRepoModel extends TypeORMBaseModel {
   }
 }
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -81,8 +80,6 @@ const typeOrmCfg = {
 };
 
 describe("repositories 2nd", () => {
-  let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -112,13 +109,13 @@ describe("repositories 2nd", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [TestCountryRepoModel[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-
-    adapter["_dataSource"] = dataSource;
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -143,7 +140,7 @@ describe("repositories 2nd", () => {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -192,7 +189,6 @@ describe("repositories 2nd", () => {
   let created: TestCountryRepoModel | undefined;
 
   it("creates a model", async () => {
-    await dataSource.initialize();
     const repo: TypeORMRepository<TestCountryRepoModel> =
       Repository.forModel(TestCountryRepoModel);
 

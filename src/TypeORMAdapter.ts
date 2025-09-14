@@ -90,6 +90,7 @@ import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
 import { assign, Metadata, property } from "./decorators";
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 
 export async function createdByOnTypeORMCreateUpdate<
   M extends Model,
@@ -146,27 +147,28 @@ export async function createdByOnTypeORMCreateUpdate<
  */
 export class TypeORMAdapter extends Adapter<
   DataSourceOptions,
+  DataSource,
   TypeORMQuery,
   TypeORMFlags,
   Context<TypeORMFlags>
 > {
-  private _dataSource?: DataSource;
-
-  get dataSource(): DataSource {
-    if (!this._dataSource) {
-      const models = Adapter.models(this.flavour);
-      this._dataSource = new DataSource(
-        Object.assign(this.native, {
-          entities: models.map((c) => c[ModelKeys.ANCHOR as keyof typeof c]),
-        })
-      );
-    }
-    return this._dataSource;
+  override getClient(): DataSource {
+    const models = Adapter.models(this.alias);
+    const entities = models.map((c) => c[ModelKeys.ANCHOR as keyof typeof c]);
+    return new DataSource(
+      Object.assign({}, this.config, { entities: entities })
+    );
   }
-  // protected dataSou
 
   constructor(options: DataSourceOptions, alias?: string) {
     super(options, TypeORMFlavour, alias);
+  }
+
+  override async shutdown(): Promise<void> {
+    await super.shutdown();
+    if (this._client) {
+      await this._client.destroy();
+    }
   }
 
   protected override async flags<M extends Model>(
@@ -176,7 +178,7 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<TypeORMFlags> {
     const f = await super.flags(operation, model, flags);
     const newObj: any = {
-      user: (await TypeORMAdapter.getCurrentUser(this.dataSource)) as string,
+      user: (this.config as PostgresConnectionOptions).username,
     };
     const m = new model();
 
@@ -254,15 +256,15 @@ export class TypeORMAdapter extends Adapter<
    * @summary Sets up the necessary database indexes for all models managed by this adapter
    * @return {Promise<void>} A promise that resolves when initialization is complete
    */
-  async initialize(): Promise<void> {
-    const ds = this.dataSource;
+  override async initialize(): Promise<void> {
+    const ds = this.client;
     try {
       await ds.initialize();
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
     const log = this.log.for(this.initialize);
-    log.verbose(`${this.flavour} adapter initialized`);
+    log.verbose(`${this.toString()} initialized`);
   }
 
   /**
@@ -279,15 +281,15 @@ export class TypeORMAdapter extends Adapter<
     const indexes: TypeORMQuery[] = generateIndexes(models);
 
     try {
-      await this.dataSource.query("BEGIN");
+      await this.client.query("BEGIN");
 
       for (const index of indexes) {
-        await this.dataSource.query(index.query, index.values);
+        await this.client.query(index.query, index.values);
       }
 
-      await this.dataSource.query("COMMIT");
+      await this.client.query("COMMIT");
     } catch (e: unknown) {
-      await this.dataSource.query("ROLLBACK");
+      await this.client.query("ROLLBACK");
       throw this.parseError(e as Error);
     }
   }
@@ -302,7 +304,7 @@ export class TypeORMAdapter extends Adapter<
   override async raw<R>(q: TypeORMQuery): Promise<R> {
     const log = this.log.for(this.raw);
     try {
-      if (!this.dataSource.isInitialized) await this.dataSource.initialize();
+      if (!this.client.isInitialized) await this.client.initialize();
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
@@ -311,7 +313,7 @@ export class TypeORMAdapter extends Adapter<
       log.debug(
         `executing query: ${(query as unknown as SelectQueryBuilder<any>).getSql()}`
       );
-      const response = await this.dataSource.query(query, values);
+      const response = await this.client.query(query, values);
       return response as R;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -421,7 +423,7 @@ export class TypeORMAdapter extends Adapter<
     ...args: any[]
   ): Promise<Record<string, any>> {
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
-    const repo = this.dataSource.getRepository(m);
+    const repo = this.client.getRepository(m);
     if (typeof id !== "undefined") {
       const existing = await repo.findOne({
         where: {
@@ -457,7 +459,7 @@ export class TypeORMAdapter extends Adapter<
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     let result: any;
     try {
-      const repo = this.dataSource.getRepository(m);
+      const repo = this.client.getRepository(m);
       const { nonEager, relations } = splitEagerRelations(m);
 
       const q: FindOneOptions = {
@@ -496,7 +498,7 @@ export class TypeORMAdapter extends Adapter<
     await this.read(tableName, id, pk);
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
-      const repo = this.dataSource.getRepository(m);
+      const repo = this.client.getRepository(m);
       return repo.save(model);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -521,7 +523,7 @@ export class TypeORMAdapter extends Adapter<
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     const model = await this.read(tableName, id, pk);
     try {
-      const repo = this.dataSource.getRepository(m);
+      const repo = this.client.getRepository(m);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const res = await repo.delete(id);
       return model;
@@ -539,7 +541,7 @@ export class TypeORMAdapter extends Adapter<
   ): Promise<Record<string, any>[]> {
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
-      const repo = this.dataSource.getRepository(m);
+      const repo = this.client.getRepository(m);
       const result: InsertResult = await repo.insert(model);
       return this.readAll(
         tableName,
@@ -562,7 +564,7 @@ export class TypeORMAdapter extends Adapter<
 
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
-      const repo = this.dataSource.getRepository(m);
+      const repo = this.client.getRepository(m);
       return repo.findBy({ [pk]: In(id) });
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -593,7 +595,7 @@ export class TypeORMAdapter extends Adapter<
     if (!ids.length) return [];
     const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
-      const repo = this.dataSource.getRepository(m);
+      const repo = this.client.getRepository(m);
       const models = await this.readAll(tableName, ids, pk);
       await repo.delete(ids);
       return models;
@@ -1674,5 +1676,5 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .apply();
   }
 }
-
+TypeORMAdapter.decoration();
 Adapter.setCurrent(TypeORMFlavour);
