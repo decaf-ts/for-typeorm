@@ -362,3 +362,130 @@ const stmt = repo
 
 const page1 = await stmt.page(1); // User[]
 ```
+
+
+## TypeORMDispatch and live updates
+
+Description: Subscribe to TypeORM entity events and notify Decaf observers on CREATE/UPDATE/DELETE. Based on tests/integration/dispatch-subscriber.test.ts.
+
+```ts
+import { TypeORMDispatch, TypeORMAdapter } from "@decaf-ts/for-typeorm";
+import { Repository, Observer } from "@decaf-ts/core";
+import { OperationKeys } from "@decaf-ts/db-decorators";
+import { DataSourceOptions } from "typeorm";
+
+// Assume you already created the DB and user
+const options: DataSourceOptions = { /* postgres options */ } as any;
+const adapter = new TypeORMAdapter(options);
+
+// Observe repository changes
+const repo = Repository.forModel(User);
+const spy = jest.fn();
+const observer: Observer = { refresh: (t, op, ids) => Promise.resolve(spy(t, op, ids)) };
+repo.observe(observer);
+
+// Start dispatch
+const dispatch = new TypeORMDispatch();
+await dispatch.observe(adapter, options);
+
+// After create/update/delete through the repo, your observer will be notified
+await repo.create(new User({ name: "Bob", nif: "999999990" }));
+expect(spy).toHaveBeenCalledWith(repo.table, OperationKeys.CREATE, expect.any(Array));
+```
+
+## TypeORMEventSubscriber (manual registration)
+
+Description: Register the subscriber in a DataSource to forward TypeORM events. Used implicitly by TypeORMDispatch; shown here for completeness.
+
+```ts
+import { TypeORMEventSubscriber } from "@decaf-ts/for-typeorm";
+import { DataSource, DataSourceOptions } from "typeorm";
+
+const options: DataSourceOptions = { /* postgres options */ } as any;
+const ds = new DataSource({ ...options, subscribers: [new TypeORMEventSubscriber((table, op, ids) => {
+  console.log("Changed:", table, op, ids);
+})] });
+await ds.initialize();
+```
+
+## translateOperators and SQLOperator
+
+Description: Translate Decaf operators to TypeORM SQL operators; useful when building custom WHERE clauses. Based on src/query/translate.ts and query/constants.
+
+```ts
+import { translateOperators } from "@decaf-ts/for-typeorm";
+import { Operator, GroupOperator } from "@decaf-ts/core";
+
+const eq = translateOperators(Operator.EQUAL);      // "="
+const ne = translateOperators(Operator.DIFFERENT);  // "<>"
+const and = translateOperators(GroupOperator.AND);  // "AND"
+```
+
+## convertJsRegexToPostgres
+
+Description: Convert a JS RegExp or string form to a PostgreSQL POSIX pattern string for use with ~ / ~*.
+
+```ts
+import { convertJsRegexToPostgres } from "@decaf-ts/for-typeorm";
+
+convertJsRegexToPostgres(/foo.*/i); // "foo.*"
+convertJsRegexToPostgres("/bar.+/g"); // "bar.+"
+```
+
+## splitEagerRelations
+
+Description: Compute eager vs. non-eager relations for a Model class based on relation decorators. Mirrors behavior used by the adapter and statement builder.
+
+```ts
+import { splitEagerRelations } from "@decaf-ts/for-typeorm";
+
+const { relations, nonEager } = splitEagerRelations(User);
+// relations might include ["posts", "profile", "posts.tags"] depending on your decorators
+```
+
+## Sequences (TypeORMSequence)
+
+Description: Work with PostgreSQL sequences through the adapter. Based on tests/integration/sequences.test.ts.
+
+```ts
+import { TypeORMSequence } from "@decaf-ts/for-typeorm";
+
+const seq = new TypeORMSequence({ name: "user_id_seq", type: "Number", startWith: 1, incrementBy: 1 }, adapter);
+const nextValue = await seq.next();
+const batch = await seq.range(5); // e.g., [2,3,4,5,6]
+```
+
+## Index generation (generateIndexes)
+
+Description: Generate SQL statements to create indexes defined via decorators. Use adapter.raw to execute them. Based on adapter.index() and indexes/generator.
+
+```ts
+import { generateIndexes, TypeORMAdapter } from "@decaf-ts/for-typeorm";
+
+const stmts = generateIndexes([User, Post]); // returns TypeORMQuery[] with raw SQL and values
+for (const st of stmts) {
+  await adapter.raw(st);
+}
+```
+
+
+## Decorator mapping: decaf-ts decorators ➜ TypeORM
+
+The TypeORM adapter wires Decaf decorators into TypeORM metadata automatically on import. The following table summarizes the mapping observed in the adapter code and tests (including the vanilla TypeORM comparison tests):
+
+| Decaf decorator | TypeORM counterpart                                                                                                                | Notes |
+|---|------------------------------------------------------------------------------------------------------------------------------------|---|
+| @model() + @table(name?) | @Entity({ name })                                                                                                                  | Decaf models are entities; when no name is provided, TypeORM uses the class/table naming strategy. |
+| @pk({ type, generated? }) | @PrimaryGeneratedColumn() or @PrimaryColumn()                                                                                      | Generated numeric/bigint keys map to PrimaryGeneratedColumn; otherwise PrimaryColumn with the given type. |
+| @column(name?) | @Column({ name })                                                                                                                  | Additional type/length/precision options flow through from the Decaf type metadata. |
+| @unique() | @Column({ unique: true })                                                                                                          | Marks the column as unique. |
+| @required() | @Column({ nullable: false })                                                                                                       | Forces NOT NULL at the column level. |
+| (no @required()) | @Column({nullable: true})                                                                                   | Column nullability follows TypeORM defaults unless overridden by other constraints/validators. |
+| @version() | @VersionColumn()                                                                                                                   | Optimistic locking/version field. |
+| @createdAt() | @CreateDateColumn()                                                                                                                | Auto-managed creation timestamp. |
+| @updatedAt() | @UpdateDateColumn()                                                                                                                | Auto-managed update timestamp. |
+| @oneToOne(() => Clazz, cascade, populate, joinColumnOpts?, fkName?) | @OneToOne(() => Clazz, { cascade, onDelete, onUpdate, eager, nullable: true }) + @JoinColumn({ foreignKeyConstraintName: fkName? }) | populate => eager; Cascade.DELETE/UPDATE map to CASCADE, else DEFAULT. Owning side uses JoinColumn. |
+| @manyToOne(() => Clazz, cascade, populate, joinOpts?, fkName?) | @ManyToOne(() => Clazz, { cascade, onDelete, onUpdate, eager, nullable: true })                                                    | Owning side; FK constraint name may be set via metadata.name; JoinColumn is not explicitly added by the adapter (TypeORM will create the FK). |
+| @oneToMany(() => Clazz, cascade, populate, joinOpts?) | @OneToMany(() => Clazz, inversePropertyResolver, { cascade, onDelete, onUpdate, eager, nullable: true })                           | Inverse side of many-to-one; no JoinColumn/JoinTable applied. |
+| @manyToMany(() => Clazz, cascade, populate, joinTableOpts?) | @ManyToMany(() => Clazz, { cascade, onDelete, onUpdate, eager, nullable: true }) + @JoinTable(joinTableOpts?)                      | Owning side applies JoinTable. |
+| @index(directionsOrName?, compositionsOrName?) | @Index()                                                                                                                           | Single or composite indexes are registered; when compositions are present, Index([prop, ...compositions]). |
