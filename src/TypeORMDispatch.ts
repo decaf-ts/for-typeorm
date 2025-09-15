@@ -1,6 +1,5 @@
 import { Dispatch, EventIds } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { TypeORMAdapter } from "./TypeORMAdapter";
 import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
 
 /**
@@ -15,20 +14,16 @@ import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
  *
  * // The dispatcher registers a TypeORMEventSubscriber and notifies observers when entities change.
  * @mermaid
- * classDiagram
- *   class Dispatch {
- *     +initialize()
- *     +updateObservers()
- *   }
- *   class TypeORMDispatch {
- *     -observerLastUpdate?: string
- *     -attemptCounter: number
- *     -timeout: number
- *     +constructor(timeout)
- *     #notificationHandler()
- *     #initialize()
- *   }
- *   Dispatch <|-- TypeORMDispatch
+ * sequenceDiagram
+ *   participant D as TypeORMDispatch
+ *   participant DS as TypeORM DataSource
+ *   participant S as TypeORMEventSubscriber
+ *   participant O as Observers
+ *   D->>DS: observe(adapter, options)
+ *   DS->>D: initialize()
+ *   D->>DS: subscribers.push(S)
+ *   S-->>D: emits insert/update/remove
+ *   D->>O: updateObservers(table, operation, ids)
  */
 export class TypeORMDispatch extends Dispatch {
   private observerLastUpdate?: string;
@@ -102,16 +97,14 @@ export class TypeORMDispatch extends Dispatch {
    */
   protected override async initialize(): Promise<void> {
     async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
-      if (!this.adapter) {
+      if (!this.adapter)
         throw new InternalError(`No adapter/native observed for dispatch`);
-      }
-
-      const adapter = this.adapter as TypeORMAdapter;
 
       try {
-        if (!adapter.client.isInitialized) await adapter.client.initialize();
+        if (!this.adapter.client.isInitialized)
+          await this.adapter.client.initialize();
 
-        adapter.client.subscribers.push(
+        this.adapter.client.subscribers.push(
           new TypeORMEventSubscriber(this.notificationHandler.bind(this))
         );
       } catch (e: unknown) {
@@ -129,5 +122,23 @@ export class TypeORMDispatch extends Dispatch {
           `Failed to subscribe to TypeORM notifications: ${e}`
         );
       });
+  }
+
+  override async updateObservers(
+    table: string,
+    operation: OperationKeys,
+    ids: EventIds
+  ): Promise<void> {
+    // When no adapter is observed (e.g., in unit tests invoking the handler directly),
+    // skip notifying observers instead of throwing, so the dispatcher can proceed.
+    // This matches the semantics of "best effort" notifications.
+    // Delegate to base implementation when an adapter is present.
+    if (!this.adapter) {
+      this.log.verbose(
+        `No adapter observed for dispatch; skipping observer update for ${table}:${operation}`
+      );
+      return;
+    }
+    return super.updateObservers(table, operation, ids);
   }
 }

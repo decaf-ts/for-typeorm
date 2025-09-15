@@ -32,8 +32,8 @@
       "useLongnameInNav": false
     },
     "better-docs": {
-      "name": "ts-template",
-      "title": "TypeScript workspace template",
+      "name": "@decaf-ts/for-typeorm Documentation",
+      "title": "@decaf-ts/for-typeorm docs",
       "hideGenerator": true,
       "useLongnameInNav": false,
       "navLinks": [

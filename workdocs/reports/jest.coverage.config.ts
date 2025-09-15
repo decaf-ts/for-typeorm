@@ -21,7 +21,7 @@ const config: Config.InitialOptions = {
         filename: "test-report.html",
         openReport: true,
         expand: true,
-        pageTitle: "ts-workspace Test Report",
+        pageTitle: "@decaf-ts/for-typeorm Test Report",
         stripSkippedTest: true,
         darkTheme: true,
         enableMergeData: true,

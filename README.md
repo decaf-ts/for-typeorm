@@ -1,6 +1,11 @@
-# Decaf.ts for TypeORM
+# Decaf.ts — TypeORM Integration
 
-The for-typeorm package integrates Decaf.ts data-access abstractions with TypeORM. It provides a TypeORM-backed Adapter and Repository, a fluent Statement builder and Paginator, model decorators aligned with TypeORM (Entity/Column/Relations/Date columns/Primary keys), sequence utilities, index generation helpers, typed SQL operators and query containers, plus small utilities for regex and raw Postgres typings. This lets you use Decaf.ts models and repositories seamlessly on top of a TypeORM DataSource.
+A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories and query primitives into relational databases via TypeORM, keeping the same API you use across other Decaf adapters. It provides:
+- TypeORMAdapter: connection management, CRUD/bulk ops, raw SQL, schema helpers, sequences, indexes, error translation
+- TypeORMRepository: typed CRUD with validation, context/flags, observers, and access to the native TypeORM repository
+- Query layer: TypeORMStatement and TypeORMPaginator for translating Decaf statements to TypeORM options/builders and paginating results
+- Decorator wiring: automatically wires Decaf decorators to TypeORM metadata on import (no need to use TypeORM decorators directly)
+- Utilities and types: constants, operator translation, raw Postgres types, and small helpers like convertJsRegexToPostgres
 
 
 ![Licence](https://img.shields.io/github/license/decaf-ts/ts-workspace.svg?style=plastic)
@@ -97,12 +102,16 @@ Typical usage flow
    - Import from `@decaf-ts/for-typeorm` index. It calls TypeORMAdapter.decoration() on import to ensure decorators are wired.
 2. Configure adapter and data source
    - Construct a TypeORMAdapter with DataSourceOptions, then initialize/connect.
-3. Define models with decorators
-   - Use @Entity, @PrimaryGeneratedColumn, @Column, @CreateDateColumn, @UpdateDateColumn, and relation decorators to define your schema and relationships.
+3. Define models with decaf-ts decorators, keeping it consistent decorators:
+   - use @table() instead of @Entity();
+   - use @column() instead of @Column();
+   - always use decaf-ts decorators instead of TypeORM decorators. Decaf's will be wired to TypeORM's metadata storage.
 4. Use repositories
-   - Get a TypeORMRepository for your model from the adapter, perform create/read/update/delete and batch operations.
+   - Use Repository.forModel to get a decaf repository for your model.
+   - Get a TypeORMRepository native features use repository.nativeRepository().
 5. Build queries
-   - Create a TypeORMStatement via repository.queryBuilder() to compose filters ordering, and pagination; call paginate(size) to obtain a TypeORMPaginator.
+   - Using the decaf query api, all queries are guaranteed to use prepared statements via repository.select()
+   - Use repository.queryBuilder() to use native typeorm query builder for edge cases or advanced queries.
 6. Sequences and indexes
    - Use TypeORMSequence for sequence values and generateIndexes to pre-create DB indexes.
 7. Observe changes
@@ -130,373 +139,367 @@ Exports overview (primary)
 
 # How to Use — Decaf.ts for TypeORM
 
-This guide provides practical, TypeScript-based examples for every exported element of the for-typeorm package.
+This guide provides practical, TypeScript examples for the public APIs exported by `@decaf-ts/for-typeorm`.
 
-Note: Importing from `@decaf-ts/for-typeorm` runs `TypeORMAdapter.decoration()` automatically, wiring decorators.
+Notes:
+- Importing from `@decaf-ts/for-typeorm` runs `TypeORMAdapter.decoration()` automatically, wiring Decaf decorators to TypeORM metadata.
+- Examples mirror the usage found in the package tests under `for-typeorm/tests`.
 
+## Setup the adapter and DataSource
 
-## Core classes
-
-### TypeORMAdapter
-- Description: Initialize the adapter with a TypeORM DataSource, perform CRUD, execute raw queries, and wire repositories/statements/paginators.
-- TypeScript
 ```ts
-import { DataSource } from 'typeorm';
-import {
-  TypeORMAdapter,
-  TypeORMRepository,
-  TypeORMStatement,
-  TypeORMPaginator,
-} from '@decaf-ts/for-typeorm';
-import { Model, prop } from '@decaf-ts/decorator-validation';
-import { Entity, PrimaryGeneratedColumn, Column } from '@decaf-ts/for-typeorm';
+import { TypeORMAdapter, TypeORMFlavour } from "@decaf-ts/for-typeorm";
+import { DataSource, DataSourceOptions } from "typeorm";
 
-@Entity()
-class User extends Model {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+// Admin connection (used to create db/user)
+const adminOptions: DataSourceOptions = {
+  type: "postgres",
+  host: "localhost",
+  port: 5432,
+  username: "postgres",
+  password: "password",
+  database: "postgres",
+};
 
-  @Column({ type: String })
-  @prop()
-  name!: string;
+// App database name and user
+const dbName = "app_db";
+const appUser = "app_user";
+const appPass = "password";
+
+// 1) Connect as admin and prepare database and user
+const admin = await TypeORMAdapter.connect(adminOptions);
+try {
+  await TypeORMAdapter.createDatabase(admin, dbName);
+  await TypeORMAdapter.createUser(admin, dbName, appUser, appPass);
+  await TypeORMAdapter.createNotifyFunction(admin, appUser);
+} finally {
+  await admin.destroy();
 }
 
-const dataSource = new DataSource({
-  type: 'postgres',
-  url: process.env.DATABASE_URL!,
-  entities: [User],
-});
+// 2) Application DataSource and adapter
+const appOptions: DataSourceOptions = {
+  type: "postgres",
+  host: "localhost",
+  port: 5432,
+  username: appUser,
+  password: appPass,
+  database: dbName,
+  synchronize: true,
+  logging: false,
+};
 
-// Create adapter bound to the DataSource
-const adapter = new TypeORMAdapter({ dataSourceOptions: dataSource.options });
-
-// Initialize / connect once
-await adapter.initialize();
-
-// Repository factory
-const repo: TypeORMRepository<User> = adapter.repository(User);
-
-// CRUD via adapter directly
-const created = await adapter.create('user', 'id', User, new User({ name: 'Ada' }));
-const fetched = await adapter.read('user', 'id', created.id);
-
-// Raw execution (parameterized)
-await adapter.raw({ query: 'SELECT 1 as x', values: [] });
+const adapter = new TypeORMAdapter(appOptions);
+// Optionally inject an existing DataSource instance
+adapter["_dataSource"] = new DataSource(appOptions);
 ```
 
-### TypeORMRepository
-- Description: Strongly-typed CRUD and batch ops for a Model; integrates validation and context flags.
-- TypeScript
+## Define a model with Decaf decorators
+
+Use Decaf decorators (@model, @table, @pk, @column, etc.). They are wired to TypeORM automatically by this package.
+
 ```ts
-import { TypeORMRepository } from '@decaf-ts/for-typeorm';
+import { model, ModelArg } from "@decaf-ts/decorator-validation";
+import {
+  table,
+  pk,
+  column,
+  required,
+  oneToOne,
+  oneToMany,
+  manyToOne,
+  manyToMany,
+  Repository,
+  uses,
+} from "@decaf-ts/core";
+import { TypeORMFlavour, TypeORMRepository } from "@decaf-ts/for-typeorm";
+import { Cascade } from "@decaf-ts/db-decorators";
 
-// repo obtained from adapter.repository(User)
-const created = await repo.create(new User({ name: 'Turing' }));
-const one = await repo.read(created.id);
-const updated = await repo.update(new User({ ...one, name: 'Turing A.' }));
-await repo.delete(updated.id);
+/**
+ * User ↔ Profile: one-to-one
+ * User → Post: one-to-many
+ * Post → User: many-to-one
+ * Post ↔ Tag: many-to-many
+ */
 
-// Batch helpers
-await repo.createAll([new User({ name: 'A' }), new User({ name: 'B' })]);
-const users = await repo.readAll([created.id]);
-```
+@uses(TypeORMFlavour)
+@table("app_user")
+@model()
+class AppUser extends Model {
+  @pk({ type: "Number" })
+  id!: number;
 
-### TypeORMStatement
-- Description: Statement builder that translates Decaf conditions into TypeORM Find options / QueryBuilder.
-- TypeScript
-```ts
-import { TypeORMStatement } from '@decaf-ts/for-typeorm';
-import { Operator, GroupOperator } from '@decaf-ts/core';
+  @required()
+  @column("name")
+  @minlength(3)
+  @maxlength(255)
+  @index()
+  name!: string;
 
-const stmt = new TypeORMStatement<User>(adapter)
-  .from(User)
-  .where({ attr1: 'name', operator: Operator.LIKE, comparison: '%ing%' })
-  .orderBy('name', 'ASC');
+  @required()
+  @column("email")
+  @email()
+  @index()
+  email!: string;
 
-// Execute via paginator
-const paginator = await stmt.paginate<User>(10);
-const page1 = await paginator.page(1);
-```
+  @column("is_active")
+  isActive: boolean = true;
 
-### TypeORMPaginator
-- Description: Paginates results with take/skip, mapping rows back to Model instances.
-- TypeScript
-```ts
-import { TypeORMPaginator } from '@decaf-ts/for-typeorm';
+  @column("created_at")
+  @createdAt()
+  createdAt: Date;
 
-const paginator = new TypeORMPaginator<User, User>(adapter, { query: {} as any }, 20, User);
-const first = await paginator.page(1);
-console.log(paginator.count, paginator.total);
-```
+  // oneToOne: each user has exactly one profile
+  @oneToOne(
+    () => UserProfile,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.SET_NULL,
+    },
+    true // populate
+  )
+  @required()
+  profile!: UserProfile;
 
-### TypeORMSequence
-- Description: Work with database sequences (e.g., for numeric IDs).
-- TypeScript
-```ts
-import { TypeORMSequence } from '@decaf-ts/for-typeorm';
+  // oneToMany: user has many posts (inverse in Post.author as manyToOne)
+  @oneToMany(
+    () => Post,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true // populate
+  )
+  posts?: Post[];
 
-const seq = new TypeORMSequence({ name: 'invoice_id_seq', type: 'Number', startWith: 1, incrementBy: 1 }, adapter);
-const current = await seq.current();
-const next = await seq.next();
-const range = await seq.range(5); // [next..next+4] depending on increment
-```
-
-### TypeORMDispatch and TypeORMEventSubscriber
-- Description: Subscribe a DataSource to entity change notifications and propagate updates to observers.
-- TypeScript
-```ts
-import { TypeORMDispatch } from '@decaf-ts/for-typeorm';
-
-const dispatch = new TypeORMDispatch();
-dispatch.observe(adapter, dataSource.options); // registers TypeORMEventSubscriber
-
-// Elsewhere, register observers via Decaf.ts Dispatch API (not shown)
-```
-
-### IndexError
-- Description: Error class for issues related to index generation/handling.
-- TypeScript
-```ts
-import { IndexError } from '@decaf-ts/for-typeorm';
-
-try {
-  // imagine a failure in index generation or execution
-  throw new IndexError('Index name collision');
-} catch (e) {
-  if (e instanceof IndexError) {
-    console.error('Index error:', e.message);
+  constructor(arg?: ModelArg<AppUser>) {
+    super(arg);
   }
 }
-```
 
+@uses(TypeORMFlavour)
+@table("user_profile")
+@model()
+class UserProfile extends Model {
+  @pk({ type: "Number" })
+  id!: number;
 
-## Decorators and Overrides
+  @column("bio")
+  bio?: string;
 
-### Entity, PrimaryGeneratedColumn, Column
-- Description: Define an entity and its columns in a Decaf + TypeORM-compatible way.
-- TypeScript
-```ts
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from '@decaf-ts/for-typeorm';
-import { Model, prop } from '@decaf-ts/decorator-validation';
+  @column("age")
+  @min(0)
+  @max(150)
+  @step(1)
+  @required()
+  age!: number;
+  
+  @column("avatar_url")
+  @url()
+  avatarUrl?: string;
 
-@Entity('users')
-class User extends Model {
-  @PrimaryGeneratedColumn('uuid')
-  id!: string;
+  @column("phone")
+  @index()
+  phone?: string;
+  
+  @column("created_at")
+  @createdAt()
+  updatedAt: Date;
+  
+  @column("updated_at")
+  @updatedAt()
+  updatedAt: Date;
 
-  @Column({ type: String, length: 120 })
-  @prop()
+  // Optional back-reference to the user (many projects omit the reverse one-to-one)
+  @oneToOne(
+    () => AppUser,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
+  @required()
+  user!: AppUser;
+
+  constructor(arg?: ModelArg<UserProfile>) {
+    super(arg)
+  }
+}
+
+@uses(TypeORMFlavour)
+@table("post")
+@model()
+class Post extends Model {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  @column("title")
+  @index()
+  title!: string;
+
+  @required()
+  @column("body")
+  body!: string;
+
+  @column("published_at")
+  publishedAt?: Date;
+
+  @column("is_published")
+  isPublished: boolean = false;
+
+  // manyToOne: each post belongs to a single user (inverse of AppUser.posts)
+  @manyToOne(
+    () => AppUser,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.SET_NULL,
+    },
+    false // only one side of the relation can be eager
+  )
+  author!: AppUser;
+
+  // manyToMany: posts can have many tags and tags can belong to many posts
+  @manyToMany(
+    () => Tag,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.NONE,
+    },
+    true // populate
+  )
+  tags?: Tag[];
+
+  constructor(arg?: ModelArg<Post>) {
+    super(arg)
+  }
+}
+
+@uses(TypeORMFlavour)
+@table()
+@model()
+class Tag extends Model {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  @column()
+  @index()
   name!: string;
 
-  @CreateDateColumn()
-  createdAt!: Date;
+  @column()
+  color?: string;
 
-  @UpdateDateColumn()
-  updatedAt!: Date;
-}
-```
+  // Optional reverse manyToMany side
+  @manyToMany(
+    () => Post,
+    {
+      update: Cascade.NONE,
+      delete: Cascade.NONE,
+    },
+    true
+  )
+  posts?: Post[];
 
-### Relations: OneToOne, OneToMany, ManyToOne, JoinColumn
-- Description: Establish relations across entities.
-- TypeScript
-```ts
-import { Entity, PrimaryGeneratedColumn, Column, OneToOne, OneToMany, ManyToOne, JoinColumn } from '@decaf-ts/for-typeorm';
-import { Model, prop } from '@decaf-ts/decorator-validation';
-
-@Entity('profiles')
-class Profile extends Model {
-  @PrimaryGeneratedColumn('uuid') id!: string;
-  @Column({ type: String }) @prop() bio!: string;
+  constructor(arg?: ModelArg<Tag>) {
+    super(arg)
+  }
 }
 
-@Entity('posts')
-class Post extends Model {
-  @PrimaryGeneratedColumn('uuid') id!: string;
-  @Column({ type: String }) @prop() title!: string;
-  @ManyToOne(() => User, (u) => u.posts)
-  author!: User;
-}
+// Example: create a user with profile, posts and tags in one go
+const userRepo: TypeORMRepository<AppUser> = Repository.forModel(AppUser);
+const tagRepo: TypeORMRepository<Tag> = Repository.forModel(Tag);
 
-@Entity('users')
-class User extends Model {
-  @PrimaryGeneratedColumn('uuid') id!: string;
-  @OneToOne(() => Profile)
-  @JoinColumn()
-  profile!: Profile;
+const t1 = await tagRepo.create(new Tag({ name: "typescript", color: "#3178C6" }));
+const t2 = await tagRepo.create(new Tag({ name: "orm" }));
 
-  @OneToMany(() => Post, (p) => p.author)
-  posts!: Post[];
-}
+const createdUser = await userRepo.create(
+  new AppUser({
+    name: "Alice",
+    email: "alice@example.com",
+    profile: { 
+      bio: "Full-stack dev", 
+      phone: "+1-555-1234" 
+    },
+    posts: [
+      {
+        title: "Hello World",
+        body: "My first post",
+        isPublished: true,
+        tags: [t1, t2],
+      },
+      {
+        title: "TypeORM Tips",
+        body: "Relations and cascading",
+        tags: [t1],
+      },
+    ],
+  })
+);
+
+// Read back with relations populated (populate=true in decorators)
+const fetched = await userRepo.read(createdUser.id);
 ```
 
-### PrimaryColumn
-- Description: Use a custom primary key definition without generation.
-- TypeScript
+## Repository CRUD operations
+
 ```ts
-import { Entity, PrimaryColumn, Column } from '@decaf-ts/for-typeorm';
+import { OperationKeys } from "@decaf-ts/db-decorators";
+import { Observer } from "@decaf-ts/core";
 
-@Entity('tokens')
-class Token {
-  @PrimaryColumn({ type: String })
-  token!: string;
+// Observe changes
+const mock = jest.fn(); // or any function
+const observer: Observer = { refresh: (...args) => Promise.resolve(mock(...args)) };
+repo.observe(observer);
 
-  @Column({ type: Date })
-  expiresAt!: Date;
-}
+// Create
+const created = await repo.create(new User({ name: "Alice", nif: "123456789" }));
+// Read
+const fetched = await repo.read(created.id);
+// Update
+created.name = "Alice Doe";
+const updated = await repo.update(created);
+// Delete
+await repo.delete(updated.id);
+
+// Bulk operations
+const many = [
+  new User({ name: "u1", nif: "111111111" }),
+  new User({ name: "u2", nif: "222222222" }),
+];
+const createdAll = await repo.createAll(many);
+const readAll = await repo.readAll(createdAll.map(u => u.id));
+const updatedAll = await repo.updateAll(readAll.map(u => ({ ...u, name: u.name + "!" }) as User));
+await repo.deleteAll(updatedAll.map(u => u.id));
 ```
 
-### PrimaryGeneratedColumn
-- Description: Use generated primary keys (increment/uuid/rowid/identity).
-- TypeScript
-```ts
-import { Entity, PrimaryGeneratedColumn, Column } from '@decaf-ts/for-typeorm';
+## Native TypeORM repository and QueryBuilder access
 
-@Entity('items')
-class Item {
-  @PrimaryGeneratedColumn('increment') id!: number;
-  @Column({ type: String }) name!: string;
-}
+```typescript
+import { TypeORMRepository } from "@decaf-ts/for-typeorm"
+// Access the underlying TypeORM Repository
+const repo: TypeORMRepository = Repository.forModel(User);
+const nativeRepo = repo.nativeRepository();
+
+// Or build a TypeORM query using queryBuilder()
+const qb = repo.queryBuilder<User>(); // returns a QueryBuilder<User>
+const rows = await qb.select("user").where({ name: "Alice" }).getMany();
 ```
 
-### CreateDateColumn / UpdateDateColumn
-- Description: Automatically maintained timestamps.
-- TypeScript
+## Decaf Statement with pagination
+
 ```ts
-import { CreateDateColumn, UpdateDateColumn } from '@decaf-ts/for-typeorm';
+import { Operator, Condition, Repository } from "@decaf-ts/core";
+const repo: TypeORMRepository = Repository.forModel(User);
 
-class Audited {
-  @CreateDateColumn() createdAt!: Date;
-  @UpdateDateColumn() updatedAt!: Date;
-}
-```
+// Build a Decaf statement and paginate
+const stmt = repo
+  .select()
+  .where(Condition.attr<User>("name").eq("Alice"))
+  .orderBy("id")
+  .paginate(10); // TypeORMPaginator under the hood
 
-### aggregateOrNewColumn (advanced)
-- Description: Low-level helper that merges column options or creates a new one (used by overrides). Rarely needed by app code.
-- TypeScript
-```ts
-import { getMetadataArgsStorage } from 'typeorm';
-import { aggregateOrNewColumn } from '@decaf-ts/for-typeorm/dist/overrides/utils';
-
-class X { a!: string }
-const cols = getMetadataArgsStorage().columns;
-aggregateOrNewColumn(X, 'a', cols, { type: String, length: 64 });
-```
-
-
-## Query utilities and operators
-
-### translateOperators
-- Description: Map Decaf core operators to SQL/TypeORM operators.
-- TypeScript
-```ts
-import { translateOperators } from '@decaf-ts/for-typeorm';
-import { Operator, GroupOperator } from '@decaf-ts/core';
-
-const op1 = translateOperators(Operator.EQUAL);      // '='
-const op2 = translateOperators(GroupOperator.AND);   // 'AND'
-```
-
-### TypeORMQueryLimit, TypeORMOperator, TypeORMGroupOperator, TypeORMConst
-- Description: Constants used by the query builder/translation layer.
-- TypeScript
-```ts
-import { TypeORMQueryLimit, TypeORMOperator, TypeORMGroupOperator, TypeORMConst } from '@decaf-ts/for-typeorm';
-
-console.log(TypeORMQueryLimit); // 250 default page limit
-console.log(TypeORMOperator.EQUAL); // '='
-console.log(TypeORMGroupOperator.AND); // 'AND'
-console.log(TypeORMConst.NULL); // 'NULL'
-```
-
-### SQLOperator, TypeORMQuery
-- Description: Typed operators and query container shapes.
-- TypeScript
-```ts
-import { SQLOperator, TypeORMQuery } from '@decaf-ts/for-typeorm';
-
-const whereOp: SQLOperator = SQLOperator.LIKE;
-const q: TypeORMQuery = { query: 'SELECT * FROM users WHERE name LIKE $1', values: ['A%'] };
-```
-
-### TypeORMFlags
-- Description: Extended repository flags including user context.
-- TypeScript
-```ts
-import { TypeORMFlags } from '@decaf-ts/for-typeorm';
-
-const flags: Partial<TypeORMFlags> = { user: 'db_user', traceId: 'abc-123' } as any;
-```
-
-### TypeORMTableSpec
-- Description: Table creation/change description used internally by the adapter.
-- TypeScript
-```ts
-import { TypeORMTableSpec } from '@decaf-ts/for-typeorm';
-
-const spec: TypeORMTableSpec = {
-  query: 'ALTER TABLE users ADD COLUMN referrer TEXT',
-  values: [],
-  primaryKey: false,
-  constraints: ['CHECK (char_length(referrer) <= 64)'],
-  foreignKeys: [],
-};
-```
-
-
-## Index generation
-
-### generateIndexes
-- Description: Build SQL statements to create indexes from model metadata; execute them with adapter.raw.
-- TypeScript
-```ts
-import { generateIndexes } from '@decaf-ts/for-typeorm';
-
-const stmts = generateIndexes([User, Post]);
-for (const s of stmts) {
-  await adapter.raw(s);
-}
-```
-
-
-## Constants and helpers
-
-### reservedAttributes, TypeORMKeys, TypeORMFlavour
-- Description: Reserved SQL attribute matcher and common keys/labels.
-- TypeScript
-```ts
-import { reservedAttributes, TypeORMKeys, TypeORMFlavour } from '@decaf-ts/for-typeorm';
-
-console.log(reservedAttributes.test('select')); // true
-console.log(TypeORMKeys.ID, TypeORMKeys.VERSION);
-console.log(TypeORMFlavour); // 'type-orm'
-```
-
-### convertJsRegexToPostgres
-- Description: Convert a JS RegExp or string (/pattern/flags) into a PostgreSQL POSIX pattern.
-- TypeScript
-```ts
-import { convertJsRegexToPostgres } from '@decaf-ts/for-typeorm';
-
-const pattern = convertJsRegexToPostgres(/foo.*/i); // 'foo.*'
-// Use with ~ or ~* in SQL
-```
-
-### Raw Postgres typings
-- Description: Type helpful shapes for raw Postgres query results when using adapter.raw.
-- TypeScript
-```ts
-import { QueryResult, QueryResultRow } from '@decaf-ts/for-typeorm';
-
-const result = await adapter.raw({ query: 'SELECT id, name FROM users', values: [] }) as QueryResult;
-result.rows.forEach((row: QueryResultRow) => console.log(row.id, row.name));
-```
-
-### VERSION
-- Description: The package version placeholder exported by the entrypoint.
-- TypeScript
-```ts
-import { VERSION } from '@decaf-ts/for-typeorm';
-console.log('for-typeorm version:', VERSION);
+const page1 = await stmt.page(1); // User[]
 ```
 
 

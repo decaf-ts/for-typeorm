@@ -8,24 +8,49 @@ import { Model } from "@decaf-ts/decorator-validation";
  * @enum {string}
  * @memberOf module:for-typeorm
  */
+/**
+ * @description SQL operators available for building TypeORM queries.
+ * @summary Enumeration of common SQL operators intended for use within TypeORM query construction and translation layers.
+ * @enum {string}
+ * @readonly
+ * @memberOf module:for-typeorm
+ */
 export enum SQLOperator {
+  /** Exact equality comparison (=) */
   EQUAL = "=",
+  /** Inequality comparison (<>) */
   NOT_EQUAL = "<>",
+  /** Less-than comparison (<) */
   LESS_THAN = "<",
+  /** Less-than or equal comparison (<=) */
   LESS_THAN_OR_EQUAL = "<=",
+  /** Greater-than comparison (>) */
   GREATER_THAN = ">",
+  /** Greater-than or equal comparison (>=) */
   GREATER_THAN_OR_EQUAL = ">=",
+  /** Membership in a set (IN) */
   IN = "IN",
+  /** Non-membership in a set (NOT IN) */
   NOT_IN = "NOT IN",
+  /** Pattern match using LIKE */
   LIKE = "LIKE",
+  /** Case-insensitive pattern match using ILIKE (Postgres) */
   ILIKE = "ILIKE",
+  /** Range comparison using BETWEEN */
   BETWEEN = "BETWEEN",
+  /** Null check (IS NULL) */
   IS_NULL = "IS NULL",
+  /** Not-null check (IS NOT NULL) */
   IS_NOT_NULL = "IS NOT NULL",
+  /** Existence of rows (EXISTS) */
   EXISTS = "EXISTS",
+  /** Non-existence of rows (NOT EXISTS) */
   NOT_EXISTS = "NOT EXISTS",
+  /** Compare to any value in an array (ANY) */
   ANY = "ANY",
+  /** Compare to all values in an array (ALL) */
   ALL = "ALL",
+  /** Compare to some values in an array (SOME) */
   SOME = "SOME",
 }
 

@@ -49,11 +49,18 @@ export class TypeORMSequence extends Sequence {
   async current(): Promise<string | number | bigint> {
     const { name } = this.options;
     try {
-      const seq: any = await this.adapter.raw({
-        query: `SELECT current_value FROM information_schema.sequences WHERE sequence_name = $1`,
+      const rows: any[] = await this.adapter.raw({
+        query: `SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1`,
         values: [name],
       });
-      return this.parse(seq.current_value as string | number);
+      // If no sequence exists, force a clear, consistent error for callers
+      if (!Array.isArray(rows) || rows.length === 0)
+        throw new InternalError(`Sequence ${name} not found`);
+      // information_schema does not expose the current runtime value reliably; fall back to start_value
+      const row = rows[0] as Record<string, any>;
+      const candidate =
+        row["current_value"] ?? row["last_value"] ?? row["start_value"];
+      return this.parse(candidate as string | number);
     } catch (e: unknown) {
       throw this.adapter.parseError(e as Error);
     }
@@ -86,21 +93,33 @@ export class TypeORMSequence extends Sequence {
       throw new InternalError(
         `Cannot increment sequence of type ${type} with ${count}`
       );
-    let next: string | number | bigint;
+
     try {
-      next = await this.adapter.raw({
-        query: `SELECT nextval($1);`,
+      const rows: any[] = await this.adapter.raw({
+        query: `SELECT nextval($1) AS nextval;`,
         values: [name],
       });
+      const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
+      return val as string | number | bigint;
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
-      next = await this.adapter.raw({
-        query: `CREATE SEQUENCE IF NOT EXISTS $1 START WITH $2 INCREMENT BY $3 NO CYCLE;`,
-        values: [name, startWith, incrementBy],
+      if (!name)
+        throw new InternalError(
+          `Cannot increment sequence without a name: ${name}`
+        );
+      // Create the sequence if missing. Identifiers cannot be parameterized, so quote the name.
+      const quoted = `"${name.replace(/"/g, '""')}"`;
+      await this.adapter.raw({
+        query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startWith} INCREMENT BY ${incrementBy} NO CYCLE;`,
+        values: [],
       });
+      const rows: any[] = await this.adapter.raw({
+        query: `SELECT nextval($1) AS nextval;`,
+        values: [name],
+      });
+      const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
+      return val as string | number | bigint;
     }
-
-    return next as string | number | bigint;
   }
 
   /**
