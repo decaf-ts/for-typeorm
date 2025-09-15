@@ -1,9 +1,7 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter } from "../../src";
-import { ModelKeys } from "@decaf-ts/decorator-validation";
 import { Condition, Observer, Repository } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { PromptBlock } from "./models/PromptBlock";
 import { Prompt } from "./models/Prompt";
 import { AIFeatures, AIVendors, PromptBlockType } from "./models/contants";
 import { AIFeature } from "./models/AIFeature";
@@ -26,13 +24,13 @@ const config: DataSourceOptions = {
   ssl: false,
 };
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 const dbName = "prompts_db";
 
 jest.setTimeout(500000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -44,8 +42,6 @@ const typeOrmCfg = {
 };
 
 describe(`Prompt Relations`, function () {
-  let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -75,19 +71,13 @@ describe(`Prompt Relations`, function () {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [
-          AIFeature[ModelKeys.ANCHOR],
-          AIModel[ModelKeys.ANCHOR],
-          AIVendor[ModelKeys.ANCHOR],
-          PromptBlock[ModelKeys.ANCHOR],
-          Prompt[ModelKeys.ANCHOR],
-        ],
-      }) as DataSourceOptions
-    );
-    await dataSource.initialize();
-    adapter["_dataSource"] = dataSource;
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -112,7 +102,7 @@ describe(`Prompt Relations`, function () {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

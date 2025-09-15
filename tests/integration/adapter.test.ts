@@ -19,7 +19,7 @@ const config: DataSourceOptions = {
 } as PostgresConnectionOptions;
 
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   column,
@@ -39,7 +39,6 @@ import {
   minlength,
   model,
   ModelArg,
-  ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "./baseModel";
@@ -47,7 +46,7 @@ import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConne
 
 jest.setTimeout(50000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -90,8 +89,6 @@ class TestModel extends TypeORMBaseModel {
 }
 
 describe("Adapter Integration", () => {
-  let dataSource: DataSource;
-
   let repo: TypeORMRepository<TestModel>;
 
   beforeAll(async () => {
@@ -123,14 +120,9 @@ describe("Adapter Integration", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [TestModel[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-    await dataSource.initialize();
-    adapter["_dataSource"] = dataSource;
-    repo = new TypeORMRepository(adapter, TestModel);
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    await adapter.initialize();
+    repo = Repository.forModel(TestModel);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -155,7 +147,7 @@ describe("Adapter Integration", () => {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

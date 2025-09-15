@@ -21,7 +21,7 @@ let con: DataSource;
 Logging.setConfig({
   level: LogLevel.debug,
 });
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   column,
@@ -54,7 +54,7 @@ const dbName = "queries_db";
 
 jest.setTimeout(50000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -95,7 +95,6 @@ class QueryUser extends TypeORMBaseModel {
 }
 
 describe("Queries", () => {
-  let dataSource: DataSource;
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -125,13 +124,13 @@ describe("Queries", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [QueryUser[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-    await dataSource.initialize();
-    adapter["_dataSource"] = dataSource;
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -156,7 +155,7 @@ describe("Queries", () => {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

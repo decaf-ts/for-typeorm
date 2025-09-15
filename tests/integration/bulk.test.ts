@@ -18,14 +18,13 @@ const config: DataSourceOptions = {
 };
 let con: DataSource;
 
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   column,
   Observer,
   PersistenceKeys,
   pk,
-  Repository,
   table,
   uses,
 } from "@decaf-ts/core";
@@ -33,7 +32,6 @@ import {
   minlength,
   model,
   ModelArg,
-  ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
@@ -44,7 +42,7 @@ const dbName = "bulk_db";
 
 jest.setTimeout(50000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -74,8 +72,6 @@ class TestBulkModel extends TypeORMBaseModel {
 }
 
 describe("Bulk operations", () => {
-  let dataSource: DataSource;
-
   let repo: TypeORMRepository<TestBulkModel>;
 
   beforeAll(async () => {
@@ -107,13 +103,13 @@ describe("Bulk operations", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [TestBulkModel[ModelKeys.ANCHOR]],
-      }) as DataSourceOptions
-    );
-    await dataSource.initialize();
-    adapter["_dataSource"] = dataSource;
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
     repo = new TypeORMRepository(adapter, TestBulkModel);
   });
 
@@ -138,7 +134,7 @@ describe("Bulk operations", () => {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

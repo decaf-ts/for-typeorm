@@ -48,7 +48,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
 
   protected get repo() {
     if (!this.__repo) {
-      this.__repo = (this.adapter as TypeORMAdapter).dataSource.getRepository(
+      this.__repo = (this.adapter as TypeORMAdapter).client.getRepository(
         this.clazz[ModelKeys.ANCHOR as keyof typeof this.clazz]
       );
     }

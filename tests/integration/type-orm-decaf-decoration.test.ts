@@ -18,7 +18,7 @@ const config: DataSourceOptions = {
 } as PostgresConnectionOptions;
 
 let con: DataSource;
-const adapter = new TypeORMAdapter(config);
+let adapter: TypeORMAdapter;
 
 import {
   model,
@@ -43,7 +43,7 @@ import { TypeORMFlavour } from "../../src";
 
 jest.setTimeout(50000);
 
-const typeOrmCfg = {
+const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
   port: 5432,
@@ -54,6 +54,7 @@ const typeOrmCfg = {
   logging: false,
 };
 
+@uses(TypeORMFlavour)
 @table("type_orm_decaf_child")
 @model()
 class TypeORMDecafChild extends TypeORMBaseModel {
@@ -74,6 +75,7 @@ class TypeORMDecafChild extends TypeORMBaseModel {
   }
 }
 
+@uses(TypeORMFlavour)
 @table("type_orm_decaf")
 @model()
 class TypeORMDecaf extends TypeORMBaseModel {
@@ -122,8 +124,6 @@ class TypeORMEnum extends TypeORMBaseModel {
 }
 
 describe("TypeORM Decaf decoration", () => {
-  let dataSource: DataSource;
-
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -153,23 +153,18 @@ describe("TypeORM Decaf decoration", () => {
     } catch (e: unknown) {
       if (!(e instanceof ConflictError)) throw e;
     }
-    dataSource = new DataSource(
-      Object.assign({}, typeOrmCfg, {
-        entities: [
-          TypeORMDecaf[ModelKeys.ANCHOR],
-          TypeORMDecafChild[ModelKeys.ANCHOR],
-          TypeORMEnum[ModelKeys.ANCHOR],
-        ],
-      }) as DataSourceOptions
-    );
-
-    adapter["_dataSource"] = dataSource;
-    await dataSource.initialize();
+    adapter = new TypeORMAdapter(typeOrmCfg);
+    try {
+      await adapter.initialize();
+    } catch (e: unknown) {
+      console.error(e);
+      throw e;
+    }
   });
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await dataSource.destroy();
+    await adapter.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
@@ -178,7 +173,9 @@ describe("TypeORM Decaf decoration", () => {
 
   let child: TypeORMDecafChild;
   it("creates a record decaf child", async () => {
-    const repo = dataSource.getRepository(TypeORMDecafChild[ModelKeys.ANCHOR]);
+    const repo = adapter.client.getRepository(
+      TypeORMDecafChild[ModelKeys.ANCHOR]
+    );
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecafChild({
       firstName: "JohnChild2",
@@ -190,7 +187,7 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   it("creates a record decaf parent with existing child", async () => {
-    const repo = dataSource.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
+    const repo = adapter.client.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecaf({
       firstName: "John2",
@@ -203,7 +200,7 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   it("creates a record decaf nested", async () => {
-    const repo = dataSource.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
+    const repo = adapter.client.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecaf({
       firstName: "John23",
@@ -219,7 +216,7 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   it("creates a record decaf via adapter", async () => {
-    const repo = new (adapter.repository())(adapter, TypeORMDecaf);
+    const repo = Repository.forModel(TypeORMDecaf);
 
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecaf({

@@ -1,11 +1,9 @@
 import { TypeORMAdapter } from "./TypeORMAdapter";
 
-TypeORMAdapter.decoration();
-
 export * from "./indexes";
 export * from "./query";
 export * from "./sequences";
-export * from "./TypeORMAdapter";
+export { TypeORMAdapter };
 export * from "./constants";
 export * from "./errors";
 export * from "./TypeORMDispatch";
