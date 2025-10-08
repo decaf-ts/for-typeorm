@@ -5,7 +5,6 @@ import {
   Model,
   model,
   ModelArg,
-  ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";

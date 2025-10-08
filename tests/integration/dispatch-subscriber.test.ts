@@ -1,7 +1,7 @@
 import { TypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { table, uses, pk, Repository } from "@decaf-ts/core";
-import { model, Model, ModelArg } from "@decaf-ts/decorator-validation";
+import { model, ModelArg } from "@decaf-ts/decorator-validation";
 import { TypeORMFlavour } from "../../src/constants";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMDispatch } from "../../src/TypeORMDispatch";
@@ -21,7 +21,11 @@ class SubscriberModel extends TypeORMBaseModel {
 describe("TypeORMEventSubscriber", () => {
   it("invokes handler on afterInsert with correct payload", async () => {
     const calls: any[] = [];
-    const handler = (tableName: string, op: OperationKeys, ids: (string|number|bigint)[]) => {
+    const handler = (
+      tableName: string,
+      op: OperationKeys,
+      ids: (string | number | bigint)[]
+    ) => {
       calls.push({ tableName, op, ids });
     };
     const sub = new TypeORMEventSubscriber(handler);
@@ -37,7 +41,11 @@ describe("TypeORMEventSubscriber", () => {
 
   it("invokes handler on afterRemove with correct payload", async () => {
     const calls: any[] = [];
-    const handler = (tableName: string, op: OperationKeys, ids: (string|number|bigint)[]) => {
+    const handler = (
+      tableName: string,
+      op: OperationKeys,
+      ids: (string | number | bigint)[]
+    ) => {
       calls.push({ tableName, op, ids });
     };
     const sub = new TypeORMEventSubscriber(handler);
@@ -53,7 +61,11 @@ describe("TypeORMEventSubscriber", () => {
 
   it("invokes handler on afterUpdate with correct payload", async () => {
     const calls: any[] = [];
-    const handler = (tableName: string, op: OperationKeys, ids: (string|number|bigint)[]) => {
+    const handler = (
+      tableName: string,
+      op: OperationKeys,
+      ids: (string | number | bigint)[]
+    ) => {
       calls.push({ tableName, op, ids });
     };
     const sub = new TypeORMEventSubscriber(handler);

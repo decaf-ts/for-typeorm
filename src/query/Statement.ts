@@ -205,7 +205,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       `Executing raw query: ${(rawInput.query as unknown as SelectQueryBuilder<M>).getSql()}`
     );
 
-    const { nonEager, relations } = splitEagerRelations(this.fromSelector);
+    const { nonEager } = splitEagerRelations(this.fromSelector);
     // for (const relation of relations) {
     rawInput.query = (
       rawInput.query as unknown as SelectQueryBuilder<M>
@@ -224,7 +224,9 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   protected parseConditionForPagination(
     condition: Condition<M>,
     tableName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     counter = 0,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     conditionalOp?: GroupOperator | Operator
   ): FindOptionsWhere<M>[] | FindOptionsWhere<M> {
     throw new InternalError("Not implemented");

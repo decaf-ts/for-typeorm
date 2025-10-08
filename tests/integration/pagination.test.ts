@@ -24,7 +24,6 @@ import { TestCountryModel } from "./models";
 import { Repository } from "@decaf-ts/core";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DataSource } from "typeorm";
-import { ModelKeys } from "@decaf-ts/decorator-validation";
 
 const dbName = "pagination_db";
 
@@ -42,8 +41,6 @@ const typeOrmCfg: DataSourceOptions = {
 };
 
 describe(`Pagination`, function () {
-  let dataSource: DataSource;
-
   let repo: TypeORMRepository<TestCountryModel>;
 
   beforeAll(async () => {

@@ -20,6 +20,7 @@ import {
   uses,
 } from "@decaf-ts/core";
 import { TypeORMFlavour, TypeORMRepository } from "../../src/index";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 export type AnyAdapter = Adapter<any, any, any, any, any>;
 let adapter: AnyAdapter;

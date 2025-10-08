@@ -2,7 +2,6 @@ import { PersistenceKeys, Repository } from "@decaf-ts/core";
 import { Reflection } from "@decaf-ts/reflection";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { Logging } from "@decaf-ts/logging";
 
 /**
  * @description Converts a JavaScript RegExp pattern to a PostgreSQL POSIX pattern string.

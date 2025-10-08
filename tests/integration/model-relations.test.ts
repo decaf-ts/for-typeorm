@@ -29,7 +29,6 @@ import {
 import {
   Model,
   ModelArg,
-  ModelKeys,
   required,
   model,
 } from "@decaf-ts/decorator-validation";

@@ -1,24 +1,8 @@
-import {
-  model,
-  type ModelArg,
-  required,
-  type,
-} from "@decaf-ts/decorator-validation";
-import {
-  Cascade,
-  column,
-  manyToMany,
-  oneToOne,
-  pk,
-  table,
-  uses,
-} from "@decaf-ts/core";
+import { model, type ModelArg, required } from "@decaf-ts/decorator-validation";
+import { Cascade, column, manyToMany, pk, table, uses } from "@decaf-ts/core";
 import { TypeORMBaseModel } from "../baseModel";
 import { TypeORMFlavour } from "../../../src";
-import { PromptBlockType } from "./contants";
 import { AIFeature } from "./AIFeature";
-import { AIVendor } from "./AIVendor";
-import { AIModel } from "./AIModel";
 
 /**
  * @description Atomic building block of a prompt

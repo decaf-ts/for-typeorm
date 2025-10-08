@@ -1,11 +1,8 @@
 import {
   maxlength,
   minlength,
-  model,
   type ModelArg,
   required,
-  description,
-  Model,
 } from "@decaf-ts/decorator-validation";
 import { PromptBlockVanilla } from "./PromptBlockVanilla";
 import {
@@ -14,12 +11,8 @@ import {
   manyToMany,
   manyToOne,
   oneToOne,
-  pk,
-  table,
   unique,
-  uses,
 } from "@decaf-ts/core";
-import { TypeORMFlavour } from "../../../src";
 import { AIFeature } from "./AIFeature";
 import { TypeORMBaseModel } from "../baseModel";
 import { Entity, PrimaryGeneratedColumn } from "typeorm";
