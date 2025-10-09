@@ -2,18 +2,99 @@ import {
   type Constructor,
   Model,
   ModelKeys,
+  ValidationKeys,
 } from "@decaf-ts/decorator-validation";
 import { Adapter, Repository, uses } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
+  InternalError,
+  IRepository,
   OperationKeys,
+  RepositoryFlags,
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMFlavour } from "./constants";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { QueryBuilder, Repository as NativeRepo } from "typeorm";
+import { Reflection } from "@decaf-ts/reflection";
+
+export async function enforceDbDecoratorsRecursive<
+  M extends Model<true | false>,
+  R extends IRepository<M, F, C>,
+  V extends object = object,
+  F extends RepositoryFlags = RepositoryFlags,
+  C extends Context<F> = Context<F>,
+>(
+  repo: R,
+  context: C,
+  model: M,
+  operation: string,
+  prefix: string,
+  oldModel?: M
+): Promise<void> {
+  await enforceDBDecorators<M, R, V, F, C>(
+    repo,
+    context,
+    model,
+    operation,
+    prefix,
+    oldModel
+  );
+
+  async function innerLoop<N extends Model>(m: N, oldModel?: N) {
+    const r = Repository.forModel(m.constructor as Constructor<N>);
+    await enforceDbDecoratorsRecursive(
+      r,
+      context,
+      m,
+      !oldModel && operation === OperationKeys.UPDATE
+        ? OperationKeys.CREATE
+        : operation,
+      prefix,
+      oldModel
+    );
+  }
+
+  for (const key of Object.keys(model)) {
+    if (
+      Model.isPropertyModel(model, key) &&
+      typeof model[key as keyof typeof model] !== "undefined"
+    ) {
+      await innerLoop(
+        model[key as keyof typeof model] as any,
+        oldModel ? (oldModel[key as keyof typeof oldModel] as any) : undefined
+      );
+      continue;
+    }
+    const dec = Reflection.getPropertyDecorators(
+      ValidationKeys.REFLECT,
+      model,
+      key,
+      true,
+      true
+    ).decorators.find((d) => d.key === ValidationKeys.LIST);
+
+    if (
+      !dec ||
+      !model[key as keyof typeof model] ||
+      !Array.isArray(model[key as keyof typeof model])
+    )
+      continue;
+
+    await Promise.all(
+      (model[key as keyof typeof model] as Model[]).map((m, i) => {
+        return innerLoop(
+          m,
+          oldModel && oldModel[key as keyof typeof oldModel]
+            ? (oldModel[key as keyof typeof oldModel] as any)[i]
+            : undefined
+        );
+      })
+    );
+  }
+}
 
 /**
  * @description Repository implementation backed by TypeORM.
@@ -105,6 +186,40 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     );
   }
 
+  protected override async createPrefix(
+    model: M,
+    ...args: any[]
+  ): Promise<[M, ...any[]]> {
+    const contextArgs = await Context.args<
+      M,
+      Context<TypeORMFlags>,
+      TypeORMFlags
+    >(
+      OperationKeys.CREATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    model = new this.class(model);
+    await enforceDbDecoratorsRecursive(
+      this,
+      contextArgs.context,
+      model,
+      OperationKeys.CREATE,
+      OperationKeys.ON
+    );
+
+    const errors = await Promise.resolve(
+      model.hasErrors(
+        ...(contextArgs.context.get("ignoredValidationProperties") || [])
+      )
+    );
+    if (errors) throw new ValidationError(errors.toString());
+
+    return [model, ...contextArgs.args];
+  }
+
   /**
    * @description Creates and persists a model instance.
    * @summary Prepares the model, delegates insertion to the adapter, and rehydrates the persisted state back into a Model instance.
@@ -151,6 +266,48 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.pk as string
     );
     return this.adapter.revert<M>(m, this.class, this.pk, id);
+  }
+
+  protected override async updatePrefix(
+    model: M,
+    ...args: any[]
+  ): Promise<[M, ...args: any[]]> {
+    const contextArgs = await Context.args(
+      OperationKeys.UPDATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const pk = model[this.pk] as string;
+    if (!pk)
+      throw new InternalError(
+        `No value for the Id is defined under the property ${this.pk as string}`
+      );
+    const oldModel = await this.read(pk, ...contextArgs.args);
+    model = this.merge(oldModel, model);
+    await enforceDbDecoratorsRecursive(
+      this,
+      contextArgs.context,
+      model,
+      OperationKeys.UPDATE,
+      OperationKeys.ON,
+      oldModel
+    );
+
+    const errors = await Promise.resolve(
+      model.hasErrors(
+        oldModel,
+        ...Repository.relations(this.class),
+        ...(contextArgs.context.get("ignoredValidationProperties") || [])
+      )
+    );
+    if (errors) throw new ValidationError(errors.toString());
+    if (Repository.getMetadata(oldModel)) {
+      if (!Repository.getMetadata(model))
+        Repository.setMetadata(model, Repository.getMetadata(oldModel));
+    }
+    return [model, ...contextArgs.args];
   }
 
   /**
@@ -213,7 +370,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     models = await Promise.all(
       models.map(async (m) => {
         m = new this.class(m);
-        await enforceDBDecorators(
+        await enforceDbDecoratorsRecursive(
           this,
           contextArgs.context,
           m,
