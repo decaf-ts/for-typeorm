@@ -24,12 +24,7 @@ let adapter: TypeORMAdapter;
 import { column, Observer, pk, Repository, table, uses } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
-import {
-  model,
-  ModelArg,
-  required,
-  type,
-} from "@decaf-ts/decorator-validation";
+import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { serialize } from "@decaf-ts/db-decorators";
 import { TypeORMBaseModel } from "./baseModel";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";

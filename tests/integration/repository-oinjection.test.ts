@@ -1,4 +1,4 @@
-import { TypeORMAdapter, TypeORMFlavour, TypeORMRepository } from "../../src";
+import { TypeORMAdapter, TypeORMRepository } from "../../src";
 
 import { DataSource, DataSourceOptions } from "typeorm";
 
@@ -22,7 +22,7 @@ const dbName = "repositoy_inj_db";
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
-import { column, Observer, pk, repository, Repository } from "@decaf-ts/core";
+import { Observer, pk, repository, Repository } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import {
   Model,
@@ -83,6 +83,7 @@ describe("repository injection", () => {
     }
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {
