@@ -22,6 +22,8 @@ import type { ColumnHstoreOptions } from "typeorm/decorator/options/ColumnHstore
 import type { ColumnEmbeddedOptions } from "typeorm/decorator/options/ColumnEmbeddedOptions";
 import type { EmbeddedMetadataArgs } from "typeorm/metadata-args/EmbeddedMetadataArgs";
 import { aggregateOrNewColumn } from "./utils";
+import { DBKeys, InternalError, Repository } from "@decaf-ts/db-decorators";
+import { Validation, ValidationKeys } from "@decaf-ts/decorator-validation";
 
 /**
  * Column decorator is used to mark a specific class property as a table column. Only properties decorated with this
@@ -181,13 +183,44 @@ export function Column(
     if (!options) options = {} as ColumnOptions;
 
     // if type is not given explicitly then try to guess it
-    const reflectMetadataType =
+    let reflectMetadataType =
       Reflect && (Reflect as any).getMetadata
         ? (Reflect as any).getMetadata("design:type", object, propertyName)
         : undefined;
     if (!type && reflectMetadataType)
       // if type is not given explicitly then try to guess it
       type = reflectMetadataType;
+    const forceTypes = Reflect.getMetadata(
+      Validation.key(ValidationKeys.TYPE),
+      object,
+      propertyName
+    );
+    if (forceTypes) {
+      const { customTypes } = forceTypes;
+      const primaryType = Array.isArray(customTypes)
+        ? customTypes[0]
+        : customTypes;
+      let dbType: any;
+      switch (primaryType.toLowerCase()) {
+        case "string":
+          dbType = String;
+          break;
+        case "number":
+          dbType = Number;
+          break;
+        case "bigint":
+          dbType = BigInt;
+          break;
+        case "date":
+          dbType = Date;
+          break;
+        default:
+          dbType = primaryType;
+      }
+
+      type = dbType;
+      reflectMetadataType = dbType;
+    }
 
     // check if there is no type in column options then set type from first function argument, or guessed one
     if (!options.type && type) options.type = type;
