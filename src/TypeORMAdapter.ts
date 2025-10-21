@@ -6,6 +6,8 @@ import {
   final,
   JoinTableMultipleColumnsOptions,
   JoinTableOptions,
+  noValidateOnCreate,
+  noValidateOnCreateUpdate,
   OrderDirection,
   PersistenceKeys,
   RelationsMetadata,
@@ -176,47 +178,9 @@ export class TypeORMAdapter extends Adapter<
     model: Constructor<M>,
     flags: Partial<TypeORMFlags>
   ): Promise<TypeORMFlags> {
-    const f = await super.flags(operation, model, flags);
-    const newObj: any = {
+    return Object.assign(await super.flags(operation, model, flags), {
       user: (this.config as PostgresConnectionOptions).username,
-    };
-    const m = new model();
-
-    const exceptions: string[] = [];
-    if (operation === OperationKeys.CREATE) {
-      const pk = findPrimaryKey(m).id;
-      exceptions.push(pk as string);
-    }
-
-    if (
-      operation === OperationKeys.CREATE ||
-      operation === OperationKeys.UPDATE
-    ) {
-      const decs = Object.keys(m).reduce((accum: Record<string, any>, key) => {
-        const decs = Reflection.getPropertyDecorators(
-          ValidationKeys.REFLECT,
-          m,
-          key,
-          true
-        );
-        const dec = decs.decorators.find(
-          (dec: any) =>
-            dec.key === DBKeys.TIMESTAMP &&
-            dec.props.operation.indexOf(operation) !== -1
-        );
-        if (dec) {
-          accum[key] = dec.props;
-        }
-        return accum;
-      }, {});
-
-      exceptions.push(...Object.keys(decs));
-    }
-
-    newObj.ignoredValidationProperties = (
-      f.ignoredValidationProperties ? f.ignoredValidationProperties : []
-    ).concat(...exceptions);
-    return Object.assign(f, newObj) as TypeORMFlags;
+    });
   }
 
   @final()
@@ -1198,7 +1162,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           decorators.push(
             PrimaryGeneratedColumn({
               name: name,
-            })
+            }),
+            noValidateOnCreate()
           );
         } else {
           switch (type.toLowerCase()) {
@@ -1279,7 +1244,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     const versionKey = Repository.key(DBKeys.VERSION);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(versionKey)
-      .define(type(Number.name), VersionColumn())
+      .define(type(Number.name), VersionColumn(), noValidateOnCreate())
       .apply();
 
     function ValidationUpdateKey(key: string) {
@@ -1297,12 +1262,14 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           operation: operation,
           format: format,
         }),
+        noValidateOnCreate(),
       ];
       if (operation.indexOf(OperationKeys.UPDATE) !== -1)
         decorators.push(
           propMetadata(timestampKey, {
             message: DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.INVALID,
-          })
+          }),
+          noValidateOnCreateUpdate()
         );
       else decorators.push(readonly());
       return apply(...decorators);
@@ -1661,8 +1628,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .define(
         onCreate(createdByOnTypeORMCreateUpdate, {}),
         required(),
-        propMetadata(createdByKey, {})
-        // assign(`pk.${prop}`, options)
+        propMetadata(createdByKey, {}),
+        noValidateOnCreate()
       )
       .apply();
 
@@ -1671,7 +1638,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .define(
         onCreateUpdate(createdByOnTypeORMCreateUpdate, {}),
         required(),
-        propMetadata(updatedByKey, {})
+        propMetadata(updatedByKey, {}),
+        noValidateOnCreateUpdate()
       )
       .apply();
   }

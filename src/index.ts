@@ -1,5 +1,5 @@
 import { TypeORMAdapter } from "./TypeORMAdapter";
-
+import "@decaf-ts/core";
 export * from "./indexes";
 export * from "./query";
 export * from "./sequences";
