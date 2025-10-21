@@ -21,7 +21,7 @@ import {
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "cross_relations_user";
+const user = "cross_relations_user2";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -36,7 +36,7 @@ const config: DataSourceOptions = {
 };
 let con: DataSource;
 let adapter: TypeORMAdapter;
-const dbName = "cross_relations__db";
+const dbName = "cross_relations__d2b";
 
 Model.setBuilder(Model.fromModel);
 
