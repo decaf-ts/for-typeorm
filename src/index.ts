@@ -1,3 +1,4 @@
+import { Metadata } from "@decaf-ts/decoration";
 import { TypeORMAdapter } from "./TypeORMAdapter";
 import "@decaf-ts/core";
 export * from "./indexes";
@@ -24,3 +25,13 @@ export * from "./utils";
  * @memberOf module:for-typeorm
  */
 export const VERSION = "##VERSION##";
+
+/**
+ * @description Stores the current package version.
+ * @summary The version string of the for-typeorm package.
+ * @const PACKAGE_NAME
+ * @memberOf module:for-typeorm
+ */
+export const PACKAGE_NAME = "##PACKAGE##";
+
+Metadata.registerLibrary(PACKAGE_NAME, VERSION);
