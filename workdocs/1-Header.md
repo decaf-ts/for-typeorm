@@ -1,3 +1,5 @@
+![Banner](./workdocs/assets/decaf-logo.svg)
+
 # Decaf.ts — TypeORM Integration
 
 A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories and query primitives into relational databases via TypeORM, keeping the same API you use across other Decaf adapters. It provides:
