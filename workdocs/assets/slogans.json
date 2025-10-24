@@ -1,0 +1,200 @@
+{
+  "for‑typeorm": [
+    {
+      "Slogan": "Decaf‑TS for TypeORM: get your ORM on… without the caffeine jitters.",
+      "Tags": "TypeORM, Coffee‑themed, ORM"
+    },
+    {
+      "Slogan": "Relational database? More like relaxational database.",
+      "Tags": "Relational, Chill, Humor"
+    },
+    {
+      "Slogan": "TypeORM adapter: your models in full decaf mode.",
+      "Tags": "Adapter, Coffee‑themed, Models"
+    },
+    {
+      "Slogan": "Write entities like you write your morning brew: slow and smooth.",
+      "Tags": "Entities, Metaphor, Coffee‑themed"
+    },
+    {
+      "Slogan": "Join tables, not muscles. ORM can be relaxing.",
+      "Tags": "Joins, Humor, ORM"
+    },
+    {
+      "Slogan": "Schema migrations that feel like stretching, not sprinting.",
+      "Tags": "Migration, Calm, Technical"
+    },
+    {
+      "Slogan": "Let the adapter handle the mapping — you sip the decaf.",
+      "Tags": "Adapter, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Transactional support without the heart‑palpitations.",
+      "Tags": "Transactions, Calm, ORM"
+    },
+    {
+      "Slogan": "Entities, repositories, queries — all brewed to perfection.",
+      "Tags": "Repositories, Coffee‑themed, Technical"
+    },
+    {
+      "Slogan": "Say goodbye to boilerplate. Hello to barista‑level code.",
+      "Tags": "Boilerplate, Fun, ORM"
+    },
+    {
+      "Slogan": "Use TypeORM under the hood; stay decaf on top.",
+      "Tags": "TypeORM, Coffee‑themed, Stack"
+    },
+    {
+      "Slogan": "Your code deserves the smooth roast of a clean database adapter.",
+      "Tags": "Adapter, Metaphor, Calm"
+    },
+    {
+      "Slogan": "Indexes built automatically. Developer stress? Not today.",
+      "Tags": "Indexes, Calm, Technical"
+    },
+    {
+      "Slogan": "Structure your relations while your heartbeat stays steady.",
+      "Tags": "Relations, Calm, Database"
+    },
+    {
+      "Slogan": "Full‑stack relational, zero caffeine crash.",
+      "Tags": "Fullstack, Relational, Coffee‑themed"
+    },
+    {
+      "Slogan": "Decorator‑driven, espresso‑style calm.",
+      "Tags": "Decorators, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Your ORM layer’s new recliner.",
+      "Tags": "Metaphor, Chill, Tech"
+    },
+    {
+      "Slogan": "Bulk operations without bulk anxiety.",
+      "Tags": "BulkOps, Calm, Technical"
+    },
+    {
+      "Slogan": "TypeORM adapter: bring your data to the table, keep your pulse in the lounge.",
+      "Tags": "Adapter, Coffee‑themed, Database"
+    },
+    {
+      "Slogan": "Write complex queries; skip the caffeine overdose.",
+      "Tags": "Queries, Calm, Developer"
+    },
+    {
+      "Slogan": "Database connections that whisper, not scream.",
+      "Tags": "Connections, Calm, Humor"
+    },
+    {
+      "Slogan": "Run migrations like you run late for coffee: still calm, still effective.",
+      "Tags": "Migration, Humor, Coffee‑themed"
+    },
+    {
+      "Slogan": "Map your objects, map your mind to rest.",
+      "Tags": "Mapping, Chill, ORM"
+    },
+    {
+      "Slogan": "Set up your data source, brew a cup, read a commit message.",
+      "Tags": "Setup, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Because your database should be decaf too.",
+      "Tags": "Database, Coffee‑themed, Fun"
+    },
+    {
+      "Slogan": "Entities and decorators and calm devs everywhere.",
+      "Tags": "Entities, Calm, Developer"
+    },
+    {
+      "Slogan": "From @Entity to @Column with zero adrenaline.",
+      "Tags": "Decorators, Calm, ORM"
+    },
+    {
+      "Slogan": "TypeORM adapter: where high‑performance meets low heart‑rate.",
+      "Tags": "Performance, Calm, Technical"
+    },
+    {
+      "Slogan": "Switch to decaf mode: keep your code going, skip the jitters.",
+      "Tags": "Developer, Humor, Coffee‑themed"
+    },
+    {
+      "Slogan": "Write your data model like you write your latte order: precisely and calmly.",
+      "Tags": "Modeling, Coffee‑themed, Metaphor"
+    },
+    {
+      "Slogan": "Repository patterns served neat, no sugar‑rush needed.",
+      "Tags": "Repository, Calm, Technical"
+    },
+    {
+      "Slogan": "When your adapters fetch smoothly, your product ships faster.",
+      "Tags": "Adapter, Productivity, Calm"
+    },
+    {
+      "Slogan": "Let your code rest while your queries do the work.",
+      "Tags": "Queries, Chill, Developer"
+    },
+    {
+      "Slogan": "TypeORM adapter: the espresso shot for your DB stack — minus the caffeine.",
+      "Tags": "Adapter, Coffee‑themed, Database"
+    },
+    {
+      "Slogan": "Write relations in peace. Your heartbeat thanks you.",
+      "Tags": "Relations, Calm, Developer"
+    },
+    {
+      "Slogan": "Sync your models, not your stress levels.",
+      "Tags": "Models, Calm, Tech"
+    },
+    {
+      "Slogan": "Database access that stays mellow, even under load.",
+      "Tags": "Performance, Calm, Technical"
+    },
+    {
+      "Slogan": "Install, configure, chill. That’s our ORM motto.",
+      "Tags": "Setup, Calm, Fun"
+    },
+    {
+      "Slogan": "Let your database queries sip slowly while you code boldly.",
+      "Tags": "Queries, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "TypeORM adapter: your data’s barista.",
+      "Tags": "Adapter, Metaphor, Coffee‑themed"
+    },
+    {
+      "Slogan": "Object‑relational mapping without the heart palpitations.",
+      "Tags": "ORM, Calm, Technical"
+    },
+    {
+      "Slogan": "Slow brew your migrations. No rush, no crash.",
+      "Tags": "Migration, Calm, Humorous"
+    },
+    {
+      "Slogan": "High‑level models, low‑level jitter.",
+      "Tags": "Models, Humor, Coffee‑themed"
+    },
+    {
+      "Slogan": "Decaf code. Robust DB. Happy developers.",
+      "Tags": "DeveloperDX, Calm, Branding"
+    },
+    {
+      "Slogan": "Your code’s new favourite lounge: the ORM layer.",
+      "Tags": "Developer, Metaphor, Chill"
+    },
+    {
+      "Slogan": "Celebrate your data model with a decaf latte.",
+      "Tags": "DataModel, Coffee‑themed, Fun"
+    },
+    {
+      "Slogan": "Query, persist, repeat — in a comfy chair.",
+      "Tags": "Queries, Chill, Technical"
+    },
+    {
+      "Slogan": "Because jittery code is bad for both your dev and your database.",
+      "Tags": "Developer, Humor, Calm"
+    },
+    {
+      "Slogan": "TypeORM adapter: where data meets decaf.",
+      "Tags": "Adapter, Calm, Coffee‑themed"
+    }
+  ]
+}
