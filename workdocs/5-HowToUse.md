@@ -489,3 +489,21 @@ The TypeORM adapter wires Decaf decorators into TypeORM metadata automatically o
 | @oneToMany(() => Clazz, cascade, populate, joinOpts?) | @OneToMany(() => Clazz, inversePropertyResolver, { cascade, onDelete, onUpdate, eager, nullable: true })                           | Inverse side of many-to-one; no JoinColumn/JoinTable applied. |
 | @manyToMany(() => Clazz, cascade, populate, joinTableOpts?) | @ManyToMany(() => Clazz, { cascade, onDelete, onUpdate, eager, nullable: true }) + @JoinTable(joinTableOpts?)                      | Owning side applies JoinTable. |
 | @index(directionsOrName?, compositionsOrName?) | @Index()                                                                                                                           | Single or composite indexes are registered; when compositions are present, Index([prop, ...compositions]). |
+
+
+## Coding Principles
+
+- group similar functionality in folders (analog to namespaces but without any namespace declaration)
+- one class per file;
+- one interface per file (unless interface is just used as a type);
+- group types as other interfaces in a types.ts file per folder;
+- group constants or enums in a constants.ts file per folder;
+- group decorators in a decorators.ts file per folder;
+- always import from the specific file, never from a folder or index file (exceptions for dependencies on other packages);
+- prefer the usage of established design patters where applicable:
+  - Singleton (can be an anti-pattern. use with care);
+  - factory;
+  - observer;
+  - strategy;
+  - builder;
+  - etc;
