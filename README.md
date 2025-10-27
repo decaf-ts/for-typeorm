@@ -1,3 +1,5 @@
+![Banner](./workdocs/assets/decaf-logo.svg)
+
 # Decaf.ts — TypeORM Integration
 
 A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories and query primitives into relational databases via TypeORM, keeping the same API you use across other Decaf adapters. It provides:
@@ -6,7 +8,6 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 - Query layer: TypeORMStatement and TypeORMPaginator for translating Decaf statements to TypeORM options/builders and paginating results
 - Decorator wiring: automatically wires Decaf decorators to TypeORM metadata on import (no need to use TypeORM decorators directly)
 - Utilities and types: constants, operator translation, raw Postgres types, and small helpers like convertJsRegexToPostgres
-
 
 ![Licence](https://img.shields.io/github/license/decaf-ts/ts-workspace.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/ts-workspace?style=plastic)
@@ -30,6 +31,9 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 ![NPM Version](https://img.shields.io/badge/dynamic/json.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbadges%2Fshields%2Fmaster%2Fpackage.json&label=NPM&query=$.engines.npm&colorB=purple)
 
 Documentation available [here](https://decaf-ts.github.io/ts-workspace/)
+
+Minimal size: 12.3 KB kb gzipped
+
 
 # Decaf.ts for TypeORM — Detailed Description
 
@@ -630,6 +634,24 @@ The TypeORM adapter wires Decaf decorators into TypeORM metadata automatically o
 | @index(directionsOrName?, compositionsOrName?) | @Index()                                                                                                                           | Single or composite indexes are registered; when compositions are present, Index([prop, ...compositions]). |
 
 
+## Coding Principles
+
+- group similar functionality in folders (analog to namespaces but without any namespace declaration)
+- one class per file;
+- one interface per file (unless interface is just used as a type);
+- group types as other interfaces in a types.ts file per folder;
+- group constants or enums in a constants.ts file per folder;
+- group decorators in a decorators.ts file per folder;
+- always import from the specific file, never from a folder or index file (exceptions for dependencies on other packages);
+- prefer the usage of established design patters where applicable:
+  - Singleton (can be an anti-pattern. use with care);
+  - factory;
+  - observer;
+  - strategy;
+  - builder;
+  - etc;
+
+
 ### Related
 
 [![Readme Card](https://github-readme-stats.vercel.app/api/pin/?username=decaf-ts&repo=ts-workspace)](https://github.com/decaf-ts/ts-workspace)
@@ -666,6 +688,6 @@ So if you can, if this project in any way. either by learning something or simpl
 
 ## License
 
-This project is released under the [MIT License](./LICENSE.md).
+This project is released under the [Mozilla Public License 2.0](./LICENSE.md).
 
 By developers, for developers...
