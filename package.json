@@ -92,7 +92,7 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/reflection": "latest",
     "@decaf-ts/transactional-decorators": "latest",
-    "typeorm": "0.3.25"
+    "typeorm": "^0.3.27"
   },
   "license": "MPL-2.0"
 }
