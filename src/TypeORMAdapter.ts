@@ -1158,7 +1158,8 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             `Missing type information for property ${prop} of ${original.name}`
           );
         if (options.generated) {
-          const name = options.name || sequenceNameForModel(original, "pk");
+          const name =
+            options.name || sequenceNameForModel(original.constructor, "pk");
           decorators.push(
             PrimaryGeneratedColumn({
               name: name,
