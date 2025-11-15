@@ -16,8 +16,8 @@ import {
   pk,
   Repository,
   table,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 
 const admin = "alfred";
 const admin_password = "password";

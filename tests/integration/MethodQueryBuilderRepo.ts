@@ -17,8 +17,8 @@ import {
   repository,
   table,
   UnsupportedError,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMFlavour, TypeORMRepository } from "../../src/index";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 

@@ -25,7 +25,8 @@ import {
   model,
 } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Observer, table, column, pk, uses, Repository } from "@decaf-ts/core";
+import { Observer, table, column, pk, Repository } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 

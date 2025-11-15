@@ -4,7 +4,8 @@ import {
   required,
   type,
 } from "@decaf-ts/decorator-validation";
-import { column, pk, table, uses } from "@decaf-ts/core";
+import { column, pk, table } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMFlavour } from "../../../src";
 import { TypeORMBaseModel } from "../baseModel";
 import { AIFeatures } from "./contants";
@@ -23,7 +24,7 @@ export class AIFeature extends TypeORMBaseModel {
    * @summary Human-readable name for the feature
    */
   @pk({ type: "String", generated: false })
-  @type(String.name)
+  @type(String)
   name!: AIFeatures;
 
   /**

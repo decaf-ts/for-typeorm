@@ -11,8 +11,8 @@ import {
   manyToOne,
   pk,
   table,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { AIFeature } from "./AIFeature";
 import { TypeORMActiveModel } from "./TypeORMActiveModel";
 import { TypeORMFlavour } from "../../../src";

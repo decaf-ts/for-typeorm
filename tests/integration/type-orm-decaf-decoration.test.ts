@@ -36,8 +36,8 @@ import {
   Repository,
   table,
   unique,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 

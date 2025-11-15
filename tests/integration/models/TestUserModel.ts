@@ -4,10 +4,10 @@ import {
   oneToOne,
   pk,
   table,
-  uses,
   index,
   oneToMany,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMFlavour } from "../../../src";
 import {
   model,

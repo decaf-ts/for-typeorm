@@ -21,7 +21,7 @@ const config: DataSourceOptions = {
 
 let adapter: TypeORMAdapter;
 
-import { Cascade, column, manyToMany, pk, table, uses } from "@decaf-ts/core";
+import { Cascade, column, manyToMany, pk, table } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import {
   model,
@@ -29,6 +29,7 @@ import {
   ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 

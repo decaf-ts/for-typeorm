@@ -6,7 +6,8 @@ import {
 } from "@decaf-ts/core";
 import { TypeORMKeys } from "../constants";
 import { DefaultSeparator } from "@decaf-ts/db-decorators";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
+import { Model } from "@decaf-ts/decorator-validation";
 import { TypeORMQuery } from "../types";
 
 /**

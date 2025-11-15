@@ -1,10 +1,11 @@
 import { TypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 import { OperationKeys } from "@decaf-ts/db-decorators";
-import { table, uses, pk, Repository } from "@decaf-ts/core";
+import { table, pk, Repository } from "@decaf-ts/core";
 import { model, ModelArg } from "@decaf-ts/decorator-validation";
 import { TypeORMFlavour } from "../../src/constants";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMDispatch } from "../../src/TypeORMDispatch";
+import { uses } from "@decaf-ts/decoration";
 
 @uses(TypeORMFlavour)
 @table("tst_subscriber")

@@ -41,8 +41,8 @@ import {
   table,
   column,
   pk,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { TestPhoneModel, testPhone } from "./models/TestModelPhone";
 import { TestUserModel, testUser } from "./models/TestUserModel";

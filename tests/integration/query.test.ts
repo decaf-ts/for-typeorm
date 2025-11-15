@@ -32,8 +32,8 @@ import {
   pk,
   Repository,
   table,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import {
   min,
   minlength,

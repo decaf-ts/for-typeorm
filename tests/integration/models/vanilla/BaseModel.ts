@@ -1,5 +1,6 @@
 import { CreateDateColumn, UpdateDateColumn } from "typeorm";
-import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
+import { Model, ModelArg } from "@decaf-ts/decorator-validation";
+import { prop } from "@decaf-ts/decoration";
 
 export class BaseModel extends Model {
   @CreateDateColumn()
