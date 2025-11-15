@@ -54,7 +54,7 @@ export class TypeORMSequence extends Sequence {
         values: [name],
       });
       if (!Array.isArray(rows) || rows.length === 0)
-        throw new NotFoundError(`Sequence ${name} not found`);
+        throw new InternalError(`Sequence ${name} not found`);
       // information_schema does not expose the current runtime value reliably; fall back to start_value
       const row = rows[0] as Record<string, any>;
       const candidate =
