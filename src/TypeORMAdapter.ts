@@ -327,13 +327,13 @@ export class TypeORMAdapter extends Adapter<
         `Model ${model.constructor.name} not found in registry`
       );
     const result = child
-      ? new (constr as any)[ModelKeys.ANCHOR as keyof typeof constr]()
+      ? new (Metadata.constr(constr as any))()
       : new constr();
     if (child)
       Object.defineProperty(result, "constructor", {
         configurable: false,
         enumerable: false,
-        value: (constr as any)[ModelKeys.ANCHOR as keyof typeof constr],
+        value: Metadata,
         writable: false,
       });
     Object.entries(prepared.record).forEach(
@@ -1125,15 +1125,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     super.decoration();
 
     // @table() => @Entity()
-    const tableKey = Adapter.key(PersistenceKeys.TABLE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(tableKey)
-      .extend((original: any) => Entity()(Metadata.constr(original)))
+      .for(PersistenceKeys.TABLE)
+      .extend((original: any) => {
+        const m = Metadata.constr(original);
+        Entity()(m);
+      })
       .apply();
 
     // @pk() => @PrimaryGeneratedColumn() | @PrimaryColumn()
-    const pkKey = Repository.key(DBKeys.ID);
-
     function pkDec(options: SequenceOptions) {
       return function pkDec(original: any, prop: any) {
         const decorators: any[] = [
@@ -1181,7 +1181,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     }
 
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(pkKey)
+      .for(DBKeys.ID)
       .define({
         decorator: pkDec,
       } as any)
@@ -1193,15 +1193,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     //   .apply();
 
     // @column("columnName") => @Column({name: "columnName"})
-    const columnKey = Adapter.key(PersistenceKeys.COLUMN);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(columnKey)
+      .for(PersistenceKeys.COLUMN)
       .extend({
         decorator: function columm(name: string) {
           return function column(obj: any, prop: any) {
             const opts: ColumnOptions = {};
             if (name) opts.name = name;
-            const pk = Model.pk(obj);
+            let pk: string | undefined;
+            try {
+              pk = Model.pk(obj);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (e: unknown) {
+              pk = undefined; // hasn't been defined yet. means this isn't it
+            }
             if (pk !== prop) {
               opts.nullable = true;
             }
@@ -1212,10 +1217,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .apply();
 
     // @unique => @Column({unique: true})
-    const uniqueKey = Adapter.key(PersistenceKeys.UNIQUE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(uniqueKey)
-      .define(propMetadata(uniqueKey, {}))
+      .for(PersistenceKeys.UNIQUE)
+      .define(propMetadata(PersistenceKeys.UNIQUE, {}))
       .extend(Column({ unique: true }))
       .apply();
 
@@ -1227,9 +1231,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .apply();
 
     // @version => @VersionColumn()
-    const versionKey = Repository.key(DBKeys.VERSION);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(versionKey)
+      .for(DBKeys.VERSION)
       .define(type(Number), VersionColumn(), noValidateOnCreate())
       .apply();
 
@@ -1282,9 +1285,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .apply();
 
     // @oneToOne(clazz) => @OneToOne(() => clazz)
-    const oneToOneKey = Repository.key(PersistenceKeys.ONE_TO_ONE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(oneToOneKey)
+      .for(PersistenceKeys.ONE_TO_ONE)
       .define({
         decorator: function oneToOne(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1313,7 +1315,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             prop(),
             relation(PersistenceKeys.ONE_TO_ONE, metadata),
             type([clazz, String, Number, BigInt]),
-            propMetadata(oneToOneKey, metadata),
+            propMetadata(PersistenceKeys.ONE_TO_ONE, metadata),
             OneToOne(
               () => {
                 if (!isClass(clazz)) clazz = (clazz as any)();
@@ -1344,9 +1346,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .apply();
 
     // @oneToMany(clazz) => @OneToMany(() => clazz)
-    const oneToManyKey = Repository.key(PersistenceKeys.ONE_TO_MANY);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(oneToManyKey)
+      .for(PersistenceKeys.ONE_TO_MANY)
       .define({
         decorator: function oneToMany(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1367,7 +1368,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             prop(),
             relation(PersistenceKeys.ONE_TO_MANY, meta),
             list(clazz),
-            propMetadata(oneToManyKey, meta),
+            propMetadata(PersistenceKeys.ONE_TO_MANY, meta),
             function OneToManyWrapper(obj: any, prop: any): any {
               const ormMeta: RelationOptions = {
                 cascade:
@@ -1423,9 +1424,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .apply();
 
     // @manyToOne(clazz) => @ManyToOne(() => clazz)
-    const manyToOneKey = Repository.key(PersistenceKeys.MANY_TO_ONE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(manyToOneKey)
+      .for(PersistenceKeys.MANY_TO_ONE)
       .define({
         decorator: function manyToOne(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1453,7 +1453,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           return apply(
             relation(PersistenceKeys.MANY_TO_ONE, metadata),
             type([clazz, String, Number, BigInt]),
-            propMetadata(manyToOneKey, metadata),
+            propMetadata(PersistenceKeys.MANY_TO_ONE, metadata),
             function ManyToOneWrapper(obj: any, prop: any): any {
               return ManyToOne(
                 () => {
@@ -1496,9 +1496,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       .apply();
 
     // @manyToMany(clazz) => @ManyToMany(() => clazz)
-    const manyToManyKey = Repository.key(PersistenceKeys.MANY_TO_MANY);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(manyToManyKey)
+      .for(PersistenceKeys.MANY_TO_MANY)
       .define({
         decorator: function manyToMany(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1526,7 +1525,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           return apply(
             relation(PersistenceKeys.MANY_TO_MANY, metadata),
             list(clazz),
-            propMetadata(manyToManyKey, metadata),
+            propMetadata(PersistenceKeys.MANY_TO_MANY, metadata),
             ManyToMany(
               () => {
                 if (!isClass(clazz)) clazz = (clazz as any)();
@@ -1592,24 +1591,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       })
       .apply();
 
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(createdByKey)
+      .for(PersistenceKeys.CREATED_BY)
       .define(
         onCreate(createdByOnTypeORMCreateUpdate, {}),
         required(),
-        propMetadata(createdByKey, {}),
+        propMetadata(PersistenceKeys.CREATED_BY, {}),
         noValidateOnCreate()
       )
       .apply();
 
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(updatedByKey)
+      .for(PersistenceKeys.UPDATED_BY)
       .define(
         onCreateUpdate(createdByOnTypeORMCreateUpdate, {}),
         required(),
-        propMetadata(updatedByKey, {}),
+        propMetadata(PersistenceKeys.UPDATED_BY, {}),
         noValidateOnCreateUpdate()
       )
       .apply();

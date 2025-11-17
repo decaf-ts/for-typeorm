@@ -180,9 +180,8 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @return {NativeRepo<M>} A TypeORM Repository instance.
    */
   nativeRepo(): NativeRepo<M> {
-    return (this.adapter as any).dataSource.getRepository(
-      Metadata.constr(this.class)
-    );
+    const clazz = Metadata.constr(this.class);
+    return (this.adapter as any).dataSource.getRepository(clazz);
   }
 
   protected override async createPrefix(
