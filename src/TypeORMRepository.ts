@@ -136,7 +136,7 @@ export async function enforceDbDecoratorsRecursive<
  *   Adapter-->>Repo: model
  *   Repo-->>App: model
  */
-@uses(TypeORMFlavour)
+// @uses(TypeORMFlavour)
 export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
   TypeORMQuery<M, any>,

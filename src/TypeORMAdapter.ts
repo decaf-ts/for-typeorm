@@ -154,7 +154,7 @@ export class TypeORMAdapter extends Adapter<
 > {
   override getClient(): DataSource {
     const models = Adapter.models(this.alias);
-    const entities = models.map((c) => c[ModelKeys.ANCHOR as keyof typeof c]);
+    const entities = models.map(Metadata.constr);
     return new DataSource(
       Object.assign({}, this.config, { entities: entities })
     );
@@ -1202,7 +1202,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             if (name) opts.name = name;
             let pk: string | undefined;
             try {
-              pk = Model.pk(obj);
+              pk = Model.pk(obj.constructor);
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e: unknown) {
               pk = undefined; // hasn't been defined yet. means this isn't it
@@ -1296,7 +1296,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           fk?: string
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name ? clazz.name : (clazz as any),
+            class: clazz,
             cascade: cascade,
             populate: populate,
           };
@@ -1318,7 +1318,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             propMetadata(PersistenceKeys.ONE_TO_ONE, metadata),
             OneToOne(
               () => {
-                if (!isClass(clazz)) clazz = (clazz as any)();
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
                 const constr = Metadata.constr(clazz as Constructor<any>);
                 if (constr === clazz)
                   throw new InternalError(
@@ -1327,9 +1328,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                 return constr;
               },
               (model: any) => {
-                return Model.pk(model, true);
-                // const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
-                // return model[pk];
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
+                const pk = Model.pk(clazz as Constructor<any>);
+                return model[pk];
               },
               ormMeta
             ),
@@ -1381,7 +1383,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
               };
               return OneToMany(
                 () => {
-                  if (!isClass(clazz)) clazz = (clazz as any)();
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
                   const constr = Metadata.constr(clazz as Constructor<any>);
                   if (constr === clazz)
                     throw new InternalError(
@@ -1390,8 +1393,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                   return constr;
                 },
                 (model: any) => {
-                  if (!isClass(clazz)) clazz = (clazz as any)();
-
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
                   const relations = Metadata.relations(
                     clazz as Constructor<any>
                   );
@@ -1405,8 +1408,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                       r as any
                     );
                     if (meta.key !== PersistenceKeys.MANY_TO_ONE) return false;
-                    const c = !isClass(meta.class) ? meta.class() : meta.class;
-                    return c === clazz;
+                    const c =
+                      typeof meta.class === "function" &&
+                      !(meta.class as any).name
+                        ? (meta.class as any)()
+                        : meta.class;
+                    const ref = Metadata.constr(
+                      obj.constructor as Constructor<any>
+                    );
+                    return c.name === ref.name;
                   });
                   if (!crossRelationKey)
                     throw new InternalError(
@@ -1457,7 +1467,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             function ManyToOneWrapper(obj: any, prop: any): any {
               return ManyToOne(
                 () => {
-                  if (!isClass(clazz)) clazz = (clazz as any)();
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
                   const constr = Metadata.constr(clazz as Constructor<any>);
                   if (constr === clazz)
                     throw new InternalError(
@@ -1466,7 +1477,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                   return constr;
                 },
                 (model: any) => {
-                  if (!isClass(clazz)) clazz = (clazz as any)();
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
                   const relations = Metadata.relations(
                     clazz as Constructor<any>
                   );
@@ -1480,8 +1492,15 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                       r as any
                     );
                     if (meta.key !== PersistenceKeys.ONE_TO_MANY) return false;
-                    const c = !isClass(meta.class) ? meta.class() : meta.class;
-                    return c === clazz;
+                    const c =
+                      typeof meta.class === "function" &&
+                      !(meta.class as any).name
+                        ? (meta.class as any)()
+                        : meta.class;
+                    const ref = Metadata.constr(
+                      obj.constructor as Constructor<any>
+                    );
+                    return c.name === ref.name;
                   });
                   if (!crossRelationKey)
                     crossRelationKey = Model.pk(model) as string;
@@ -1528,7 +1547,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             propMetadata(PersistenceKeys.MANY_TO_MANY, metadata),
             ManyToMany(
               () => {
-                if (!isClass(clazz)) clazz = (clazz as any)();
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
                 const constr = Metadata.constr(clazz as Constructor<any>);
                 if (constr === clazz)
                   throw new InternalError(
@@ -1537,7 +1557,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                 return constr;
               },
               (model: any) => {
-                if (!isClass(clazz)) clazz = (clazz as any)();
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
                 const pk = Model.pk(clazz);
                 return model[pk];
               },
