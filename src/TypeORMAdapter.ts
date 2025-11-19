@@ -1484,32 +1484,30 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                 (model: any) => {
                   if (typeof clazz === "function" && !(clazz as any).name)
                     clazz = (clazz as any)();
-                  const relations = Metadata.relations(
-                    clazz as Constructor<any>
-                  );
+                  const relations = Metadata.relations(clazz as Constructor);
 
-                  if (!relations) {
-                    const pk = Model.pk(clazz);
-                    return model[pk];
-                  }
-                  let crossRelationKey = relations.find((r) => {
-                    const meta: ExtendedRelationsMetadata = Model.relations(
-                      clazz as any,
-                      r as any
-                    );
-                    if (meta.key !== PersistenceKeys.ONE_TO_MANY) return false;
-                    const c =
-                      typeof meta.class === "function" &&
-                      !(meta.class as any).name
-                        ? (meta.class as any)()
-                        : meta.class;
-                    const ref = Metadata.constr(
-                      obj.constructor as Constructor<any>
-                    );
-                    return c.name === ref.name;
-                  });
-                  if (!crossRelationKey)
-                    crossRelationKey = Model.pk(clazz) as string;
+                  let crossRelationKey = Model.pk(clazz);
+
+                  if (!relations) return model[crossRelationKey];
+
+                  crossRelationKey =
+                    relations.find((r) => {
+                      const meta: ExtendedRelationsMetadata = Model.relations(
+                        clazz as any,
+                        r as any
+                      );
+                      if (meta.key !== PersistenceKeys.ONE_TO_MANY)
+                        return false;
+                      const c =
+                        typeof meta.class === "function" &&
+                        !(meta.class as any).name
+                          ? (meta.class as any)()
+                          : meta.class;
+                      const ref = Metadata.constr(
+                        obj.constructor as Constructor<any>
+                      );
+                      return c.name === ref.name;
+                    }) || crossRelationKey;
                   return model[crossRelationKey];
                 },
                 ormMeta
