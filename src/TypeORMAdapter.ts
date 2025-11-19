@@ -46,7 +46,6 @@ import {
   MinLengthValidatorOptions,
   MinValidatorOptions,
   Model,
-  ModelKeys,
   PatternValidatorOptions,
   required,
   type,
@@ -60,7 +59,7 @@ import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
 import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMRepository } from "./TypeORMRepository";
-import { isClass, Logging } from "@decaf-ts/logging";
+import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres, splitEagerRelations } from "./utils";
 import {
@@ -1135,16 +1134,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
 
     // @pk() => @PrimaryGeneratedColumn() | @PrimaryColumn()
     function pkDec(options: SequenceOptions) {
-      return function pkDec(original: any, prop: any) {
+      return function pkDec(original: any, propertyKey: any) {
+        prop()(original, propertyKey);
         const decorators: any[] = [
           required(),
           readonly(),
-          propMetadata(Metadata.key(DBKeys.ID, prop), options),
+          propMetadata(Metadata.key(DBKeys.ID, propertyKey), options),
         ];
-        let type = options.type || Metadata.type(original, prop);
+        let type =
+          options.type || Metadata.type(original.constructor, propertyKey);
         if (!type)
           throw new InternalError(
-            `Missing type information for property ${prop} of ${original.name}`
+            `Missing type information for property ${propertyKey} of ${original.name}`
           );
         if (options.generated) {
           const name =
@@ -1156,7 +1157,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             noValidateOnCreate()
           );
         } else {
-          switch (type.toLowerCase()) {
+          switch (
+            typeof type === "string"
+              ? type.toLowerCase()
+              : type.name.toLowerCase()
+          ) {
             case "number":
               type = "numeric";
               break;
@@ -1176,7 +1181,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             })
           );
         }
-        return apply(...decorators)(original, prop);
+        return apply(...decorators)(original, propertyKey);
       };
     }
 
@@ -1482,10 +1487,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                   const relations = Metadata.relations(
                     clazz as Constructor<any>
                   );
-                  if (!relations)
-                    throw new InternalError(
-                      `No relations found on model ${clazz.name}`
-                    );
+
+                  if (!relations) {
+                    const pk = Model.pk(clazz);
+                    return model[pk];
+                  }
                   let crossRelationKey = relations.find((r) => {
                     const meta: ExtendedRelationsMetadata = Model.relations(
                       clazz as any,
@@ -1503,7 +1509,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
                     return c.name === ref.name;
                   });
                   if (!crossRelationKey)
-                    crossRelationKey = Model.pk(model) as string;
+                    crossRelationKey = Model.pk(clazz) as string;
                   return model[crossRelationKey];
                 },
                 ormMeta

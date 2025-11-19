@@ -29,7 +29,7 @@ import {
   ModelKeys,
   required,
 } from "@decaf-ts/decorator-validation";
-import { uses } from "@decaf-ts/decoration";
+import { Metadata, uses } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 
@@ -135,7 +135,7 @@ describe("TypeORM decaf many to many Relations decoration", () => {
 
   it("creates a record child decaf", async () => {
     const repo = adapter.client.getRepository(
-      TypeORMChildDecaf[ModelKeys.ANCHOR]
+      Metadata.constr(TypeORMChildDecaf)
     );
     expect(repo).toBeDefined();
     const toCreate = Object.assign(new TypeORMChildDecaf(), {
@@ -148,7 +148,7 @@ describe("TypeORM decaf many to many Relations decoration", () => {
 
   it("creates a record parent decaf with previous created child", async () => {
     const repo = adapter.client.getRepository(
-      TypeORMParentDecaf[ModelKeys.ANCHOR]
+      Metadata.constr(TypeORMParentDecaf)
     );
     expect(repo).toBeDefined();
     const toCreate = Object.assign(new TypeORMParentDecaf(), {
@@ -163,8 +163,9 @@ describe("TypeORM decaf many to many Relations decoration", () => {
 
   it("creates a record decaf nested", async () => {
     const repo = adapter.client.getRepository(
-      TypeORMParentDecaf[ModelKeys.ANCHOR]
+      Metadata.constr(TypeORMParentDecaf)
     );
+
     expect(repo).toBeDefined();
     const toCreate = Object.assign(new TypeORMParentDecaf(), {
       children: [
@@ -181,8 +182,9 @@ describe("TypeORM decaf many to many Relations decoration", () => {
 
   it("read a record decaf nested", async () => {
     const repo = adapter.client.getRepository(
-      TypeORMParentDecaf[ModelKeys.ANCHOR]
+      Metadata.constr(TypeORMParentDecaf)
     );
+
     expect(repo).toBeDefined();
     const record = await repo.findOneBy({
       id: created.id,

@@ -3,7 +3,7 @@ import { TypeORMQuery } from "../types";
 import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { TypeORMAdapter } from "../TypeORMAdapter";
 import { FindManyOptions, Repository as Repo } from "typeorm";
-import { Constructor } from "@decaf-ts/decoration";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Paginator for TypeORM query results.
@@ -49,7 +49,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
   protected get repo() {
     if (!this.__repo) {
       this.__repo = (this.adapter as TypeORMAdapter).client.getRepository(
-        this.clazz[ModelKeys.ANCHOR as keyof typeof this.clazz]
+        Metadata.constr(this.clazz)
       );
     }
     return this.__repo;

@@ -85,7 +85,7 @@ class QueryUser extends TypeORMBaseModel {
   @column("tst_sex")
   @required()
   @readonly()
-  @type([String.name])
+  @type([String])
   sex!: "M" | "F";
 
   constructor(arg?: ModelArg<QueryUser>) {
