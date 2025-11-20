@@ -23,12 +23,7 @@ let adapter: TypeORMAdapter;
 
 import { Cascade, column, manyToMany, pk, table } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import {
-  model,
-  ModelArg,
-  ModelKeys,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { Metadata, uses } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";

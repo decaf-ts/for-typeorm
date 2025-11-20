@@ -1,6 +1,6 @@
 import { Paginator, PagingError } from "@decaf-ts/core";
 import { TypeORMQuery } from "../types";
-import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { TypeORMAdapter } from "../TypeORMAdapter";
 import { FindManyOptions, Repository as Repo } from "typeorm";
 import { Constructor, Metadata } from "@decaf-ts/decoration";

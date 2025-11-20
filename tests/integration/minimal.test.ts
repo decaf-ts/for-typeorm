@@ -24,12 +24,10 @@ let adapter: TypeORMAdapter;
 
 import {
   Adapter,
-  BaseModel,
   column,
   createdAt,
   Observer,
   pk,
-  repository,
   Repository,
   table,
   updatedAt,
@@ -41,14 +39,7 @@ import {
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
-import {
-  maxlength,
-  minlength,
-  Model,
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { Model, model, ModelArg } from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(50000);
 
@@ -125,6 +116,7 @@ describe("minimal", () => {
     }
     adapter = new TypeORMAdapter(typeOrmCfg);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const models = Adapter.models(TypeORMFlavour);
       await adapter.initialize();
     } catch (e: unknown) {

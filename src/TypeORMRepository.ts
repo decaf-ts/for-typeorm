@@ -10,10 +10,9 @@ import {
   ValidationError,
 } from "@decaf-ts/db-decorators";
 import { TypeORMFlags, TypeORMQuery } from "./types";
-import { TypeORMFlavour } from "./constants";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { QueryBuilder, Repository as NativeRepo } from "typeorm";
-import { type Constructor, uses, Metadata } from "@decaf-ts/decoration";
+import { type Constructor, Metadata } from "@decaf-ts/decoration";
 
 export async function enforceDbDecoratorsRecursive<
   M extends Model<true | false>,

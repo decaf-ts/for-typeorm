@@ -20,12 +20,7 @@ const config: DataSourceOptions = {
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
-import {
-  model,
-  ModelArg,
-  ModelKeys,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 import {
