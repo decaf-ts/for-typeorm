@@ -2,18 +2,10 @@ import {
   model,
   ModelArg,
   pattern,
-  prop,
   required,
 } from "@decaf-ts/decorator-validation";
-import {
-  Cascade,
-  column,
-  index,
-  oneToOne,
-  pk,
-  table,
-  uses,
-} from "@decaf-ts/core";
+import { Cascade, column, index, oneToOne, pk, table } from "@decaf-ts/core";
+import { uses, prop } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 

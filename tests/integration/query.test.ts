@@ -32,8 +32,8 @@ import {
   pk,
   Repository,
   table,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import {
   min,
   minlength,
@@ -85,7 +85,7 @@ class QueryUser extends TypeORMBaseModel {
   @column("tst_sex")
   @required()
   @readonly()
-  @type([String.name])
+  @type([String])
   sex!: "M" | "F";
 
   constructor(arg?: ModelArg<QueryUser>) {

@@ -4,7 +4,6 @@ import {
   model,
   type ModelArg,
   required,
-  description,
 } from "@decaf-ts/decorator-validation";
 import { PromptBlock } from "./PromptBlock";
 import {
@@ -16,8 +15,8 @@ import {
   pk,
   table,
   unique,
-  uses,
 } from "@decaf-ts/core";
+import { uses, description } from "@decaf-ts/decoration";
 import { TypeORMFlavour } from "../../../src";
 import { AIFeature } from "./AIFeature";
 import { TypeORMBaseModel } from "../baseModel";

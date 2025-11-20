@@ -1,10 +1,11 @@
 import { AIModel } from "./AIModel";
 import { model, type } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { Cascade, oneToMany, pk, table, uses } from "@decaf-ts/core";
+import { Cascade, oneToMany, pk, table } from "@decaf-ts/core";
 import { TypeORMActiveModel } from "./TypeORMActiveModel";
 import { TypeORMFlavour } from "../../../src";
 import { AIVendors } from "./contants";
+import { uses } from "@decaf-ts/decoration";
 
 /**
  * @description AI provider entity with available models
@@ -20,7 +21,7 @@ export class AIVendor extends TypeORMActiveModel {
    * @summary The provider's unique identifier string
    */
   @pk({ type: "String", generated: false })
-  @type(String.name)
+  @type(String)
   name!: AIVendors;
   /**
    * @description Collection of AI models offered by this provider

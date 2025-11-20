@@ -29,8 +29,8 @@ import {
   repository,
   Repository,
   table,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {

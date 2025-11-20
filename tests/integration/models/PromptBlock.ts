@@ -1,10 +1,11 @@
 import { model, type ModelArg, required } from "@decaf-ts/decorator-validation";
-import { Cascade, column, manyToMany, pk, table, uses } from "@decaf-ts/core";
+import { Cascade, column, manyToMany, pk, table } from "@decaf-ts/core";
 import { TypeORMBaseModel } from "../baseModel";
 import { TypeORMFlavour } from "../../../src";
 import { AIFeature } from "./AIFeature";
 import { AIVendor } from "./AIVendor";
 import { AIModel } from "./AIModel";
+import { uses } from "@decaf-ts/decoration";
 
 /**
  * @description Atomic building block of a prompt

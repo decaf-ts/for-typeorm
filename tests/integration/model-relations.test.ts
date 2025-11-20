@@ -41,8 +41,8 @@ import {
   table,
   column,
   pk,
-  uses,
 } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { TestPhoneModel, testPhone } from "./models/TestModelPhone";
 import { TestUserModel, testUser } from "./models/TestUserModel";
@@ -181,8 +181,6 @@ describe(`Complex Database`, function () {
   let testDummyPhoneModelRepository: TypeORMRepository<TestDummyPhone>;
   let testAddressModelRepository: TypeORMRepository<TestAddressModel>;
   let testCountryModelRepository: TypeORMRepository<TestCountryModel>;
-  // let noPopulateOnceModelRepository: TypeORMRepository<NoPopulateOnceModel>;
-  // let noPopulateManyModelRepository: TypeORMRepository<NoPopulateManyModel>;
 
   let m: any;
 
@@ -205,14 +203,6 @@ describe(`Complex Database`, function () {
       adapter,
       TestDummyPhone
     );
-    // noPopulateOnceModelRepository = new TypeORMRepository(
-    //   adapter,
-    //   NoPopulateOnceModel
-    // );
-    // noPopulateManyModelRepository = new TypeORMRepository(
-    //   adapter,
-    //   NoPopulateManyModel
-    // );
 
     m = {
       name: "test country",

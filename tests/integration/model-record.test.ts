@@ -21,9 +21,10 @@ const config: DataSourceOptions = {
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
-import { column, Observer, pk, Repository, table, uses } from "@decaf-ts/core";
+import { column, Observer, pk, Repository, table } from "@decaf-ts/core";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
+import { uses } from "@decaf-ts/decoration";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { serialize } from "@decaf-ts/db-decorators";
 import { TypeORMBaseModel } from "./baseModel";

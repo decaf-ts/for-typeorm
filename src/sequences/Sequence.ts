@@ -53,7 +53,6 @@ export class TypeORMSequence extends Sequence {
         query: `SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1`,
         values: [name],
       });
-      // If no sequence exists, force a clear, consistent error for callers
       if (!Array.isArray(rows) || rows.length === 0)
         throw new InternalError(`Sequence ${name} not found`);
       // information_schema does not expose the current runtime value reliably; fall back to start_value

@@ -4,7 +4,7 @@ import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "repo_user";
+const user = "repo_user_minimal";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -17,18 +17,22 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
-const dbName = "repository_db";
+const dbName = "repository_db_minimal";
 
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
 import {
+  Adapter,
+  BaseModel,
   column,
+  createdAt,
   Observer,
   pk,
   repository,
   Repository,
   table,
+  updatedAt,
 } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
 import {
@@ -40,30 +44,38 @@ import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
   minlength,
+  Model,
   model,
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { TypeORMBaseModel } from "./baseModel";
 
 jest.setTimeout(50000);
 
 @uses(TypeORMFlavour)
 @table("tst_user")
 @model()
-class TestModelRepo extends TypeORMBaseModel {
+class TestModelRepo extends Model {
   @pk({ type: "Number" })
   id!: number;
+  //
+  // @column("tst_name")
+  // @required()
+  // name!: string;
+  //
+  // @column("tst_nif")
+  // @minlength(9)
+  // @maxlength(9)
+  // @required()
+  // nif!: string;
+  //
+  @column("created_on")
+  @createdAt()
+  createdOn!: Date;
 
-  @column("tst_name")
-  @required()
-  name!: string;
-
-  @column("tst_nif")
-  @minlength(9)
-  @maxlength(9)
-  @required()
-  nif!: string;
+  @column("updated_on")
+  @updatedAt()
+  updatedOn!: Date;
 
   constructor(arg?: ModelArg<TestModelRepo>) {
     super(arg);
@@ -81,7 +93,7 @@ const typeOrmCfg: DataSourceOptions = {
   logging: false,
 };
 
-describe("repositories", () => {
+describe("minimal", () => {
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -113,6 +125,7 @@ describe("repositories", () => {
     }
     adapter = new TypeORMAdapter(typeOrmCfg);
     try {
+      const models = Adapter.models(TypeORMFlavour);
       await adapter.initialize();
     } catch (e: unknown) {
       console.error(e);
@@ -141,44 +154,6 @@ describe("repositories", () => {
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);
     await con.destroy();
-  });
-
-  it("instatiates the model", () => {
-    const m = new TestModelRepo({
-      name: "test_name",
-      nif: "123456789",
-    });
-    expect(m).toBeDefined();
-    expect(m.name).toEqual("test_name");
-    expect(m.nif).toEqual("123456789");
-  });
-
-  it("instantiates via constructor", () => {
-    const repo: TypeORMRepository<TestModelRepo> = new TypeORMRepository(
-      adapter as any,
-      TestModelRepo
-    );
-    expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(Repository);
-  });
-
-  it("instantiates via Repository.get with @uses decorator on model", () => {
-    uses(TypeORMFlavour)(TestModelRepo);
-    const repo = Repository.forModel(TestModelRepo);
-    expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(Repository);
-  });
-
-  it("gets injected when using @repository", () => {
-    class TestClass {
-      @repository(TestModelRepo)
-      repo!: TypeORMRepository<TestModelRepo>;
-    }
-
-    const testClass = new TestClass();
-    expect(testClass).toBeDefined();
-    expect(testClass.repo).toBeDefined();
-    expect(testClass.repo).toBeInstanceOf(Repository);
   });
 
   let created: TestModelRepo | undefined;

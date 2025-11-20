@@ -1,10 +1,5 @@
-import {
-  type Constructor,
-  Model,
-  ModelKeys,
-  ValidationKeys,
-} from "@decaf-ts/decorator-validation";
-import { Adapter, Repository, uses } from "@decaf-ts/core";
+import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
+import { Adapter, Repository } from "@decaf-ts/core";
 import {
   Context,
   enforceDBDecorators,
@@ -18,7 +13,7 @@ import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMFlavour } from "./constants";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { QueryBuilder, Repository as NativeRepo } from "typeorm";
-import { Reflection } from "@decaf-ts/reflection";
+import { type Constructor, uses, Metadata } from "@decaf-ts/decoration";
 
 export async function enforceDbDecoratorsRecursive<
   M extends Model<true | false>,
@@ -68,13 +63,19 @@ export async function enforceDbDecoratorsRecursive<
       );
       continue;
     }
-    const dec = Reflection.getPropertyDecorators(
-      ValidationKeys.REFLECT,
-      model,
-      key,
-      true,
-      true
-    ).decorators.find((d) => d.key === ValidationKeys.LIST);
+
+    const dec = Metadata.validationFor(
+      model.constructor as any,
+      key as any,
+      ValidationKeys.LIST
+    );
+    // const dec = Reflection.getPropertyDecorators(
+    //   ValidationKeys.REFLECT,
+    //   model,
+    //   key,
+    //   true,
+    //   true
+    // ).decorators.find((d) => d.key === ValidationKeys.LIST);
 
     if (
       !dec ||
@@ -135,7 +136,7 @@ export async function enforceDbDecoratorsRecursive<
  *   Adapter-->>Repo: model
  *   Repo-->>App: model
  */
-@uses(TypeORMFlavour)
+// @uses(TypeORMFlavour)
 export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
   TypeORMQuery<M, any>,
@@ -169,9 +170,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @return {QueryBuilder<M>} A TypeORM SelectQueryBuilder instance.
    */
   queryBuilder(): QueryBuilder<M> {
-    const repo = (this.adapter as any).dataSource.getRepository(
-      this.class[ModelKeys.ANCHOR as keyof typeof this.class]
-    );
+    const repo = this.nativeRepo();
     return repo.createQueryBuilder();
   }
 
@@ -180,10 +179,9 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @summary Returns a Repository bound to this repository's entity for native functionality.
    * @return {NativeRepo<M>} A TypeORM Repository instance.
    */
-  typeormRepo(): NativeRepo<M> {
-    return (this.adapter as any).dataSource.getRepository(
-      this.class[ModelKeys.ANCHOR as keyof typeof this.class]
-    );
+  nativeRepo(): NativeRepo<M> {
+    const clazz = Metadata.constr(this.class);
+    return (this.adapter as any).dataSource.getRepository(clazz);
   }
 
   protected override async createPrefix(
@@ -231,7 +229,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.create(
-      (this.class as any)[ModelKeys.ANCHOR as keyof typeof this.class],
+      Metadata.constr(this.class) as any,
       id,
       model as any,
       this.pk,
@@ -261,7 +259,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     ...args: any[]
   ): Promise<M> {
     const m = await this.adapter.read(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       id as string,
       this.pk as string
     );
@@ -321,7 +319,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.update(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       id,
       model,
       this.pk,
@@ -342,7 +340,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     ...args: any[]
   ): Promise<M> {
     const m = await this.adapter.delete(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       id as string,
       this.pk as string,
       ...args
@@ -411,7 +409,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       ids as (string | number)[],
       models,
       ...args
@@ -433,7 +431,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     ...args: any[]
   ): Promise<M[]> {
     const records = await this.adapter.readAll(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       keys,
       this.pk as string,
       ...args
@@ -453,7 +451,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
     const updated = await this.adapter.updateAll(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       records.map((r) => r.id),
       models,
       this.pk as string,
@@ -476,7 +474,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     ...args: any[]
   ): Promise<M[]> {
     const results = await this.adapter.deleteAll(
-      (this.class as any)[ModelKeys.ANCHOR] as any,
+      Metadata.constr(this.class) as any,
       keys,
       this.pk as string,
       ...args

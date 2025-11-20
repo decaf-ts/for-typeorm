@@ -36,8 +36,8 @@ import {
   Repository,
   table,
   unique,
-  uses,
 } from "@decaf-ts/core";
+import { Metadata, uses } from "@decaf-ts/decoration";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMFlavour } from "../../src";
 
@@ -174,7 +174,7 @@ describe("TypeORM Decaf decoration", () => {
   let child: TypeORMDecafChild;
   it("creates a record decaf child", async () => {
     const repo = adapter.client.getRepository(
-      TypeORMDecafChild[ModelKeys.ANCHOR]
+      Metadata.constr(TypeORMDecafChild)
     );
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecafChild({
@@ -187,7 +187,7 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   it("creates a record decaf parent with existing child", async () => {
-    const repo = adapter.client.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
+    const repo = adapter.client.getRepository(Metadata.constr(TypeORMDecaf));
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecaf({
       firstName: "John2",
@@ -200,7 +200,7 @@ describe("TypeORM Decaf decoration", () => {
   });
 
   it("creates a record decaf nested", async () => {
-    const repo = adapter.client.getRepository(TypeORMDecaf[ModelKeys.ANCHOR]);
+    const repo = adapter.client.getRepository(Metadata.constr(TypeORMDecaf));
     expect(repo).toBeDefined();
     const toCreate = new TypeORMDecaf({
       firstName: "John23",

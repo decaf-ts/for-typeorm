@@ -1,12 +1,5 @@
-import {
-  Cascade,
-  column,
-  index,
-  manyToOne,
-  pk,
-  table,
-  uses,
-} from "@decaf-ts/core";
+import { Cascade, column, index, manyToOne, pk, table } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import { TypeORMFlavour } from "../../../src";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { TypeORMBaseModel } from "../baseModel";

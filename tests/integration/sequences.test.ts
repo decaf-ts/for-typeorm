@@ -1,7 +1,11 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { Logging, LogLevel } from "@decaf-ts/logging";
 import { TypeORMAdapter } from "../../src/TypeORMAdapter";
-import { ConflictError, NotFoundError, InternalError } from "@decaf-ts/db-decorators";
+import {
+  ConflictError,
+  NotFoundError,
+  InternalError,
+} from "@decaf-ts/db-decorators";
 import { Sequence } from "@decaf-ts/core";
 
 // Test DB/user names
@@ -60,7 +64,10 @@ describe("TypeORM Sequences", () => {
     try {
       await TypeORMAdapter.createDatabase(adminCon!, dbName);
       await adminCon!.destroy();
-      adminCon = await TypeORMAdapter.connect({ ...adminCfg, database: dbName });
+      adminCon = await TypeORMAdapter.connect({
+        ...adminCfg,
+        database: dbName,
+      });
       await TypeORMAdapter.createUser(adminCon!, dbName, user, user_password);
       await TypeORMAdapter.createNotifyFunction(adminCon!, user);
       await adminCon!.destroy();
@@ -99,7 +106,10 @@ describe("TypeORM Sequences", () => {
     // Use a direct connection to issue DDL, avoiding adapter.raw logging assumptions
     const ddlCon = await TypeORMAdapter.connect(appCfg);
     try {
-      await ddlCon.query(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = $1) THEN EXECUTE format('CREATE SEQUENCE %I START WITH %L INCREMENT BY %L NO CYCLE', $1, $2, $3); END IF; END $$;`, [name, 100, 5]);
+      await ddlCon.query(
+        `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relkind = 'S' AND relname = $1) THEN EXECUTE format('CREATE SEQUENCE %I START WITH %L INCREMENT BY %L NO CYCLE', $1, $2, $3); END IF; END $$;`,
+        [name, 100, 5]
+      );
     } finally {
       await ddlCon.destroy();
     }
@@ -118,7 +128,11 @@ describe("TypeORM Sequences", () => {
     expect(gotRange.every((v) => typeof v === "number")).toBe(true);
 
     const nxt = await seq.next();
-    expect(typeof nxt === "number" || typeof nxt === "bigint" || typeof nxt === "string").toBe(true);
+    expect(
+      typeof nxt === "number" ||
+        typeof nxt === "bigint" ||
+        typeof nxt === "string"
+    ).toBe(true);
   });
 
   it("throws for invalid type increment", async () => {

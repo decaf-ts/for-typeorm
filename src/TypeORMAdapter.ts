@@ -10,11 +10,13 @@ import {
   noValidateOnCreateUpdate,
   OrderDirection,
   PersistenceKeys,
+  relation,
   RelationsMetadata,
   Repository,
   Sequence,
   sequenceNameForModel,
   type SequenceOptions,
+  ExtendedRelationsMetadata,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -23,7 +25,6 @@ import {
   Context,
   DBKeys,
   DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
-  findPrimaryKey,
   InternalError,
   NotFoundError,
   onCreate,
@@ -32,25 +33,22 @@ import {
   readonly,
   UpdateValidationKeys,
 } from "@decaf-ts/db-decorators";
-import "reflect-metadata";
 import {
   type Constructor,
-  date,
   Decoration,
-  DEFAULT_ERROR_MESSAGES,
+  propMetadata,
+} from "@decaf-ts/decoration";
+import {
+  date,
   list,
   MaxLengthValidatorOptions,
   MaxValidatorOptions,
   MinLengthValidatorOptions,
   MinValidatorOptions,
   Model,
-  ModelKeys,
   PatternValidatorOptions,
-  prop,
-  propMetadata,
   required,
   type,
-  TypeMetadata,
   Validation,
   ValidationKeys,
   ValidatorOptions,
@@ -59,8 +57,7 @@ import { IndexError } from "./errors";
 import { TypeORMStatement } from "./query";
 import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { TypeORMFlags, TypeORMQuery, TypeORMTableSpec } from "./types";
-import { apply, Reflection } from "@decaf-ts/reflection";
+import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMRepository } from "./TypeORMRepository";
 import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
@@ -91,7 +88,7 @@ import { ManyToMany } from "./overrides/ManyToMany";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { assign, Metadata, property } from "./decorators";
+import { apply, Metadata, prop } from "@decaf-ts/decoration";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
 
 export async function createdByOnTypeORMCreateUpdate<
@@ -156,7 +153,7 @@ export class TypeORMAdapter extends Adapter<
 > {
   override getClient(): DataSource {
     const models = Adapter.models(this.alias);
-    const entities = models.map((c) => c[ModelKeys.ANCHOR as keyof typeof c]);
+    const entities = models.map(Metadata.constr);
     return new DataSource(
       Object.assign({}, this.config, { entities: entities })
     );
@@ -275,7 +272,7 @@ export class TypeORMAdapter extends Adapter<
     try {
       const { query, values } = q;
       log.debug(
-        `executing query: ${(query as unknown as SelectQueryBuilder<any>).getSql()}`
+        `executing query: ${typeof query !== "string" ? (query as unknown as SelectQueryBuilder<any>).getSql() : query}`
       );
       const response = await this.client.query(query, values);
       return response as R;
@@ -306,7 +303,7 @@ export class TypeORMAdapter extends Adapter<
         if (value instanceof Date) {
           value = new Date(value.getTime());
         } else if (Model.isModel(value)) {
-          value = this.prepare(value, findPrimaryKey(value).id, true).record;
+          value = this.prepare(value, Model.pk(model), true).record;
         } else {
           switch (typeof value) {
             case "string":
@@ -329,13 +326,13 @@ export class TypeORMAdapter extends Adapter<
         `Model ${model.constructor.name} not found in registry`
       );
     const result = child
-      ? new (constr as any)[ModelKeys.ANCHOR as keyof typeof constr]()
+      ? new (Metadata.constr(constr as any))()
       : new constr();
     if (child)
       Object.defineProperty(result, "constructor", {
         configurable: false,
         enumerable: false,
-        value: (constr as any)[ModelKeys.ANCHOR as keyof typeof constr],
+        value: Metadata,
         writable: false,
       });
     Object.entries(prepared.record).forEach(
@@ -835,11 +832,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       default: {
         const m = Model.get(type);
         if (m) {
-          const mm = new m();
-          const type = Reflection.getTypeFromDecorator(
-            mm,
-            findPrimaryKey(mm).id
-          );
+          const type = Metadata.type(m, Model.pk(m));
+          // Reflection.getTypeFromDecorator(
+          //   mm,
+          //   Model.pk(mm)
+          // );
           return {
             model: m,
             pkType: type,
@@ -901,222 +898,217 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         throw new InternalError(`Unsupported operation: ${key}`);
     }
   }
-
-  static async createTable<M extends Model>(
-    client: DataSource,
-    model: Constructor<M>
-  ): Promise<Record<string, TypeORMTableSpec>> {
-    const result: Record<string, TypeORMTableSpec> = {};
-    const m = new model({});
-    const tableName = Repository.table(model);
-    const { id } = findPrimaryKey(m);
-
-    let isPk: boolean, column: string;
-    const properties = Object.getOwnPropertyNames(m) as (keyof M)[];
-    for (const prop of properties) {
-      if (
-        typeof (this as any)[prop] === "function" ||
-        prop.toString().startsWith("_") ||
-        prop === "constructor"
-      ) {
-        continue;
-      }
-
-      isPk = prop === id;
-      column = Repository.column(m, prop.toString());
-
-      const allDecs = Reflection.getPropertyDecorators(
-        ValidationKeys.REFLECT,
-        m,
-        prop.toString(),
-        false,
-        true
-      );
-
-      const decoratorData = allDecs.decorators.reduce(
-        (accum: Record<string, any>, el) => {
-          const { key, props } = el;
-          if (key === ModelKeys.TYPE && !accum[ValidationKeys.TYPE]) {
-            accum[ValidationKeys.TYPE] = {
-              customTypes: [props.name as string],
-              message: DEFAULT_ERROR_MESSAGES.TYPE,
-              description: "defines the accepted types for the attribute",
-            };
-          } else if (key !== ValidationKeys.TYPE) {
-            // do nothing. we can only support basis ctypes at this time
-            accum[key] = props;
-          }
-          return accum;
-        },
-        {}
-      );
-
-      const dbDecs = Reflection.getPropertyDecorators(
-        Repository.key("relations"),
-        m,
-        prop.toString(),
-        true,
-        true
-      );
-
-      const query: string[] = [];
-      const constraints: string[] = [];
-      const foreignKeys: string[] = [];
-      let typeData: TypeMetadata | undefined = undefined;
-      let childClass: Constructor<Model> | undefined = undefined;
-      let childPk: any;
-
-      if (Object.keys(decoratorData).length) {
-        typeData = decoratorData[ValidationKeys.TYPE] as TypeMetadata;
-
-        if (!typeData) {
-          throw new Error(`Missing type information`);
-        }
-
-        let parsedType:
-          | string
-          | { model: Constructor<Model> | string; pkType?: string } =
-          this.parseTypeToPostgres(
-            typeof (typeData.customTypes as any[])[0] === "function"
-              ? (typeData.customTypes as any)[0]()
-              : (typeData.customTypes as any)[0],
-            isPk
-          );
-        if (typeof parsedType === "string") {
-          parsedType = { model: parsedType };
-        }
-        let typeStr:
-          | string
-          | { model: Constructor<Model> | string; pkType?: string } =
-          parsedType.model as
-            | string
-            | { model: Constructor<Model> | string; pkType?: string };
-
-        if (typeof typeStr !== "string") {
-          if (Array.isArray(typeStr)) {
-            console.log(typeStr);
-          }
-
-          // continue;
-          // const res: Record<string, PostgresTableSpec> = await this.createTable(pool, typeStr);
-          try {
-            childClass = parsedType.model as Constructor<Model>;
-            const m = new childClass();
-            childPk = findPrimaryKey(m);
-            typeStr = this.parseTypeToPostgres(
-              parsedType.pkType as string,
-              false,
-              true
-            );
-            await this.createTable(client, childClass);
-          } catch (e: unknown) {
-            if (!(e instanceof ConflictError)) throw e;
-          }
-        }
-
-        let tp = Array.isArray(typeData.customTypes)
-          ? typeData.customTypes[0]
-          : typeData.customTypes;
-        tp = typeof tp === "function" && !tp.name ? tp() : tp;
-        const validationStr = this.parseValidationToPostgres(
-          column,
-          tp as any,
-          isPk,
-          ValidationKeys.MAX_LENGTH,
-          (decoratorData[
-            ValidationKeys.MAX_LENGTH
-          ] as MaxLengthValidatorOptions) || {
-            [ValidationKeys.MAX_LENGTH]: 255,
-          }
-        );
-
-        const q = `${column} ${typeStr}${validationStr}`;
-
-        if (isPk) {
-          query.unshift(q);
-        } else {
-          query.push(q);
-        }
-
-        for (const [key, props] of Object.entries(decoratorData).filter(
-          ([k]) =>
-            ![ValidationKeys.TYPE, ValidationKeys.MAX_LENGTH].includes(k as any)
-        )) {
-          const validation = this.parseValidationToPostgres(
-            column,
-            tp as any,
-            isPk,
-            key,
-            props
-          );
-          if (validation.startsWith("CONSTRAINT")) {
-            constraints.push(validation);
-          } else {
-            if (validation) {
-              query.push(validation);
-            }
-          }
-        }
-      }
-
-      // TODO ignore for now. this leaves foreign keys out
-      // eslint-disable-next-line no-constant-binary-expression
-      if (false || (dbDecs && dbDecs.decorators.length)) {
-        if (!typeData) throw new Error(`Missing type information`);
-        for (const decorator of dbDecs.decorators) {
-          const { key, props } = decorator;
-          const validation = this.parseRelationsToPostgres(
-            column,
-            childClass as Constructor<Model>,
-            childPk.id,
-            key as PersistenceKeys,
-            props as unknown as RelationsMetadata
-          );
-          if (validation.startsWith("FOREIGN")) {
-            foreignKeys.push(validation);
-          } else {
-            throw new InternalError(`Unsupported relation: ${key}`);
-          }
-        }
-      }
-
-      result[prop.toString()] = {
-        query: query.join(" "),
-        values: [],
-        primaryKey: isPk,
-        constraints: constraints,
-        foreignKeys: foreignKeys,
-      };
-    }
-
-    const values = Object.values(result);
-    const query = values.map((r) => r.query).join(",\n");
-    const constraints = values
-      .filter((c) => !!c.constraints.length)
-      .map((r) => r.constraints)
-      .join(",\n");
-    const foreignKeys = values
-      .filter((c) => !!c.foreignKeys.length)
-      .map((r) => r.foreignKeys)
-      .join(",\n");
-    const vals = [query, constraints];
-    if (foreignKeys) {
-      vals.push(foreignKeys);
-    }
-    const queryString = `CREATE TABLE ${tableName} (${vals.filter((v) => !!v).join(",\n")})`;
-    try {
-      await client.query(queryString);
-      await client.query(
-        `CREATE TRIGGER notify_changes_${tableName}
-AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
-    FOR EACH ROW
-    EXECUTE FUNCTION notify_table_changes();`
-      );
-    } catch (e: unknown) {
-      throw this.parseError(e as Error);
-    }
-    return result;
-  }
+  //
+  //   static async createTable<M extends Model>(
+  //     client: DataSource,
+  //     model: Constructor<M>
+  //   ): Promise<Record<string, TypeORMTableSpec>> {
+  //     const result: Record<string, TypeORMTableSpec> = {};
+  //     // const m = new model({});
+  //     const tableName = Repository.table(model);
+  //     const id = Model.pk(model, true)
+  //
+  //     let isPk: boolean, column: string;
+  //
+  //     const properties = Metadata.properties(model) || []
+  //     for (const prop of properties) {
+  //       // if (
+  //       //   typeof (this as any)[prop] === "function" ||
+  //       //   prop.toString().startsWith("_") ||
+  //       //   prop === "constructor"
+  //       // ) {
+  //       //   continue;
+  //       // }
+  //
+  //       isPk = prop === id;
+  //       column = Repository.column(model, prop.toString());
+  //
+  //       const allDecs = Metadata.validationFor(model,  prop)
+  //
+  //       const decoratorData = allDecs.decorators.reduce(
+  //         (accum: Record<string, any>, el) => {
+  //           const { key, props } = el;
+  //           if (key === ModelKeys.TYPE && !accum[ValidationKeys.TYPE]) {
+  //             accum[ValidationKeys.TYPE] = {
+  //               customTypes: [props.name as string],
+  //               message: DEFAULT_ERROR_MESSAGES.TYPE,
+  //               description: "defines the accepted types for the attribute",
+  //             };
+  //           } else if (key !== ValidationKeys.TYPE) {
+  //             // do nothing. we can only support basis ctypes at this time
+  //             accum[key] = props;
+  //           }
+  //           return accum;
+  //         },
+  //         {}
+  //       );
+  //
+  //       const dbDecs = Reflection.getPropertyDecorators(
+  //         Repository.key("relations"),
+  //         m,
+  //         prop.toString(),
+  //         true,
+  //         true
+  //       );
+  //
+  //       const query: string[] = [];
+  //       const constraints: string[] = [];
+  //       const foreignKeys: string[] = [];
+  //       let typeData: TypeMetadata | undefined = undefined;
+  //       let childClass: Constructor<Model> | undefined = undefined;
+  //       let childPk: any;
+  //
+  //       if (Object.keys(decoratorData).length) {
+  //         typeData = decoratorData[ValidationKeys.TYPE] as TypeMetadata;
+  //
+  //         if (!typeData) {
+  //           throw new Error(`Missing type information`);
+  //         }
+  //
+  //         let parsedType:
+  //           | string
+  //           | { model: Constructor<Model> | string; pkType?: string } =
+  //           this.parseTypeToPostgres(
+  //             typeof (typeData.customTypes as any[])[0] === "function"
+  //               ? (typeData.customTypes as any)[0]()
+  //               : (typeData.customTypes as any)[0],
+  //             isPk
+  //           );
+  //         if (typeof parsedType === "string") {
+  //           parsedType = { model: parsedType };
+  //         }
+  //         let typeStr:
+  //           | string
+  //           | { model: Constructor<Model> | string; pkType?: string } =
+  //           parsedType.model as
+  //             | string
+  //             | { model: Constructor<Model> | string; pkType?: string };
+  //
+  //         if (typeof typeStr !== "string") {
+  //           if (Array.isArray(typeStr)) {
+  //             console.log(typeStr);
+  //           }
+  //
+  //           // continue;
+  //           // const res: Record<string, PostgresTableSpec> = await this.createTable(pool, typeStr);
+  //           try {
+  //             childClass = parsedType.model as Constructor<Model>;
+  //             const m = new childClass();
+  //             childPk = findPrimaryKey(m);
+  //             typeStr = this.parseTypeToPostgres(
+  //               parsedType.pkType as string,
+  //               false,
+  //               true
+  //             );
+  //             await this.createTable(client, childClass);
+  //           } catch (e: unknown) {
+  //             if (!(e instanceof ConflictError)) throw e;
+  //           }
+  //         }
+  //
+  //         let tp = Array.isArray(typeData.customTypes)
+  //           ? typeData.customTypes[0]
+  //           : typeData.customTypes;
+  //         tp = typeof tp === "function" && !tp.name ? tp() : tp;
+  //         const validationStr = this.parseValidationToPostgres(
+  //           column,
+  //           tp as any,
+  //           isPk,
+  //           ValidationKeys.MAX_LENGTH,
+  //           (decoratorData[
+  //             ValidationKeys.MAX_LENGTH
+  //           ] as MaxLengthValidatorOptions) || {
+  //             [ValidationKeys.MAX_LENGTH]: 255,
+  //           }
+  //         );
+  //
+  //         const q = `${column} ${typeStr}${validationStr}`;
+  //
+  //         if (isPk) {
+  //           query.unshift(q);
+  //         } else {
+  //           query.push(q);
+  //         }
+  //
+  //         for (const [key, props] of Object.entries(decoratorData).filter(
+  //           ([k]) =>
+  //             ![ValidationKeys.TYPE, ValidationKeys.MAX_LENGTH].includes(k as any)
+  //         )) {
+  //           const validation = this.parseValidationToPostgres(
+  //             column,
+  //             tp as any,
+  //             isPk,
+  //             key,
+  //             props
+  //           );
+  //           if (validation.startsWith("CONSTRAINT")) {
+  //             constraints.push(validation);
+  //           } else {
+  //             if (validation) {
+  //               query.push(validation);
+  //             }
+  //           }
+  //         }
+  //       }
+  //
+  //       // TODO ignore for now. this leaves foreign keys out
+  //       // eslint-disable-next-line no-constant-binary-expression
+  //       if (false || (dbDecs && dbDecs.decorators.length)) {
+  //         if (!typeData) throw new Error(`Missing type information`);
+  //         for (const decorator of dbDecs.decorators) {
+  //           const { key, props } = decorator;
+  //           const validation = this.parseRelationsToPostgres(
+  //             column,
+  //             childClass as Constructor<Model>,
+  //             childPk.id,
+  //             key as PersistenceKeys,
+  //             props as unknown as RelationsMetadata
+  //           );
+  //           if (validation.startsWith("FOREIGN")) {
+  //             foreignKeys.push(validation);
+  //           } else {
+  //             throw new InternalError(`Unsupported relation: ${key}`);
+  //           }
+  //         }
+  //       }
+  //
+  //       result[prop.toString()] = {
+  //         query: query.join(" "),
+  //         values: [],
+  //         primaryKey: isPk,
+  //         constraints: constraints,
+  //         foreignKeys: foreignKeys,
+  //       };
+  //     }
+  //
+  //     const values = Object.values(result);
+  //     const query = values.map((r) => r.query).join(",\n");
+  //     const constraints = values
+  //       .filter((c) => !!c.constraints.length)
+  //       .map((r) => r.constraints)
+  //       .join(",\n");
+  //     const foreignKeys = values
+  //       .filter((c) => !!c.foreignKeys.length)
+  //       .map((r) => r.foreignKeys)
+  //       .join(",\n");
+  //     const vals = [query, constraints];
+  //     if (foreignKeys) {
+  //       vals.push(foreignKeys);
+  //     }
+  //     const queryString = `CREATE TABLE ${tableName} (${vals.filter((v) => !!v).join(",\n")})`;
+  //     try {
+  //       await client.query(queryString);
+  //       await client.query(
+  //         `CREATE TRIGGER notify_changes_${tableName}
+  // AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
+  //     FOR EACH ROW
+  //     EXECUTE FUNCTION notify_table_changes();`
+  //       );
+  //     } catch (e: unknown) {
+  //       throw this.parseError(e as Error);
+  //     }
+  //     return result;
+  //   }
 
   static async getCurrentUser(client: DataSource): Promise<string> {
     const queryString = `SELECT CURRENT_USER;`;
@@ -1132,30 +1124,28 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
     super.decoration();
 
     // @table() => @Entity()
-    const tableKey = Adapter.key(PersistenceKeys.TABLE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(tableKey)
-      .extend((original: any) =>
-        Entity()(original[ModelKeys.ANCHOR] || original)
-      )
+      .for(PersistenceKeys.TABLE)
+      .extend((original: any) => {
+        const m = Metadata.constr(original);
+        Entity()(m);
+      })
       .apply();
 
     // @pk() => @PrimaryGeneratedColumn() | @PrimaryColumn()
-    const pkKey = Repository.key(DBKeys.ID);
-
     function pkDec(options: SequenceOptions) {
-      return function pkDec(original: any, prop: any) {
+      return function pkDec(original: any, propertyKey: any) {
+        prop()(original, propertyKey);
         const decorators: any[] = [
           required(),
           readonly(),
-          propMetadata(pkKey, options),
-          assign(`pk.${prop}`, options),
+          propMetadata(Metadata.key(DBKeys.ID, propertyKey), options),
         ];
         let type =
-          options.type || Reflection.getTypeFromDecorator(original, prop);
+          options.type || Metadata.type(original.constructor, propertyKey);
         if (!type)
           throw new InternalError(
-            `Missing type information for property ${prop} of ${original.name}`
+            `Missing type information for property ${propertyKey} of ${original.name}`
           );
         if (options.generated) {
           const name =
@@ -1167,7 +1157,11 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             noValidateOnCreate()
           );
         } else {
-          switch (type.toLowerCase()) {
+          switch (
+            typeof type === "string"
+              ? type.toLowerCase()
+              : type.name.toLowerCase()
+          ) {
             case "number":
               type = "numeric";
               break;
@@ -1187,50 +1181,50 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             })
           );
         }
-        return apply(...decorators)(original, prop);
+        return apply(...decorators)(original, propertyKey);
       };
     }
 
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(pkKey)
+      .for(DBKeys.ID)
       .define({
         decorator: pkDec,
-      })
+      } as any)
       .apply();
-
-    Decoration.flavouredAs(TypeORMFlavour)
-      .for(ModelKeys.ATTRIBUTE)
-      .extend(property())
-      .apply();
+    //
+    // Decoration.flavouredAs(TypeORMFlavour)
+    //   .for(ModelKeys.ATTRIBUTE)
+    //   .extend(property())
+    //   .apply();
 
     // @column("columnName") => @Column({name: "columnName"})
-    const columnKey = Adapter.key(PersistenceKeys.COLUMN);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(columnKey)
+      .for(PersistenceKeys.COLUMN)
       .extend({
         decorator: function columm(name: string) {
           return function column(obj: any, prop: any) {
             const opts: ColumnOptions = {};
             if (name) opts.name = name;
-            const pk = Metadata.get(obj, "pk");
+            let pk: string | undefined;
+            try {
+              pk = Model.pk(obj.constructor);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (e: unknown) {
+              pk = undefined; // hasn't been defined yet. means this isn't it
+            }
             if (pk !== prop) {
               opts.nullable = true;
             }
             return Column(opts)(obj, prop);
           };
         },
-        transform: (args: any[]) => {
-          const columnName = args[1];
-          return [columnName];
-        },
       })
       .apply();
 
     // @unique => @Column({unique: true})
-    const uniqueKey = Adapter.key(PersistenceKeys.UNIQUE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(uniqueKey)
-      .define(propMetadata(uniqueKey, {}))
+      .for(PersistenceKeys.UNIQUE)
+      .define(propMetadata(PersistenceKeys.UNIQUE, {}))
       .extend(Column({ unique: true }))
       .apply();
 
@@ -1242,10 +1236,9 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .apply();
 
     // @version => @VersionColumn()
-    const versionKey = Repository.key(DBKeys.VERSION);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(versionKey)
-      .define(type(Number.name), VersionColumn(), noValidateOnCreate())
+      .for(DBKeys.VERSION)
+      .define(type(Number), VersionColumn(), noValidateOnCreate())
       .apply();
 
     function ValidationUpdateKey(key: string) {
@@ -1280,25 +1273,25 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       .for(timestampKey)
       .define({
         decorator: ts,
-      })
+      } as any)
       .extend({
-        decorator: function timestamp(...ops: OperationKeys[]) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        decorator: function timestamp(ops: OperationKeys[], format: string) {
           return function timestamp(obj: any, prop: any) {
             if (ops.indexOf(OperationKeys.UPDATE) !== -1)
               return UpdateDateColumn()(obj, prop);
             return CreateDateColumn()(obj, prop);
           };
         },
-        transform: (args: any[]) => {
-          return args[0];
-        },
+        // transform: (args: any[]) => {
+        //   return args[0];
+        // },
       })
       .apply();
 
     // @oneToOne(clazz) => @OneToOne(() => clazz)
-    const oneToOneKey = Repository.key(PersistenceKeys.ONE_TO_ONE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(oneToOneKey)
+      .for(PersistenceKeys.ONE_TO_ONE)
       .define({
         decorator: function oneToOne(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1308,7 +1301,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           fk?: string
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name ? clazz.name : (clazz as any),
+            class: clazz,
             cascade: cascade,
             populate: populate,
           };
@@ -1324,27 +1317,25 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             eager: populate,
           };
           return apply(
-            prop(PersistenceKeys.RELATIONS),
-            type([
-              (typeof clazz === "function" && !clazz.name
-                ? clazz
-                : clazz.name) as any,
-              String.name,
-              Number.name,
-              BigInt.name,
-            ]),
-            propMetadata(oneToOneKey, metadata),
+            prop(),
+            relation(PersistenceKeys.ONE_TO_ONE, metadata),
+            type([clazz, String, Number, BigInt]),
+            propMetadata(PersistenceKeys.ONE_TO_ONE, metadata),
             OneToOne(
               () => {
-                if (!clazz.name) clazz = (clazz as any)();
-                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
+                const constr = Metadata.constr(clazz as Constructor<any>);
+                if (constr === clazz)
                   throw new InternalError(
                     "Original Model not found in constructor"
                   );
-                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                return constr;
               },
               (model: any) => {
-                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
+                const pk = Model.pk(clazz as Constructor<any>);
                 return model[pk];
               },
               ormMeta
@@ -1358,13 +1349,12 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             )
           );
         },
-      })
+      } as any)
       .apply();
 
     // @oneToMany(clazz) => @OneToMany(() => clazz)
-    const oneToManyKey = Repository.key(PersistenceKeys.ONE_TO_MANY);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(oneToManyKey)
+      .for(PersistenceKeys.ONE_TO_MANY)
       .define({
         decorator: function oneToMany(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1374,7 +1364,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           fk?: string
         ) {
           const meta: RelationsMetadata = {
-            class: clazz.name ? clazz.name : (clazz as any),
+            class: clazz,
             cascade: cascade,
             populate: populate,
           };
@@ -1382,9 +1372,10 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           if (fk) meta.name = fk;
 
           const decorators = [
-            prop(PersistenceKeys.RELATIONS),
+            prop(),
+            relation(PersistenceKeys.ONE_TO_MANY, meta),
             list(clazz),
-            propMetadata(oneToManyKey, meta),
+            propMetadata(PersistenceKeys.ONE_TO_MANY, meta),
             function OneToManyWrapper(obj: any, prop: any): any {
               const ormMeta: RelationOptions = {
                 cascade:
@@ -1397,32 +1388,40 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
               };
               return OneToMany(
                 () => {
-                  if (!clazz.name) clazz = (clazz as any)();
-                  if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
+                  const constr = Metadata.constr(clazz as Constructor<any>);
+                  if (constr === clazz)
                     throw new InternalError(
                       "Original Model not found in constructor"
                     );
-                  return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                  return constr;
                 },
                 (model: any) => {
-                  if (!clazz.name) clazz = (clazz as any)();
-                  const m = new (clazz as Constructor<any>)();
-                  const crossRelationKey = Object.keys(m).find((k) => {
-                    const decs = Reflection.getPropertyDecorators(
-                      Repository.key(PersistenceKeys.MANY_TO_ONE),
-                      m,
-                      k,
-                      true
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
+                  const relations = Metadata.relations(
+                    clazz as Constructor<any>
+                  );
+                  if (!relations)
+                    throw new InternalError(
+                      `No relations found on model ${clazz.name}`
                     );
-                    if (!decs || !decs.decorators || !decs.decorators.length)
-                      return false;
-                    const dec = decs.decorators[0];
-                    const clazz =
-                      typeof dec.props.class === "function" &&
-                      !dec.props.class.name
-                        ? dec.props.class()
-                        : dec.props.class;
-                    return clazz.name === obj.constructor.name;
+                  const crossRelationKey = relations.find((r) => {
+                    const meta: ExtendedRelationsMetadata = Model.relations(
+                      clazz as any,
+                      r as any
+                    );
+                    if (meta.key !== PersistenceKeys.MANY_TO_ONE) return false;
+                    const c =
+                      typeof meta.class === "function" &&
+                      !(meta.class as any).name
+                        ? (meta.class as any)()
+                        : meta.class;
+                    const ref = Metadata.constr(
+                      obj.constructor as Constructor<any>
+                    );
+                    return c.name === ref.name;
                   });
                   if (!crossRelationKey)
                     throw new InternalError(
@@ -1436,13 +1435,12 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           ];
           return apply(...decorators);
         },
-      })
+      } as any)
       .apply();
 
     // @manyToOne(clazz) => @ManyToOne(() => clazz)
-    const manyToOneKey = Repository.key(PersistenceKeys.MANY_TO_ONE);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(manyToOneKey)
+      .for(PersistenceKeys.MANY_TO_ONE)
       .define({
         decorator: function manyToOne(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1452,7 +1450,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           fk?: string
         ) {
           const metadata: RelationsMetadata = {
-            class: (clazz.name ? clazz.name : clazz) as string,
+            class: clazz,
             cascade: cascade,
             populate: populate,
           };
@@ -1468,54 +1466,48 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             eager: populate,
           };
           return apply(
-            prop(PersistenceKeys.RELATIONS),
-            type([
-              (typeof clazz === "function" && !clazz.name
-                ? clazz
-                : clazz.name) as any,
-              String.name,
-              Number.name,
-              BigInt.name,
-            ]),
-            propMetadata(manyToOneKey, metadata),
+            relation(PersistenceKeys.MANY_TO_ONE, metadata),
+            type([clazz, String, Number, BigInt]),
+            propMetadata(PersistenceKeys.MANY_TO_ONE, metadata),
             function ManyToOneWrapper(obj: any, prop: any): any {
               return ManyToOne(
                 () => {
-                  if (!clazz.name) clazz = (clazz as any)();
-                  if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
+                  const constr = Metadata.constr(clazz as Constructor<any>);
+                  if (constr === clazz)
                     throw new InternalError(
                       "Original Model not found in constructor"
                     );
-                  return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                  return constr;
                 },
                 (model: any) => {
-                  if (!clazz.name) clazz = (clazz as any)();
-                  const m = new (clazz as Constructor<any>)();
-                  let crossRelationKey = Object.keys(m).find((k) => {
-                    const decs = Reflection.getPropertyDecorators(
-                      Repository.key(PersistenceKeys.ONE_TO_MANY),
-                      m,
-                      k,
-                      true
-                    );
-                    if (!decs || !decs.decorators || !decs.decorators.length)
-                      return false;
-                    const listDec = Reflect.getMetadata(
-                      Validation.key(ValidationKeys.LIST),
-                      m,
-                      k
-                    );
-                    if (!listDec)
-                      throw new InternalError(
-                        `No Type Definition found for ${k} in ${m.constructor.name}`
+                  if (typeof clazz === "function" && !(clazz as any).name)
+                    clazz = (clazz as any)();
+                  const relations = Metadata.relations(clazz as Constructor);
+
+                  let crossRelationKey = Model.pk(clazz);
+
+                  if (!relations) return model[crossRelationKey];
+
+                  crossRelationKey =
+                    relations.find((r) => {
+                      const meta: ExtendedRelationsMetadata = Model.relations(
+                        clazz as any,
+                        r as any
                       );
-                    const name = listDec.clazz[0]().name;
-                    return name === obj.constructor.name;
-                  });
-                  if (!crossRelationKey)
-                    crossRelationKey = findPrimaryKey(
-                      new (clazz as Constructor<any>)()
-                    ).id as string;
+                      if (meta.key !== PersistenceKeys.ONE_TO_MANY)
+                        return false;
+                      const c =
+                        typeof meta.class === "function" &&
+                        !(meta.class as any).name
+                          ? (meta.class as any)()
+                          : meta.class;
+                      const ref = Metadata.constr(
+                        obj.constructor as Constructor<any>
+                      );
+                      return c.name === ref.name;
+                    }) || crossRelationKey;
                   return model[crossRelationKey];
                 },
                 ormMeta
@@ -1523,13 +1515,12 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             }
           );
         },
-      })
+      } as any)
       .apply();
 
     // @manyToMany(clazz) => @ManyToMany(() => clazz)
-    const manyToManyKey = Repository.key(PersistenceKeys.MANY_TO_MANY);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(manyToManyKey)
+      .for(PersistenceKeys.MANY_TO_MANY)
       .define({
         decorator: function manyToMany(
           clazz: Constructor<any> | (() => Constructor<any>),
@@ -1539,7 +1530,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
           fk?: string
         ) {
           const metadata: RelationsMetadata = {
-            class: clazz.name ? clazz.name : (clazz as any),
+            class: clazz,
             cascade: cascade,
             populate: populate,
           };
@@ -1555,21 +1546,24 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             eager: populate,
           };
           return apply(
-            prop(PersistenceKeys.RELATIONS),
+            relation(PersistenceKeys.MANY_TO_MANY, metadata),
             list(clazz),
-            propMetadata(manyToManyKey, metadata),
+            propMetadata(PersistenceKeys.MANY_TO_MANY, metadata),
             ManyToMany(
               () => {
-                if (!clazz.name) clazz = (clazz as any)();
-                if (!clazz[ModelKeys.ANCHOR as keyof typeof clazz])
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
+                const constr = Metadata.constr(clazz as Constructor<any>);
+                if (constr === clazz)
                   throw new InternalError(
                     "Original Model not found in constructor"
                   );
-                return clazz[ModelKeys.ANCHOR as keyof typeof clazz];
+                return constr;
               },
               (model: any) => {
-                if (!clazz.name) clazz = (clazz as any)();
-                const pk = findPrimaryKey(new (clazz as Constructor<any>)()).id;
+                if (typeof clazz === "function" && !(clazz as any).name)
+                  clazz = (clazz as any)();
+                const pk = Model.pk(clazz);
                 return model[pk];
               },
               ormMeta
@@ -1577,7 +1571,7 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
             JoinTable(joinTableOpts as any)
           );
         },
-      })
+      } as any)
       .apply();
 
     // @index() => @Index()
@@ -1622,24 +1616,22 @@ AFTER INSERT OR UPDATE OR DELETE ON ${tableName}
       })
       .apply();
 
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(createdByKey)
+      .for(PersistenceKeys.CREATED_BY)
       .define(
         onCreate(createdByOnTypeORMCreateUpdate, {}),
         required(),
-        propMetadata(createdByKey, {}),
+        propMetadata(PersistenceKeys.CREATED_BY, {}),
         noValidateOnCreate()
       )
       .apply();
 
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(updatedByKey)
+      .for(PersistenceKeys.UPDATED_BY)
       .define(
         onCreateUpdate(createdByOnTypeORMCreateUpdate, {}),
         required(),
-        propMetadata(updatedByKey, {}),
+        propMetadata(PersistenceKeys.UPDATED_BY, {}),
         noValidateOnCreateUpdate()
       )
       .apply();

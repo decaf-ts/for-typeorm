@@ -1,9 +1,9 @@
 import { Paginator, PagingError } from "@decaf-ts/core";
 import { TypeORMQuery } from "../types";
-import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { TypeORMAdapter } from "../TypeORMAdapter";
 import { FindManyOptions, Repository as Repo } from "typeorm";
-import { findPrimaryKey } from "@decaf-ts/db-decorators";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Paginator for TypeORM query results.
@@ -49,7 +49,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
   protected get repo() {
     if (!this.__repo) {
       this.__repo = (this.adapter as TypeORMAdapter).client.getRepository(
-        this.clazz[ModelKeys.ANCHOR as keyof typeof this.clazz]
+        Metadata.constr(this.clazz)
       );
     }
     return this.__repo;
@@ -138,7 +138,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
 
     if (!this.clazz) throw new PagingError("No statement target defined");
 
-    const pkDef = findPrimaryKey(new this.clazz());
+    const pkDef = Model.pk(this.clazz);
     const rows = result[0] || [];
 
     const results =

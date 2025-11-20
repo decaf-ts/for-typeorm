@@ -7,16 +7,17 @@ import {
   Repository,
   Statement,
 } from "@decaf-ts/core";
-import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
 import { TypeORMQueryLimit } from "./constants";
 import { TypeORMPaginator } from "./Paginator";
-import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
 import { TypeORMAdapter } from "../TypeORMAdapter";
 import { FindManyOptions, SelectQueryBuilder } from "typeorm";
 import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
 import { splitEagerRelations } from "../utils";
+import { Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Statement builder for TypeORM-backed queries.
@@ -93,13 +94,10 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   protected build(): TypeORMQuery<M> {
     const log = this.log.for(this.build);
     const tableName = Repository.table(this.fromSelector);
-    const m = new this.fromSelector();
 
     const q: TypeORMQuery<M, SelectQueryBuilder<M>> = {
       query: this.adapter.client
-        .getRepository(
-          this.fromSelector[ModelKeys.ANCHOR as keyof typeof this.fromSelector]
-        )
+        .getRepository(Metadata.constr(this.fromSelector))
         .createQueryBuilder(tableName) as SelectQueryBuilder<M>,
     };
 
@@ -119,7 +117,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     let orderByArgs: [string, "DESC" | "ASC"];
     if (!this.orderBySelector)
       orderByArgs = [
-        `${tableName}.${findPrimaryKey(m).id as string}`,
+        `${tableName}.${Model.pk(this.fromSelector)}`,
         OrderDirection.ASC.toUpperCase() as "ASC",
       ];
     else

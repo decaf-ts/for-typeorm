@@ -20,7 +20,7 @@ const config: DataSourceOptions = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adapter = new TypeORMAdapter(config);
 
-import { Model, ModelArg, prop } from "@decaf-ts/decorator-validation";
+import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 import {
   Column,
   Entity,
@@ -30,6 +30,7 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
+import { prop } from "@decaf-ts/decoration";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { BaseModel } from "./models/vanilla/BaseModel";

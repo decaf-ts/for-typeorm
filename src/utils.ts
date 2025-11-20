@@ -1,7 +1,8 @@
-import { PersistenceKeys, Repository } from "@decaf-ts/core";
-import { Reflection } from "@decaf-ts/reflection";
+import { ExtendedRelationsMetadata, Repository } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { Model } from "@decaf-ts/decorator-validation";
+import { isClass } from "@decaf-ts/logging";
 
 /**
  * @description Converts a JavaScript RegExp pattern to a PostgreSQL POSIX pattern string.
@@ -38,14 +39,6 @@ export function splitEagerRelations<M extends Model>(
   m: Constructor<M>,
   cache: Record<string, any> = {}
 ): { nonEager: string[]; relations: string[] } {
-  let instance: M;
-  try {
-    instance = new m();
-  } catch (e: unknown) {
-    throw new InternalError(
-      `Could not instantiate model ${m.name} for eager relation calculation: ${e}`
-    );
-  }
   const rels = Repository.relations(m);
   cache[m.name] = cache[m.name] || undefined;
   if (cache[m.name]) {
@@ -53,29 +46,14 @@ export function splitEagerRelations<M extends Model>(
   }
   const relations = rels.reduce(
     (accum: { relations: string[]; nonEager: string[] }, attr) => {
-      const decorators = Reflection.getPropertyDecorators(
-        Repository.key(PersistenceKeys.RELATION),
-        instance,
-        attr,
-        true
+      const decorator: ExtendedRelationsMetadata = Metadata.relations(
+        m,
+        attr as any
       );
-      if (
-        !decorators ||
-        !decorators.decorators ||
-        !decorators.decorators.length
-      )
-        throw new InternalError(
-          `No decorators found for property ${attr} on model ${m.name}`
-        );
-      if (decorators.decorators.length > 1)
-        throw new InternalError(
-          `Multiple decorators found for property ${attr} on model ${m.name}`
-        );
-      const decorator: any = decorators.decorators[0];
-      const eager = decorator.props.populate;
-      let clazz = decorator.props.class;
-      if (typeof clazz === "string") clazz = Model.get(clazz) as Constructor<M>;
-      if (typeof clazz === "function" && !clazz.name) clazz = clazz();
+
+      const eager = decorator.populate;
+      let clazz = decorator.class;
+      if (!isClass(clazz)) clazz = clazz();
       if (!clazz)
         throw new InternalError(
           `Could not find class for property ${attr} on model ${m.name}`

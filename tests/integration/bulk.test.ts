@@ -20,14 +20,8 @@ let con: DataSource;
 
 let adapter: TypeORMAdapter;
 
-import {
-  column,
-  Observer,
-  PersistenceKeys,
-  pk,
-  table,
-  uses,
-} from "@decaf-ts/core";
+import { column, Observer, PersistenceKeys, pk, table } from "@decaf-ts/core";
+import { uses } from "@decaf-ts/decoration";
 import {
   minlength,
   model,
