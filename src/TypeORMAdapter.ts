@@ -17,6 +17,7 @@ import {
   sequenceNameForModel,
   type SequenceOptions,
   ExtendedRelationsMetadata,
+  DefaultSequenceOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -1141,6 +1142,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           readonly(),
           propMetadata(Metadata.key(DBKeys.ID, propertyKey), options),
         ];
+        options = Object.assign({}, DefaultSequenceOptions, options, {
+          generated:
+            options.type && typeof options.generated === "undefined"
+              ? true
+              : options.generated || DefaultSequenceOptions.generated,
+        }) as SequenceOptions;
+
         let type =
           options.type || Metadata.type(original.constructor, propertyKey);
         if (!type)
@@ -1157,18 +1165,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             noValidateOnCreate()
           );
         } else {
-          switch (
-            typeof type === "string"
-              ? type.toLowerCase()
-              : type.name.toLowerCase()
-          ) {
-            case "number":
+          switch (type) {
+            case Number.name || Number.name.toLowerCase():
               type = "numeric";
               break;
-            case "string":
+            case "serial":
+            case "uuid":
+              break;
+            case String.name || String.name.toLowerCase():
               type = "varchar";
               break;
-            case "bigint":
+            case BigInt.name || BigInt.name.toLowerCase():
               type = "bigint";
               break;
             default:
