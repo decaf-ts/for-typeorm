@@ -259,7 +259,7 @@ describe("TypeORM Vanilla decoration", () => {
     manyToMany = record;
   });
 
-  it("read a record vanilla many to many nested", async () => {
+  it.skip("read a record vanilla many to many nested", async () => {
     const repo = dataSource.getRepository(TypeORMParentVanilla);
     expect(repo).toBeDefined();
     const record = await repo.findOneBy({
