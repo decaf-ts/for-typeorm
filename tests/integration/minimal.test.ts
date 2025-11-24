@@ -32,7 +32,7 @@ import {
   table,
   updatedAt,
 } from "@decaf-ts/core";
-import { uses } from "@decaf-ts/decoration";
+import { uses, Metadata } from "@decaf-ts/decoration";
 import {
   ConflictError,
   Context,
@@ -167,7 +167,7 @@ describe("minimal", () => {
 
     expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      TestModelRepo,
+      Metadata.constr(TestModelRepo),
       OperationKeys.CREATE,
       [1],
       expect.any(Context)

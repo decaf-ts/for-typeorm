@@ -4,6 +4,7 @@ import {
   Context,
   ContextOfRepository,
   enforceDBDecorators,
+  InternalError,
   IRepository,
   OperationKeys,
   PrimaryKeyType,
@@ -155,17 +156,18 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   }
 
   /**
-   * @description Prepares multiple models for creation.
-   * @summary Validates multiple models and prepares them for creation in the database.
-   * @param {M[]} models - The models to create.
+   * @description Prepares a model for creation.
+   * @summary Validates the model and prepares it for creation in the database.
+   * @template M - The model type.
+   * @param {M} model - The model to create.
    * @param {...any[]} args - Additional arguments.
-   * @return The prepared models and context arguments.
-   * @throws {ValidationError} If any model fails validation.
+   * @return The prepared model and context arguments.
+   * @throws {ValidationError} If the model fails validation.
    */
-  protected override async createAllPrefix(
-    models: M[],
+  protected override async createPrefix(
+    model: M,
     ...args: MaybeContextualArg<TypeORMContext>
-  ): Promise<[M[], ...any[], TypeORMContext]> {
+  ): Promise<[M, ...any[], TypeORMContext]> {
     const contextArgs = await Context.args<M, TypeORMContext>(
       OperationKeys.CREATE,
       this.class,
@@ -176,36 +178,26 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     const shouldRunHandlers =
       contextArgs.context.get("ignoreHandlers") !== false;
     const shouldValidate = !contextArgs.context.get("ignoreValidation");
-    if (!models.length) return [models, ...contextArgs.args];
-
-    models = await Promise.all(
-      models.map(async (m) => {
-        m = new this.class(m);
-        if (shouldRunHandlers)
-          await enforceDBDecorators<M, TypeORMRepository<M>, any>(
-            this,
-            contextArgs.context,
-            m,
-            OperationKeys.CREATE,
-            OperationKeys.ON
-          );
-        return m;
-      })
-    );
-
-    if (shouldValidate) {
-      const ignoredProps =
-        contextArgs.context.get("ignoredValidationProperties") || [];
-
-      const errors = await Promise.all(
-        models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+    model = new this.class(model);
+    if (shouldRunHandlers)
+      await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+        this,
+        contextArgs.context,
+        model,
+        OperationKeys.CREATE,
+        OperationKeys.ON
       );
 
-      const errorMessages = reduceErrorsToPrint(errors);
-
-      if (errorMessages) throw new ValidationError(errorMessages);
+    if (shouldValidate) {
+      const errors = await Promise.resolve(
+        model.hasErrors(
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      );
+      if (errors) throw new ValidationError(errors.toString());
     }
-    return [models, ...contextArgs.args];
+
+    return [model, ...contextArgs.args];
   }
 
   /**
@@ -259,6 +251,59 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   }
 
   /**
+   * @description Prepares a model for update.
+   * @summary Validates the model and prepares it for update in the database.
+   * @param {M} model - The model to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return The prepared model and context arguments.
+   * @throws {InternalError} If the model has no primary key value.
+   * @throws {ValidationError} If the model fails validation.
+   */
+  protected override async updatePrefix(
+    model: M,
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M, ...args: any[], TypeORMContext]> {
+    const contextArgs = await Context.args(
+      OperationKeys.UPDATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const pk = model[this.pk] as string;
+    if (!pk)
+      throw new InternalError(
+        `No value for the Id is defined under the property ${this.pk as string}`
+      );
+    const oldModel = await this.read(pk, ...contextArgs.args);
+    model = Model.merge(oldModel, model, this.class);
+    if (shouldRunHandlers)
+      await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+        this,
+        contextArgs.context,
+        model,
+        OperationKeys.UPDATE,
+        OperationKeys.ON,
+        oldModel
+      );
+
+    if (shouldValidate) {
+      const errors = await Promise.resolve(
+        model.hasErrors(
+          oldModel,
+          ...Model.relations(this.class),
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      );
+      if (errors) throw new ValidationError(errors.toString());
+    }
+    return [model, ...contextArgs.args];
+  }
+
+  /**
    * @description Updates and persists a model instance.
    * @summary Prepares the model, delegates update to the adapter, and rehydrates the persisted state back into a Model instance.
    * @param {M} model The model to update.
@@ -306,6 +351,60 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       ...ctxArgs
     );
     return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
+  }
+
+  /**
+   * @description Prepares multiple models for creation.
+   * @summary Validates multiple models and prepares them for creation in the database.
+   * @param {M[]} models - The models to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return The prepared models and context arguments.
+   * @throws {ValidationError} If any model fails validation.
+   */
+  protected override async createAllPrefix(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M[], ...any[], TypeORMContext]> {
+    const contextArgs = await Context.args<M, TypeORMContext>(
+      OperationKeys.CREATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    if (!models.length) return [models, ...contextArgs.args];
+
+    models = await Promise.all(
+      models.map(async (m) => {
+        m = new this.class(m);
+        if (shouldRunHandlers)
+          await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.CREATE,
+            OperationKeys.ON
+          );
+        return m;
+      })
+    );
+
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
+
+      const errors = await Promise.all(
+        models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+      );
+
+      const errorMessages = reduceErrorsToPrint(errors);
+
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
+    return [models, ...contextArgs.args];
   }
 
   /**
@@ -369,6 +468,70 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     return records.map((r, i) =>
       this.adapter.revert(r, this.class, keys[i], undefined, ctx)
     );
+  }
+
+  /**
+   * @description Prepares multiple models for update.
+   * @summary Validates multiple models and prepares them for update in the database.
+   * @param {M[]} models - The models to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<any[]>} The prepared models and context arguments.
+   * @throws {InternalError} If any model has no primary key value.
+   * @throws {ValidationError} If any model fails validation.
+   */
+  protected override async updateAllPrefix(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M[], ...args: any[], TypeORMContext]> {
+    const contextArgs = await Context.args<M, TypeORMContext>(
+      OperationKeys.UPDATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ids = models.map((m) => {
+      const id = m[this.pk] as string;
+      if (!id) throw new InternalError("missing id on update operation");
+      return id;
+    });
+    const oldModels = await this.readAll(ids, ...contextArgs.args);
+    models = models.map((m, i) => {
+      m = Model.merge(oldModels[i], m, this.class);
+      return m;
+    });
+    if (shouldRunHandlers)
+      await Promise.all(
+        models.map((m, i) =>
+          enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.UPDATE,
+            OperationKeys.ON,
+            oldModels[i]
+          )
+        )
+      );
+
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
+
+      const errors = await Promise.all(
+        models.map((m, i) =>
+          Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
+        )
+      );
+
+      const errorMessages = reduceErrorsToPrint(errors);
+
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
+    return [models, ...contextArgs.args];
   }
 
   /**
