@@ -6,7 +6,7 @@ import {
   UpdateEvent,
 } from "typeorm";
 import { Adapter, ContextualArgs, EventIds } from "@decaf-ts/core";
-import { OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
 import { TypeORMContext } from "./TypeORMAdapter";
 
@@ -48,7 +48,10 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
       ids: EventIds,
       ...args: ContextualArgs<TypeORMContext>
     ) => void
-  ) {}
+  ) {
+    if (!this.adapter)
+      throw new InternalError(`Missing adapter. Should not be possible`);
+  }
 
   /**
    * @description Handles post-insert events.
