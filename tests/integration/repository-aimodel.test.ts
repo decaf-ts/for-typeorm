@@ -126,7 +126,7 @@ describe("AIFeature", () => {
     expect(created.hasErrors()).toBeUndefined();
     // await new Promise((resolve) => setTimeout(resolve, 10000));
     // expect(mock).toHaveBeenCalledWith(
-    //   Repository.table(AIFeature),
+    //   Model.tableName(AIFeature),
     //   OperationKeys.CREATE,
     //   [created.id]
     // );

@@ -1,7 +1,7 @@
-import { Paginator, PagingError } from "@decaf-ts/core";
+import { MaybeContextualArg, Paginator, PagingError } from "@decaf-ts/core";
 import { TypeORMQuery } from "../types";
 import { Model } from "@decaf-ts/decorator-validation";
-import { TypeORMAdapter } from "../TypeORMAdapter";
+import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
 import { FindManyOptions, Repository as Repo } from "typeorm";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 
@@ -116,7 +116,11 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
    *   Paginator-->>Client: results
    */
 
-  async page(page: number = 1): Promise<R[]> {
+  async page(
+    page: number = 1,
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<R[]> {
+    const { ctx } = this.adapter["logCtx"](args, this.page);
     const statement = { ...this.statement };
 
     // Get total count if not already calculated
@@ -138,14 +142,14 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
 
     if (!this.clazz) throw new PagingError("No statement target defined");
 
-    const pkDef = Model.pk(this.clazz);
+    const pkDef = Model.pk(this.clazz) as string;
     const rows = result[0] || [];
 
     const results =
       // statement.columns && statement.columns.length
       //   ? rows // has columns means it's not full model
       rows.map((row: any) => {
-        return this.adapter.revert(row, this.clazz, pkDef.id, row[pkDef.id]);
+        return this.adapter.revert(row, this.clazz, row[pkDef], undefined, ctx);
       });
 
     this._currentPage = page;

@@ -73,8 +73,8 @@ export function testUser(user: TestUserModel) {
   expect(user).toBeDefined();
   expect(user).toBeInstanceOf(TestUserModel);
   expect(user.id).toBeDefined();
-  expect(user.createdOn).toBeDefined();
-  expect(user.updatedOn).toBeDefined();
+  expect(user.createdAt).toBeDefined();
+  expect(user.updatedAt).toBeDefined();
 
   const { address, phones } = user as TestUserModel;
 

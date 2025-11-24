@@ -1,4 +1,4 @@
-import { ExtendedRelationsMetadata, Repository } from "@decaf-ts/core";
+import { ExtendedRelationsMetadata } from "@decaf-ts/core";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -39,7 +39,7 @@ export function splitEagerRelations<M extends Model>(
   m: Constructor<M>,
   cache: Record<string, any> = {}
 ): { nonEager: string[]; relations: string[] } {
-  const rels = Repository.relations(m);
+  const rels = Model.relations(m);
   cache[m.name] = cache[m.name] || undefined;
   if (cache[m.name]) {
     return cache[m.name];

@@ -158,8 +158,8 @@ describe("Adapter Integration", () => {
     const tm = new TestModel({
       name: "test_name",
       nif: "123456789",
-      createdOn: new Date(),
-      updatedOn: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const indexes: number[] = [];
@@ -181,7 +181,7 @@ describe("Adapter Integration", () => {
       .filter((k, i) => indexes.includes(i))
       .map((k) => Repository.column(tm, k));
     const response = await adapter.raw({
-      query: `INSERT INTO ${Repository.table(TestModel)} (${keys.join(", ")}) VALUES (${values.map((v, i) => `$${i + 1}`)}) RETURNING *;`,
+      query: `INSERT INTO ${Model.tableName(TestModel)} (${keys.join(", ")}) VALUES (${values.map((v, i) => `$${i + 1}`)}) RETURNING *;`,
       values: values,
     });
     expect(response).toBeDefined();
@@ -221,7 +221,7 @@ $$ LANGUAGE plpgsql;`
     expect(created.hasErrors()).toBeUndefined();
     // await new Promise((resolve) => setTimeout(resolve, 10000));
     // expect(mock).toHaveBeenCalledWith(
-    //   Repository.table(TestModel),
+    //   Model.tableName(TestModel),
     //   OperationKeys.CREATE,
     //   [model.id]
     // );
@@ -246,7 +246,7 @@ $$ LANGUAGE plpgsql;`
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name", "version")).toEqual(
+    expect(updated.equals(created, "updatedAt", "name", "version")).toEqual(
       true
     ); // minus the expected changes
   });

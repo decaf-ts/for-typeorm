@@ -5,11 +5,11 @@ import { version } from "@decaf-ts/db-decorators";
 export class TypeORMBaseModel extends Model {
   @column("created_on")
   @createdAt()
-  createdOn!: Date;
+  createdAt!: Date;
 
   @column("updated_on")
   @updatedAt()
-  updatedOn!: Date;
+  updatedAt!: Date;
 
   // @column("created_by")
   // @createdBy()

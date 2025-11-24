@@ -62,11 +62,11 @@ class TestModelRepo extends Model {
   //
   @column("created_on")
   @createdAt()
-  createdOn!: Date;
+  createdAt!: Date;
 
   @column("updated_on")
   @updatedAt()
-  updatedOn!: Date;
+  updatedAt!: Date;
 
   constructor(arg?: ModelArg<TestModelRepo>) {
     super(arg);
@@ -166,7 +166,7 @@ describe("minimal", () => {
 
     expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModelRepo),
+      Model.tableName(TestModelRepo),
       OperationKeys.CREATE,
       [1]
     );

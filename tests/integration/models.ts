@@ -167,15 +167,15 @@ export function testCountry(country: TestCountryModel) {
   expect(country).toBeDefined();
   expect(country).toBeInstanceOf(TestCountryModel);
   expect(country.id).toBeDefined();
-  expect(country.createdOn).toBeDefined();
-  expect(country.updatedOn).toBeDefined();
+  expect(country.createdAt).toBeDefined();
+  expect(country.updatedAt).toBeDefined();
 }
 
 export function testAddress(address: TestAddressModel) {
   expect(address).toBeDefined();
   expect(address).toBeInstanceOf(TestAddressModel);
   expect(address.id).toBeDefined();
-  expect(address.createdOn).toBeDefined();
-  expect(address.updatedOn).toBeDefined();
+  expect(address.createdAt).toBeDefined();
+  expect(address.updatedAt).toBeDefined();
   testCountry(address.country as TestCountryModel);
 }

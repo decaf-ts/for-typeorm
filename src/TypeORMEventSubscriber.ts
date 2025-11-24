@@ -5,9 +5,10 @@ import {
   RemoveEvent,
   UpdateEvent,
 } from "typeorm";
-import { EventIds, Repository } from "@decaf-ts/core";
-import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Adapter, ContextualArgs, EventIds } from "@decaf-ts/core";
+import { OperationKeys } from "@decaf-ts/db-decorators";
+import { Constructor } from "@decaf-ts/decoration";
+import { TypeORMContext } from "./TypeORMAdapter";
 
 /**
  * @description TypeORM event subscriber that forwards entity lifecycle events to the adapter.
@@ -40,10 +41,12 @@ import { Model } from "@decaf-ts/decorator-validation";
 @EventSubscriber()
 export class TypeORMEventSubscriber implements EntitySubscriberInterface {
   constructor(
+    protected adapter: Adapter<any, any, any, TypeORMContext>,
     protected readonly handler: (
-      tableName: string,
+      tableName: string | Constructor,
       operation: OperationKeys,
-      ids: EventIds
+      ids: EventIds,
+      ...args: ContextualArgs<TypeORMContext>
     ) => void
   ) {}
 
@@ -53,15 +56,19 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
    * @param {InsertEvent<any>} event The TypeORM insert event.
    * @return {Promise<any>|void} A promise when async or void otherwise.
    */
-  afterInsert(event: InsertEvent<any>): Promise<any> | void {
-    const constructor = Model.get(event.entity.constructor.name);
-    if (!constructor)
-      throw new InternalError(
-        `No registered model found for ${event.entity.constructor.name}`
-      );
-    const tableName = Repository.table(constructor);
-
-    this.handler(tableName, OperationKeys.CREATE, [event.entityId as any]);
+  async afterInsert(event: InsertEvent<any>): Promise<any> {
+    const constructor = event.entity.constructor;
+    const ctx = await this.adapter.context(
+      OperationKeys.CREATE,
+      {},
+      constructor
+    );
+    this.handler(
+      constructor,
+      OperationKeys.CREATE,
+      [event.entityId as any],
+      ctx
+    );
   }
 
   /**
@@ -70,15 +77,19 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
    * @param {RemoveEvent<any>} event The TypeORM remove event.
    * @return {Promise<any>|void} A promise when async or void otherwise.
    */
-  afterRemove(event: RemoveEvent<any>): Promise<any> | void {
-    const constructor = Model.get(event.entity.constructor.name);
-    if (!constructor)
-      throw new InternalError(
-        `No registered model found for ${event.entity.constructor.name}`
-      );
-    const tableName = Repository.table(constructor);
-
-    this.handler(tableName, OperationKeys.DELETE, [event.entityId as any]);
+  async afterRemove(event: RemoveEvent<any>): Promise<any> {
+    const constructor = event.entity.constructor;
+    const ctx = await this.adapter.context(
+      OperationKeys.CREATE,
+      {},
+      constructor
+    );
+    this.handler(
+      constructor,
+      OperationKeys.DELETE,
+      [event.entityId as any],
+      ctx
+    );
   }
 
   /**
@@ -87,16 +98,18 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
    * @param {UpdateEvent<any>} event The TypeORM update event.
    * @return {Promise<any>|void} A promise when async or void otherwise.
    */
-  afterUpdate(event: UpdateEvent<any>): Promise<any> | void {
-    const constructor = Model.get(event.databaseEntity.constructor.name);
-    if (!constructor)
-      throw new InternalError(
-        `No registered model found for ${event.databaseEntity.constructor.name}`
-      );
-    const tableName = Repository.table(constructor);
-
-    return this.handler(tableName, OperationKeys.UPDATE, [
-      (event.entity as any)["id"] as any,
-    ]);
+  async afterUpdate(event: UpdateEvent<any>): Promise<any> {
+    const constructor = event.databaseEntity.constructor;
+    const ctx = await this.adapter.context(
+      OperationKeys.CREATE,
+      {},
+      constructor
+    );
+    return this.handler(
+      constructor,
+      OperationKeys.UPDATE,
+      [(event.entity as any)["id"] as any],
+      ctx
+    );
   }
 }

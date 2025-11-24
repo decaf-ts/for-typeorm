@@ -1,10 +1,11 @@
 import {
+  Adapter,
   Condition,
+  ContextualArgs,
   GroupOperator,
   Operator,
   OrderDirection,
   Paginator,
-  Repository,
   Statement,
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -13,7 +14,7 @@ import { TypeORMQueryLimit } from "./constants";
 import { TypeORMPaginator } from "./Paginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
-import { TypeORMAdapter } from "../TypeORMAdapter";
+import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
 import { FindManyOptions, SelectQueryBuilder } from "typeorm";
 import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
 import { splitEagerRelations } from "../utils";
@@ -37,9 +38,10 @@ import { Metadata } from "@decaf-ts/decoration";
  *   .execute();
  */
 export class TypeORMStatement<M extends Model, R> extends Statement<
-  TypeORMQuery<M>,
   M,
-  R
+  Adapter<any, any, any>,
+  R,
+  TypeORMQuery<M>
 > {
   protected override adapter!: TypeORMAdapter;
 
@@ -93,7 +95,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    */
   protected build(): TypeORMQuery<M> {
     const log = this.log.for(this.build);
-    const tableName = Repository.table(this.fromSelector);
+    const tableName = Model.tableName(this.fromSelector);
 
     const q: TypeORMQuery<M, SelectQueryBuilder<M>> = {
       query: this.adapter.client
@@ -117,7 +119,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     let orderByArgs: [string, "DESC" | "ASC"];
     if (!this.orderBySelector)
       orderByArgs = [
-        `${tableName}.${Model.pk(this.fromSelector)}`,
+        `${tableName}.${Model.pk(this.fromSelector) as string}`,
         OrderDirection.ASC.toUpperCase() as "ASC",
       ];
     else
@@ -157,7 +159,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       if (this.whereCondition)
         transformedQuery.where = this.parseConditionForPagination(
           this.whereCondition,
-          Repository.table(this.fromSelector)
+          Model.tableName(this.fromSelector)
         );
 
       if (this.orderBySelector)
@@ -175,20 +177,20 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       throw new InternalError(e);
     }
   }
-
-  /**
-   * @description Processes a record.
-   * @summary Converts a raw result row to a model instance using the adapter.
-   * @param {any} r The raw record.
-   * @param {string} pkAttr The primary key attribute of the model.
-   * @return {any} The processed record.
-   */
-  private processRecord(r: any, pkAttr: keyof M) {
-    if (typeof r[pkAttr] !== "undefined") {
-      return this.adapter.revert(r, this.fromSelector, pkAttr, r[pkAttr]);
-    }
-    return r;
-  }
+  //
+  // /**
+  //  * @description Processes a record.
+  //  * @summary Converts a raw result row to a model instance using the adapter.
+  //  * @param {any} r The raw record.
+  //  * @param {string} pkAttr The primary key attribute of the model.
+  //  * @return {any} The processed record.
+  //  */
+  // private processRecord(r: any, pkAttr: keyof M) {
+  //   if (typeof r[pkAttr] !== "undefined") {
+  //     return this.adapter.revert(r, this.fromSelector, pkAttr, r[pkAttr]);
+  //   }
+  //   return r;
+  // }
 
   /**
    * @description Executes a raw TypeORM query builder.
@@ -197,12 +199,11 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @param {TypeORMQuery} rawInput The query container to execute.
    * @return {Promise<R>} A promise that resolves to the query results.
    */
-  override async raw<R>(rawInput: TypeORMQuery<M>): Promise<R> {
-    const log = this.log.for(this.raw);
-    log.debug(
-      `Executing raw query: ${(rawInput.query as unknown as SelectQueryBuilder<M>).getSql()}`
-    );
-
+  override async raw<R>(
+    rawInput: TypeORMQuery<M>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: ContextualArgs<TypeORMContext>
+  ): Promise<R> {
     const { nonEager } = splitEagerRelations(this.fromSelector);
     // for (const relation of relations) {
     rawInput.query = (

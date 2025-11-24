@@ -178,7 +178,7 @@ describe("nested model creation", () => {
     expect(created.hasErrors()).toBeUndefined();
     // await new Promise((resolve) => setTimeout(resolve, 10000));
     // expect(mock).toHaveBeenCalledWith(
-    //   Repository.table(TestModel),
+    //   Model.tableName(TestModel),
     //   OperationKeys.CREATE,
     //   [model.id]
     // );

@@ -31,8 +31,10 @@ import {
   table,
 } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
+import { Metadata } from "@decaf-ts/decoration";
 import {
   ConflictError,
+  Context,
   NotFoundError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
@@ -199,9 +201,10 @@ describe("repositories", () => {
 
     expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModelRepo),
+      Metadata.constr(TestModelRepo),
       OperationKeys.CREATE,
-      [1]
+      [1],
+      expect.any(Context)
     );
   });
 });

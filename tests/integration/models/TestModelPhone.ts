@@ -39,6 +39,6 @@ export class TestPhoneModel extends TypeORMBaseModel {
 export function testPhone(p: TestPhoneModel) {
   expect(p).toBeInstanceOf(TestPhoneModel);
   expect(p.id).toBeDefined();
-  expect(p.createdOn).toBeDefined();
-  expect(p.updatedOn).toBeDefined();
+  expect(p.createdAt).toBeDefined();
+  expect(p.updatedAt).toBeDefined();
 }

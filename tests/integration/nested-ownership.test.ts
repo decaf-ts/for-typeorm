@@ -235,7 +235,7 @@ describe("Adapter with nested ownership", () => {
     expect(created.hasErrors()).toBeUndefined();
     // await new Promise((resolve) => setTimeout(resolve, 10000));
     // expect(mock).toHaveBeenCalledWith(
-    //   Repository.table(TestModel),
+    //   Model.tableName(TestModel),
     //   OperationKeys.CREATE,
     //   [model.id]
     // );
@@ -260,7 +260,7 @@ describe("Adapter with nested ownership", () => {
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name", "version")).toEqual(
+    expect(updated.equals(created, "updatedAt", "name", "version")).toEqual(
       true
     ); // minus the expected changes
   });

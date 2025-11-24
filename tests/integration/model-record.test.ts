@@ -150,7 +150,7 @@ describe("type override (serialize)", () => {
     );
     // await new Promise((resolve) => setTimeout(resolve, 10000));
     // expect(mock).toHaveBeenCalledWith(
-    //   Repository.table(TestModel),
+    //   Model.tableName(TestModel),
     //   OperationKeys.CREATE,
     //   [model.id]
     // );
@@ -175,7 +175,7 @@ describe("type override (serialize)", () => {
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "record", "version")).toEqual(
+    expect(updated.equals(created, "updatedAt", "record", "version")).toEqual(
       true
     ); // minus the expected changes
   });
