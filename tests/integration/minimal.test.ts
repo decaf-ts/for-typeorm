@@ -35,6 +35,7 @@ import {
 import { uses } from "@decaf-ts/decoration";
 import {
   ConflictError,
+  Context,
   NotFoundError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
@@ -166,9 +167,10 @@ describe("minimal", () => {
 
     expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      Model.tableName(TestModelRepo),
+      TestModelRepo,
       OperationKeys.CREATE,
-      [1]
+      [1],
+      expect.any(Context)
     );
   });
 });

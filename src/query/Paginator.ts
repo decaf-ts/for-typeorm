@@ -4,6 +4,7 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
 import { FindManyOptions, Repository as Repo } from "typeorm";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { Context, OperationKeys } from "@decaf-ts/db-decorators";
 
 /**
  * @description Paginator for TypeORM query results.
@@ -120,7 +121,14 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
     page: number = 1,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<R[]> {
-    const { ctx } = this.adapter["logCtx"](args, this.page);
+    const contextArgs = await Context.args<M, TypeORMContext>(
+      OperationKeys.READ,
+      this.clazz,
+      args,
+      this.adapter,
+      {}
+    );
+    const ctx = contextArgs.context;
     const statement = { ...this.statement };
 
     // Get total count if not already calculated

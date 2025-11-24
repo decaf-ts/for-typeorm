@@ -1,11 +1,14 @@
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { MaybeContextualArg, Repository } from "@decaf-ts/core";
 import {
+  Context,
   ContextOfRepository,
   enforceDBDecorators,
   IRepository,
   OperationKeys,
   PrimaryKeyType,
+  reduceErrorsToPrint,
+  ValidationError,
 } from "@decaf-ts/db-decorators";
 import { QueryBuilder, Repository as NativeRepo } from "typeorm";
 import { type Constructor, Metadata } from "@decaf-ts/decoration";
@@ -149,6 +152,60 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   nativeRepo(): NativeRepo<M> {
     const clazz = Metadata.constr(this.class);
     return (this.adapter as any).dataSource.getRepository(clazz);
+  }
+
+  /**
+   * @description Prepares multiple models for creation.
+   * @summary Validates multiple models and prepares them for creation in the database.
+   * @param {M[]} models - The models to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return The prepared models and context arguments.
+   * @throws {ValidationError} If any model fails validation.
+   */
+  protected override async createAllPrefix(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M[], ...any[], TypeORMContext]> {
+    const contextArgs = await Context.args<M, TypeORMContext>(
+      OperationKeys.CREATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    if (!models.length) return [models, ...contextArgs.args];
+
+    models = await Promise.all(
+      models.map(async (m) => {
+        m = new this.class(m);
+        if (shouldRunHandlers)
+          await enforceDBDecorators<M, TypeORMRepository<M>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.CREATE,
+            OperationKeys.ON
+          );
+        return m;
+      })
+    );
+
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
+
+      const errors = await Promise.all(
+        models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+      );
+
+      const errorMessages = reduceErrorsToPrint(errors);
+
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
+    return [models, ...contextArgs.args];
   }
 
   /**
