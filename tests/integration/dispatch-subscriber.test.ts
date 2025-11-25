@@ -1,7 +1,7 @@
 import { TypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { table, pk, EventIds } from "@decaf-ts/core";
-import { model, ModelArg, Model } from "@decaf-ts/decorator-validation";
+import { model, ModelArg } from "@decaf-ts/decorator-validation";
 import { TypeORMFlavour } from "../../src/constants";
 import { TypeORMBaseModel } from "./baseModel";
 import { TypeORMDispatch } from "../../src/TypeORMDispatch";
