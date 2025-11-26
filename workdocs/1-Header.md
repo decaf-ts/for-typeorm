@@ -8,3 +8,5 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 - Query layer: TypeORMStatement and TypeORMPaginator for translating Decaf statements to TypeORM options/builders and paginating results
 - Decorator wiring: automatically wires Decaf decorators to TypeORM metadata on import (no need to use TypeORM decorators directly)
 - Utilities and types: constants, operator translation, raw Postgres types, and small helpers like convertJsRegexToPostgres
+
+> Release docs refreshed on 2025-11-26. See [workdocs/reports/RELEASE_NOTES.md](./workdocs/reports/RELEASE_NOTES.md) for ticket summaries.
