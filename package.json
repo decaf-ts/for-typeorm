@@ -77,6 +77,7 @@
   },
   "homepage": "https://github.com/decaf-ts/for-typeorm#readme",
   "devDependencies": {
+    "@decaf-ts/for-nano": "^0.2.2",
     "@decaf-ts/utils": "latest",
     "@types/pg": "^8.15.4"
   },
