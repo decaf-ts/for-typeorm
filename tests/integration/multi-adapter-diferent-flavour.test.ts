@@ -1,4 +1,4 @@
-import { Metadata, uses } from "@decaf-ts/decoration";
+import { uses } from "@decaf-ts/decoration";
 
 import {
   Model,
@@ -95,6 +95,7 @@ const typeOrmCfg: DataSourceOptions = {
 
 describe("Adapter Integration", () => {
   let con: ServerScope;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let adapter: NanoAdapter;
   let typeAdapter: TypeORMAdapter;
   // let repo: NanoRepository<TestModel>;
@@ -152,6 +153,7 @@ describe("Adapter Integration", () => {
     await typeAdapter.initialize();
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let observer: Observer;
   let mock: any;
   beforeEach(() => {
@@ -176,6 +178,7 @@ describe("Adapter Integration", () => {
     if (con2)
       try {
         await con2.destroy();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: unknown) {
         // do nothing
       }
@@ -184,11 +187,6 @@ describe("Adapter Integration", () => {
     await TypeORMAdapter.deleteDatabase(con2, type_dbName, type_user);
     await TypeORMAdapter.deleteUser(con2, type_user, type_admin);
     await con2.destroy();
-  });
-
-  it("displays the correct decoration for model1", () => {
-    const meta1 = Metadata.get(Model1);
-    const meta2 = Metadata.get(Model2);
   });
 
   it("Reads default flavour correctly", async () => {
