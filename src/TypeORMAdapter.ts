@@ -1168,7 +1168,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             noValidateOnCreate()
           );
         } else {
-          switch (type) {
+          switch (type.name || type) {
             case Number.name || Number.name.toLowerCase():
               type = "numeric";
               break;
