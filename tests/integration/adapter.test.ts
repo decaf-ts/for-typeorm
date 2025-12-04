@@ -37,6 +37,7 @@ import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
   minlength,
+  Model,
   model,
   ModelArg,
   required,
@@ -179,7 +180,7 @@ describe("Adapter Integration", () => {
     });
     const keys = Object.keys(tm)
       .filter((k, i) => indexes.includes(i))
-      .map((k) => Repository.column(tm, k));
+      .map((k) => Model.columnName(tm, k));
     const response = await adapter.raw({
       query: `INSERT INTO ${Model.tableName(TestModel)} (${keys.join(", ")}) VALUES (${values.map((v, i) => `$${i + 1}`)}) RETURNING *;`,
       values: values,
