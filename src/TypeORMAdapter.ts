@@ -217,7 +217,7 @@ export class TypeORMAdapter extends Adapter<
    * @return {Promise<Sequence>} A promise that resolves to a new Sequence instance
    */
   @final()
-  async Sequence(options: SequenceOptions): Promise<Sequence> {
+  override async Sequence(options: SequenceOptions): Promise<Sequence> {
     return new TypeORMSequence(options, this);
   }
 
@@ -1190,12 +1190,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         if (options.generated) {
           const name =
             options.name || Model.sequenceName(original.constructor, "pk");
-          decorators.push(
-            PrimaryGeneratedColumn({
-              name: name,
-            }),
-            noValidateOnCreate()
-          );
+          const conf = {
+            name: name,
+          };
+          if (options.type === "serial" || options.type === "uuid") {
+            decorators.push(
+              PrimaryGeneratedColumn(
+                (options.type === "uuid" ? options.type : "identity") as "uuid",
+                conf
+              )
+            );
+          } else {
+            decorators.push(PrimaryGeneratedColumn(conf));
+          }
+          decorators.push(noValidateOnCreate());
         } else {
           switch (
             typeof type === "string"

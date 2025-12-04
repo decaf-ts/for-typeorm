@@ -9,6 +9,7 @@ import { Adapter, ContextualArgs, EventIds } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
 import { TypeORMContext } from "./TypeORMAdapter";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description TypeORM event subscriber that forwards entity lifecycle events to the adapter.
@@ -69,7 +70,8 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
     this.handler(
       constructor,
       OperationKeys.CREATE,
-      [event.entityId as any],
+      event.entityId as any,
+      event.entity,
       ctx
     );
   }
@@ -81,18 +83,13 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
    * @return {Promise<any>|void} A promise when async or void otherwise.
    */
   async afterRemove(event: RemoveEvent<any>): Promise<any> {
-    const constructor = event.entity.constructor;
+    const constructor = event.metadata.target as Constructor;
     const ctx = await this.adapter.context(
-      OperationKeys.CREATE,
+      OperationKeys.DELETE,
       {},
       constructor
     );
-    this.handler(
-      constructor,
-      OperationKeys.DELETE,
-      [event.entityId as any],
-      ctx
-    );
+    this.handler(constructor, OperationKeys.DELETE, "", {}, ctx);
   }
 
   /**
@@ -104,14 +101,15 @@ export class TypeORMEventSubscriber implements EntitySubscriberInterface {
   async afterUpdate(event: UpdateEvent<any>): Promise<any> {
     const constructor = event.databaseEntity.constructor;
     const ctx = await this.adapter.context(
-      OperationKeys.CREATE,
+      OperationKeys.UPDATE,
       {},
       constructor
     );
     return this.handler(
       constructor,
       OperationKeys.UPDATE,
-      [(event.entity as any)["id"] as any],
+      (event.entity as any)[Model.pk(constructor) as any],
+      event.entity,
       ctx
     );
   }

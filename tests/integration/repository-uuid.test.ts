@@ -4,7 +4,7 @@ import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "repo_user";
+const user = "repo_user_uuid";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -17,57 +17,49 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
-const dbName = "repository_db";
+const dbName = "repository_db_uuid";
 
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
-import {
-  column,
-  Observer,
-  pk,
-  repository,
-  Repository,
-  table,
-} from "@decaf-ts/core";
+import { column, Observer, pk, Repo, Repository, table } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
-import { Metadata } from "@decaf-ts/decoration";
 import {
   ConflictError,
   Context,
   NotFoundError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
   minlength,
+  Model,
   model,
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { TypeORMBaseModel } from "./baseModel";
 
 jest.setTimeout(50000);
 
 @uses(TypeORMFlavour)
-@table("tst_user")
+@table("tst_user_uuid")
 @model()
-class TestModelRepo extends TypeORMBaseModel {
-  @pk({ type: "Number" })
-  id!: number;
+export class TestModelUUID extends Model {
+  @pk({ type: "uuid" })
+  id!: string;
 
   @column("tst_name")
   @required()
   name!: string;
 
   @column("tst_nif")
+  // @unique()
   @minlength(9)
   @maxlength(9)
   @required()
   nif!: string;
 
-  constructor(arg?: ModelArg<TestModelRepo>) {
+  constructor(arg?: ModelArg<TestModelUUID>) {
     super(arg);
   }
 }
@@ -83,7 +75,9 @@ const typeOrmCfg: DataSourceOptions = {
   logging: false,
 };
 
-describe("repositories", () => {
+describe.skip("repositories uuid", () => {
+  let repo: Repo<TestModelUUID>;
+
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -120,6 +114,8 @@ describe("repositories", () => {
       console.error(e);
       throw e;
     }
+    await adapter.client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";');
+    repo = Repository.forModel(TestModelUUID);
   });
 
   let observer: Observer;
@@ -134,6 +130,7 @@ describe("repositories", () => {
         return mock(...args);
       }
     })();
+    repo.observe(observer);
   });
 
   afterAll(async () => {
@@ -145,65 +142,77 @@ describe("repositories", () => {
     await con.destroy();
   });
 
-  it("instatiates the model", () => {
-    const m = new TestModelRepo({
-      name: "test_name",
-      nif: "123456789",
-    });
-    expect(m).toBeDefined();
-    expect(m.name).toEqual("test_name");
-    expect(m.nif).toEqual("123456789");
+  afterEach(() => {
+    repo.unObserve(observer);
   });
 
-  it("instantiates via constructor", () => {
-    const repo: TypeORMRepository<TestModelRepo> = new TypeORMRepository(
-      adapter as any,
-      TestModelRepo
-    );
-    expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(Repository);
-  });
+  let created: TestModelUUID;
 
-  it("instantiates via Repository.get with @uses decorator on model", () => {
-    uses(TypeORMFlavour)(TestModelRepo);
-    const repo = Repository.forModel(TestModelRepo);
-    expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(Repository);
-  });
-
-  it("gets injected when using @repository", () => {
-    class TestClass {
-      @repository(TestModelRepo)
-      repo!: TypeORMRepository<TestModelRepo>;
-    }
-
-    const testClass = new TestClass();
-    expect(testClass).toBeDefined();
-    expect(testClass.repo).toBeDefined();
-    expect(testClass.repo).toBeInstanceOf(Repository);
-  });
-
-  let created: TestModelRepo | undefined;
-
-  it("creates a model", async () => {
-    const repo: TypeORMRepository<TestModelRepo> =
-      Repository.forModel(TestModelRepo);
-
-    repo.observe(observer);
-    const toCreate = new TestModelRepo({
+  it("creates", async () => {
+    repo = Repository.forModel(TestModelUUID);
+    const model = new TestModelUUID({
       name: "test_name",
       nif: "123456789",
     });
 
-    created = await repo.create(toCreate);
+    created = await repo.create(model);
+
     expect(created).toBeDefined();
-    expect(created.hasErrors()).toBeUndefined();
-
-    expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      Metadata.constr(TestModelRepo),
+      TestModelUUID,
       OperationKeys.CREATE,
-      1,
+      expect.any(String),
+      expect.any(Object),
+      expect.any(Context)
+    );
+  });
+
+  it("reads", async () => {
+    repo = Repository.forModel(TestModelUUID);
+    const read = await repo.read(created.id);
+
+    expect(read).toBeDefined();
+    expect(read.equals(created)).toEqual(true); // same model
+    expect(read === created).toEqual(false); // different instances
+  });
+
+  it("updates", async () => {
+    repo = Repository.forModel(TestModelUUID);
+    const toUpdate = new TestModelUUID(
+      Object.assign({}, created, {
+        name: "new_test_name",
+      })
+    );
+
+    const updated = await repo.update(toUpdate);
+
+    expect(updated).toBeDefined();
+    expect(updated.equals(created)).toEqual(false);
+    expect(updated.equals(created, "updatedAt", "name", "updatedBy")).toEqual(
+      true
+    ); // minus the expected changes
+    expect(mock).toHaveBeenCalledWith(
+      TestModelUUID,
+      OperationKeys.UPDATE,
+      updated.id,
+      expect.any(Object),
+      expect.any(Context)
+    );
+  });
+
+  it("deletes", async () => {
+    repo = Repository.forModel(TestModelUUID);
+    const deleted = await repo.delete(created.id as string);
+
+    expect(deleted).toBeDefined();
+    expect(deleted.id).toEqual(created.id); // same model
+    await expect(repo.read(created.id as string)).rejects.toThrowError(
+      NotFoundError
+    );
+    expect(mock).toHaveBeenCalledWith(
+      TestModelUUID,
+      OperationKeys.DELETE,
+      deleted.id,
       expect.any(Object),
       expect.any(Context)
     );

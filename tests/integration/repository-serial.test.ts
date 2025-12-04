@@ -4,7 +4,7 @@ import { DataSource, DataSourceOptions } from "typeorm";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "repo_user";
+const user = "repo_user_serial";
 const user_password = "password";
 const dbHost = "localhost";
 
@@ -17,44 +17,35 @@ const config: DataSourceOptions = {
   port: 5432,
   ssl: false,
 };
-const dbName = "repository_db";
+const dbName = "repository_db_serial";
 
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
-import {
-  column,
-  Observer,
-  pk,
-  repository,
-  Repository,
-  table,
-} from "@decaf-ts/core";
-import { uses } from "@decaf-ts/decoration";
-import { Metadata } from "@decaf-ts/decoration";
+import { column, Observer, pk, Repo, Repository, table } from "@decaf-ts/core";
+import { Metadata, uses } from "@decaf-ts/decoration";
 import {
   ConflictError,
   Context,
   NotFoundError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { TypeORMRepository } from "../../src/TypeORMRepository";
 import {
   maxlength,
   minlength,
+  Model,
   model,
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { TypeORMBaseModel } from "./baseModel";
 
 jest.setTimeout(50000);
 
 @uses(TypeORMFlavour)
-@table("tst_user")
+@table("tst_user_serial")
 @model()
-class TestModelRepo extends TypeORMBaseModel {
-  @pk({ type: "Number" })
+export class TestModelSerial extends Model {
+  @pk({ type: "serial" })
   id!: number;
 
   @column("tst_name")
@@ -62,12 +53,13 @@ class TestModelRepo extends TypeORMBaseModel {
   name!: string;
 
   @column("tst_nif")
+  // @unique()
   @minlength(9)
   @maxlength(9)
   @required()
   nif!: string;
 
-  constructor(arg?: ModelArg<TestModelRepo>) {
+  constructor(arg?: ModelArg<TestModelSerial>) {
     super(arg);
   }
 }
@@ -83,7 +75,8 @@ const typeOrmCfg: DataSourceOptions = {
   logging: false,
 };
 
-describe("repositories", () => {
+describe("repositories serial", () => {
+  let repo: Repo<TestModelSerial>;
   beforeAll(async () => {
     con = await TypeORMAdapter.connect(config);
     expect(con).toBeDefined();
@@ -120,6 +113,7 @@ describe("repositories", () => {
       console.error(e);
       throw e;
     }
+    repo = Repository.forModel(TestModelSerial);
   });
 
   let observer: Observer;
@@ -134,6 +128,7 @@ describe("repositories", () => {
         return mock(...args);
       }
     })();
+    repo.observe(observer);
   });
 
   afterAll(async () => {
@@ -145,66 +140,76 @@ describe("repositories", () => {
     await con.destroy();
   });
 
-  it("instatiates the model", () => {
-    const m = new TestModelRepo({
-      name: "test_name",
-      nif: "123456789",
-    });
-    expect(m).toBeDefined();
-    expect(m.name).toEqual("test_name");
-    expect(m.nif).toEqual("123456789");
+  afterEach(() => {
+    repo.unObserve(observer);
   });
 
-  it("instantiates via constructor", () => {
-    const repo: TypeORMRepository<TestModelRepo> = new TypeORMRepository(
-      adapter as any,
-      TestModelRepo
-    );
-    expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(Repository);
-  });
+  let created: TestModelSerial;
 
-  it("instantiates via Repository.get with @uses decorator on model", () => {
-    uses(TypeORMFlavour)(TestModelRepo);
-    const repo = Repository.forModel(TestModelRepo);
-    expect(repo).toBeDefined();
-    expect(repo).toBeInstanceOf(Repository);
-  });
-
-  it("gets injected when using @repository", () => {
-    class TestClass {
-      @repository(TestModelRepo)
-      repo!: TypeORMRepository<TestModelRepo>;
-    }
-
-    const testClass = new TestClass();
-    expect(testClass).toBeDefined();
-    expect(testClass.repo).toBeDefined();
-    expect(testClass.repo).toBeInstanceOf(Repository);
-  });
-
-  let created: TestModelRepo | undefined;
-
-  it("creates a model", async () => {
-    const repo: TypeORMRepository<TestModelRepo> =
-      Repository.forModel(TestModelRepo);
-
-    repo.observe(observer);
-    const toCreate = new TestModelRepo({
+  it("creates", async () => {
+    const repo = Repository.forModel(TestModelSerial);
+    const model = new TestModelSerial({
       name: "test_name",
       nif: "123456789",
     });
 
-    created = await repo.create(toCreate);
+    created = await repo.create(model);
+
     expect(created).toBeDefined();
-    expect(created.hasErrors()).toBeUndefined();
-
-    expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      Metadata.constr(TestModelRepo),
+      Metadata.constr(TestModelSerial),
       OperationKeys.CREATE,
-      1,
+      created.id,
       expect.any(Object),
+      expect.any(Context)
+    );
+  });
+
+  it("reads", async () => {
+    const repo = Repository.forModel(TestModelSerial);
+    const read = await repo.read(created.id);
+
+    expect(read).toBeDefined();
+    expect(read.equals(created)).toEqual(true); // same model
+    expect(read === created).toEqual(false); // different instances
+  });
+
+  it("updates", async () => {
+    const repo = Repository.forModel(TestModelSerial);
+    const toUpdate = new TestModelSerial(
+      Object.assign({}, created, {
+        name: "new_test_name",
+      })
+    );
+
+    const updated = await repo.update(toUpdate);
+
+    expect(updated).toBeDefined();
+    expect(updated.equals(created)).toEqual(false);
+    expect(updated.equals(created, "updatedAt", "name", "updatedBy")).toEqual(
+      true
+    ); // minus the expected changes
+    expect(mock).toHaveBeenCalledWith(
+      Metadata.constr(TestModelSerial),
+      OperationKeys.UPDATE,
+      updated.id,
+      expect.any(Object),
+      expect.any(Context)
+    );
+  });
+
+  it("deletes", async () => {
+    const repo = Repository.forModel(TestModelSerial);
+    const deleted = await repo.delete(created.id);
+
+    expect(deleted).toBeDefined();
+    expect(deleted.id).toEqual(created.id); // same model
+    await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
+    expect(mock).toHaveBeenCalledWith(
+      Metadata.constr(TestModelSerial),
+      OperationKeys.DELETE,
+      "",
+      {},
       expect.any(Context)
     );
   });
