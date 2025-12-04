@@ -18,12 +18,13 @@ const config: DataSourceOptions = {
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
-import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+import { ConflictError, Context, NotFoundError } from "@decaf-ts/db-decorators";
 import { Observer, OrderDirection, Paginator } from "@decaf-ts/core";
 import { TestCountryModel } from "./models";
 import { Repository } from "@decaf-ts/core";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DataSource } from "typeorm";
+import { Logging } from "@decaf-ts/logging";
 
 const dbName = "pagination_db";
 
@@ -79,7 +80,7 @@ describe(`Pagination`, function () {
       console.error(e);
       throw e;
     }
-    repo = new TypeORMRepository(adapter, TestCountryModel);
+    repo = Repository.forModel(TestCountryModel);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -117,10 +118,8 @@ describe(`Pagination`, function () {
   let selected: TestCountryModel[];
 
   it("Creates in bulk", async () => {
-    const repo: TypeORMRepository<TestCountryModel> = Repository.forModel<
-      TestCountryModel,
-      TypeORMRepository<TestCountryModel>
-    >(TestCountryModel);
+    const repo: TypeORMRepository<TestCountryModel> =
+      Repository.forModel(TestCountryModel);
     const models = Object.keys(new Array(size).fill(0))
       .map((e) => parseInt(e) + 1)
       .map(
@@ -160,7 +159,9 @@ describe(`Pagination`, function () {
     expect(paginator.size).toEqual(pageSize);
     expect(paginator.current).toEqual(undefined);
 
-    const page1 = await paginator.page();
+    const ctx = new Context().accumulate({ logger: Logging.get() });
+
+    const page1 = await paginator.page(1, ctx);
     expect(page1).toBeDefined();
 
     const ids = [100, 99, 98, 97, 96, 95, 94, 93, 92, 91];

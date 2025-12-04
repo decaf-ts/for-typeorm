@@ -5,10 +5,10 @@ import { prop } from "@decaf-ts/decoration";
 export class BaseModel extends Model {
   @CreateDateColumn()
   @prop()
-  createdOn!: Date;
+  createdAt!: Date;
   @UpdateDateColumn()
   @prop()
-  updateOn!: Date;
+  updatedAt!: Date;
 
   constructor(arg?: ModelArg<BaseModel>) {
     super(arg);

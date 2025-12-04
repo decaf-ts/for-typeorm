@@ -221,8 +221,8 @@ describe(`Complex Database`, function () {
       expect(
         created.equals(
           record,
-          "createdOn",
-          "updatedOn",
+          "createdAt",
+          "updatedAt",
           "createdBy",
           "updatedBy",
           "id",

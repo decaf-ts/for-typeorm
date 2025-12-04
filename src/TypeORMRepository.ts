@@ -1,35 +1,33 @@
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
-import { Adapter, Repository } from "@decaf-ts/core";
+import { MaybeContextualArg, Repository } from "@decaf-ts/core";
 import {
   Context,
+  ContextOfRepository,
   enforceDBDecorators,
   InternalError,
   IRepository,
   OperationKeys,
-  RepositoryFlags,
+  PrimaryKeyType,
+  reduceErrorsToPrint,
   ValidationError,
 } from "@decaf-ts/db-decorators";
-import { TypeORMFlags, TypeORMQuery } from "./types";
-import { TypeORMFlavour } from "./constants";
-import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { QueryBuilder, Repository as NativeRepo } from "typeorm";
-import { type Constructor, uses, Metadata } from "@decaf-ts/decoration";
+import { type Constructor, Metadata } from "@decaf-ts/decoration";
+import { TypeORMAdapter, TypeORMContext } from "./TypeORMAdapter";
 
 export async function enforceDbDecoratorsRecursive<
   M extends Model<true | false>,
-  R extends IRepository<M, F, C>,
+  R extends IRepository<M, any>,
   V extends object = object,
-  F extends RepositoryFlags = RepositoryFlags,
-  C extends Context<F> = Context<F>,
 >(
   repo: R,
-  context: C,
+  context: ContextOfRepository<R>,
   model: M,
   operation: string,
   prefix: string,
   oldModel?: M
 ): Promise<void> {
-  await enforceDBDecorators<M, R, V, F, C>(
+  await enforceDBDecorators<M, R, V>(
     repo,
     context,
     model,
@@ -40,7 +38,7 @@ export async function enforceDbDecoratorsRecursive<
 
   async function innerLoop<N extends Model>(m: N, oldModel?: N) {
     const r = Repository.forModel(m.constructor as Constructor<N>);
-    await enforceDbDecoratorsRecursive(
+    await enforceDbDecoratorsRecursive<N, IRepository<N, any>, any>(
       r,
       context,
       m,
@@ -69,13 +67,6 @@ export async function enforceDbDecoratorsRecursive<
       key as any,
       ValidationKeys.LIST
     );
-    // const dec = Reflection.getPropertyDecorators(
-    //   ValidationKeys.REFLECT,
-    //   model,
-    //   key,
-    //   true,
-    //   true
-    // ).decorators.find((d) => d.key === ValidationKeys.LIST);
 
     if (
       !dec ||
@@ -136,31 +127,11 @@ export async function enforceDbDecoratorsRecursive<
  *   Adapter-->>Repo: model
  *   Repo-->>App: model
  */
-// @uses(TypeORMFlavour)
 export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
-  TypeORMQuery<M, any>,
-  Adapter<
-    DataSourceOptions,
-    any,
-    TypeORMQuery,
-    TypeORMFlags,
-    Context<TypeORMFlags>
-  >,
-  TypeORMFlags,
-  Context<TypeORMFlags>
+  TypeORMAdapter
 > {
-  constructor(
-    adapter: Adapter<
-      DataSourceOptions,
-      any,
-      TypeORMQuery,
-      TypeORMFlags,
-      Context<TypeORMFlags>
-    >,
-    model: Constructor<M>,
-    ...args: any[]
-  ) {
+  constructor(adapter: TypeORMAdapter, model: Constructor<M>, ...args: any[]) {
     super(adapter, model, ...args);
   }
 
@@ -184,36 +155,47 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     return (this.adapter as any).dataSource.getRepository(clazz);
   }
 
+  /**
+   * @description Prepares a model for creation.
+   * @summary Validates the model and prepares it for creation in the database.
+   * @template M - The model type.
+   * @param {M} model - The model to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return The prepared model and context arguments.
+   * @throws {ValidationError} If the model fails validation.
+   */
   protected override async createPrefix(
     model: M,
-    ...args: any[]
-  ): Promise<[M, ...any[]]> {
-    const contextArgs = await Context.args<
-      M,
-      Context<TypeORMFlags>,
-      TypeORMFlags
-    >(
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M, ...any[], TypeORMContext]> {
+    const contextArgs = await Context.args<M, TypeORMContext>(
       OperationKeys.CREATE,
       this.class,
       args,
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     model = new this.class(model);
-    await enforceDbDecoratorsRecursive(
-      this,
-      contextArgs.context,
-      model,
-      OperationKeys.CREATE,
-      OperationKeys.ON
-    );
+    if (shouldRunHandlers)
+      await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+        this,
+        contextArgs.context,
+        model,
+        OperationKeys.CREATE,
+        OperationKeys.ON
+      );
 
-    const errors = await Promise.resolve(
-      model.hasErrors(
-        ...(contextArgs.context.get("ignoredValidationProperties") || [])
-      )
-    );
-    if (errors) throw new ValidationError(errors.toString());
+    if (shouldValidate) {
+      const errors = await Promise.resolve(
+        model.hasErrors(
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      );
+      if (errors) throw new ValidationError(errors.toString());
+    }
 
     return [model, ...contextArgs.args];
   }
@@ -225,25 +207,23 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @param {...any[]} args Optional arguments/context.
    * @return {Promise<M>} The created model instance.
    */
-  override async create(model: M, ...args: any[]): Promise<M> {
+  override async create(
+    model: M,
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<M> {
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
     // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    let { record, id, transient } = this.adapter.prepare(model, false, ctx);
     record = await this.adapter.create(
-      Metadata.constr(this.class) as any,
+      Metadata.constr(this.class),
       id,
-      model as any,
-      this.pk,
-      ...args
+      model,
+      ...ctxArgs
     );
-    let c: Context<TypeORMFlags> | undefined = undefined;
-    if (args.length) c = args[args.length - 1] as Context<TypeORMFlags>;
-    return this.adapter.revert<M>(
-      record,
-      this.class,
-      this.pk,
-      id,
-      c && c.get("rebuildWithTransient") ? transient : undefined
-    );
+    return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }
 
   /**
@@ -254,22 +234,35 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @return {Promise<M>} The retrieved model instance.
    */
   override async read(
-    id: string | number | bigint,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+    id: PrimaryKeyType,
+    ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M> {
-    const m = await this.adapter.read(
-      Metadata.constr(this.class) as any,
-      id as string,
-      this.pk as string
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
     );
-    return this.adapter.revert<M>(m, this.class, this.pk, id);
+
+    const m = await this.adapter.read(
+      Metadata.constr(this.class),
+      id,
+      ...ctxArgs
+    );
+    return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
 
+  /**
+   * @description Prepares a model for update.
+   * @summary Validates the model and prepares it for update in the database.
+   * @param {M} model - The model to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return The prepared model and context arguments.
+   * @throws {InternalError} If the model has no primary key value.
+   * @throws {ValidationError} If the model fails validation.
+   */
   protected override async updatePrefix(
     model: M,
-    ...args: any[]
-  ): Promise<[M, ...args: any[]]> {
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M, ...args: any[], TypeORMContext]> {
     const contextArgs = await Context.args(
       OperationKeys.UPDATE,
       this.class,
@@ -277,33 +270,35 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
         `No value for the Id is defined under the property ${this.pk as string}`
       );
     const oldModel = await this.read(pk, ...contextArgs.args);
-    model = this.merge(oldModel, model);
-    await enforceDbDecoratorsRecursive(
-      this,
-      contextArgs.context,
-      model,
-      OperationKeys.UPDATE,
-      OperationKeys.ON,
-      oldModel
-    );
+    model = Model.merge(oldModel, model, this.class);
+    if (shouldRunHandlers)
+      await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+        this,
+        contextArgs.context,
+        model,
+        OperationKeys.UPDATE,
+        OperationKeys.ON,
+        oldModel
+      );
 
-    const errors = await Promise.resolve(
-      model.hasErrors(
-        oldModel,
-        ...Repository.relations(this.class),
-        ...(contextArgs.context.get("ignoredValidationProperties") || [])
-      )
-    );
-    if (errors) throw new ValidationError(errors.toString());
-    if (Repository.getMetadata(oldModel)) {
-      if (!Repository.getMetadata(model))
-        Repository.setMetadata(model, Repository.getMetadata(oldModel));
+    if (shouldValidate) {
+      const errors = await Promise.resolve(
+        model.hasErrors(
+          oldModel,
+          ...Model.relations(this.class),
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      );
+      if (errors) throw new ValidationError(errors.toString());
     }
     return [model, ...contextArgs.args];
   }
@@ -315,17 +310,23 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @param {...any[]} args Optional arguments/context.
    * @return {Promise<M>} The updated model instance.
    */
-  override async update(model: M, ...args: any[]): Promise<M> {
+  override async update(
+    model: M,
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<M> {
+    const { ctxArgs, log, ctx } = this.logCtx(args, this.create);
     // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    let { record, id, transient } = this.adapter.prepare(model, false, ctx);
+    log.debug(
+      `updating ${this.class.name} in table ${Model.tableName(this.class)} with id ${id}`
+    );
     record = await this.adapter.update(
-      Metadata.constr(this.class) as any,
+      Metadata.constr(this.class),
       id,
       model,
-      this.pk,
-      ...args
+      ...ctxArgs
     );
-    return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
+    return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }
 
   /**
@@ -336,63 +337,73 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @return {Promise<M>} The deleted model instance.
    */
   override async delete(
-    id: string | number | bigint,
-    ...args: any[]
+    id: PrimaryKeyType,
+    ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M> {
-    const m = await this.adapter.delete(
-      Metadata.constr(this.class) as any,
-      id as string,
-      this.pk as string,
-      ...args
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
     );
-    return this.adapter.revert<M>(m, this.class, this.pk, id);
+
+    const m = await this.adapter.delete(
+      Metadata.constr(this.class),
+      id,
+      ...ctxArgs
+    );
+    return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
 
   /**
-   * @description Validates and prepares models for bulk creation.
-   * @summary Applies decorator-based validations and returns transformed models with context args for createAll.
-   * @param {M[]} models The models to be created.
-   * @param {...any[]} args Optional arguments/context.
-   * @return {Promise<any[]>} The prepared models and forwarded args tuple.
+   * @description Prepares multiple models for creation.
+   * @summary Validates multiple models and prepares them for creation in the database.
+   * @param {M[]} models - The models to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return The prepared models and context arguments.
+   * @throws {ValidationError} If any model fails validation.
    */
-  protected override async createAllPrefix(models: M[], ...args: any[]) {
-    const contextArgs = await Context.args(
+  protected override async createAllPrefix(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M[], ...any[], TypeORMContext]> {
+    const contextArgs = await Context.args<M, TypeORMContext>(
       OperationKeys.CREATE,
       this.class,
       args,
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     if (!models.length) return [models, ...contextArgs.args];
 
     models = await Promise.all(
       models.map(async (m) => {
         m = new this.class(m);
-        await enforceDbDecoratorsRecursive(
-          this,
-          contextArgs.context,
-          m,
-          OperationKeys.CREATE,
-          OperationKeys.ON
-        );
+        if (shouldRunHandlers)
+          await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.CREATE,
+            OperationKeys.ON
+          );
         return m;
       })
     );
-    const errors = models
-      .map((m) =>
-        m.hasErrors(
-          ...(contextArgs.context.get("ignoredValidationProperties") || [])
-        )
-      )
-      .reduce((accum: string | undefined, e, i) => {
-        if (e)
-          accum =
-            typeof accum === "string"
-              ? accum + `\n - ${i}: ${e.toString()}`
-              : ` - ${i}: ${e.toString()}`;
-        return accum;
-      }, undefined);
-    if (errors) throw new ValidationError(errors);
+
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
+
+      const errors = await Promise.all(
+        models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+      );
+
+      const errorMessages = reduceErrorsToPrint(errors);
+
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
     return [models, ...contextArgs.args];
   }
 
@@ -403,19 +414,33 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @param {...any[]} args Optional arguments/context.
    * @return {Promise<M[]>} The created models.
    */
-  override async createAll(models: M[], ...args: any[]): Promise<M[]> {
+  override async createAll(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<M[]> {
     if (!models.length) return models;
-    const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
+    const prepared = models.map((m) => this.adapter.prepare(m, false, ctx));
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
-      Metadata.constr(this.class) as any,
-      ids as (string | number)[],
+      Metadata.constr(this.class),
+      ids as PrimaryKeyType[],
       models,
-      ...args
+      ...ctxArgs
     );
     return records.map((r, i) =>
-      this.adapter.revert(r, this.class, this.pk, ids[i] as string | number)
+      this.adapter.revert(
+        r,
+        this.class,
+        ids[i],
+        ctx.get("rebuildWithTransient") ? prepared[i].transient : undefined,
+        ctx
+      )
     );
   }
 
@@ -427,18 +452,86 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @return {Promise<M[]>} The retrieved models.
    */
   override async readAll(
-    keys: string[] | number[],
-    ...args: any[]
+    keys: PrimaryKeyType[],
+    ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M[]> {
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `reading ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
     const records = await this.adapter.readAll(
-      Metadata.constr(this.class) as any,
+      Metadata.constr(this.class),
       keys,
-      this.pk as string,
-      ...args
+      ...ctxArgs
     );
-    return records.map((r: Record<string, any>, i: number) =>
-      this.adapter.revert(r, this.class, this.pk, keys[i])
+    return records.map((r, i) =>
+      this.adapter.revert(r, this.class, keys[i], undefined, ctx)
     );
+  }
+
+  /**
+   * @description Prepares multiple models for update.
+   * @summary Validates multiple models and prepares them for update in the database.
+   * @param {M[]} models - The models to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<any[]>} The prepared models and context arguments.
+   * @throws {InternalError} If any model has no primary key value.
+   * @throws {ValidationError} If any model fails validation.
+   */
+  protected override async updateAllPrefix(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[M[], ...args: any[], TypeORMContext]> {
+    const contextArgs = await Context.args<M, TypeORMContext>(
+      OperationKeys.UPDATE,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ids = models.map((m) => {
+      const id = m[this.pk] as string;
+      if (!id) throw new InternalError("missing id on update operation");
+      return id;
+    });
+    const oldModels = await this.readAll(ids, ...contextArgs.args);
+    models = models.map((m, i) => {
+      m = Model.merge(oldModels[i], m, this.class);
+      return m;
+    });
+    if (shouldRunHandlers)
+      await Promise.all(
+        models.map((m, i) =>
+          enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.UPDATE,
+            OperationKeys.ON,
+            oldModels[i]
+          )
+        )
+      );
+
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
+
+      const errors = await Promise.all(
+        models.map((m, i) =>
+          Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
+        )
+      );
+
+      const errorMessages = reduceErrorsToPrint(errors);
+
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
+    return [models, ...contextArgs.args];
   }
 
   /**
@@ -448,17 +541,30 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @param {...any[]} args Optional arguments/context.
    * @return {Promise<M[]>} The updated models.
    */
-  override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
-    const records = models.map((m) => this.adapter.prepare(m, this.pk));
+  override async updateAll(
+    models: M[],
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<M[]> {
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
+    const records = models.map((m) => this.adapter.prepare(m, false, ctx));
     const updated = await this.adapter.updateAll(
-      Metadata.constr(this.class) as any,
+      Metadata.constr(this.class),
       records.map((r) => r.id),
       models,
-      this.pk as string,
-      ...args
+      ...ctxArgs
     );
-    return updated.map((u: Record<string, any>, i: number) =>
-      this.adapter.revert(u, this.class, this.pk, records[i].id)
+    return updated.map((u, i) =>
+      this.adapter.revert(
+        u,
+        this.class,
+        records[i].id,
+        ctx.get("rebuildWithTransient") ? records[i].transient : undefined,
+        ctx
+      )
     );
   }
 
@@ -470,17 +576,21 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
    * @return {Promise<M[]>} The deleted models.
    */
   override async deleteAll(
-    keys: string[] | number[],
-    ...args: any[]
+    keys: PrimaryKeyType[],
+    ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M[]> {
-    const results = await this.adapter.deleteAll(
-      Metadata.constr(this.class) as any,
-      keys,
-      this.pk as string,
-      ...args
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    log.debug(
+      `deleting ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );
-    return results.map((r: Record<string, any>, i: number) =>
-      this.adapter.revert(r, this.class, this.pk, keys[i])
+
+    const results = await this.adapter.deleteAll(
+      Metadata.constr(this.class),
+      keys,
+      ...ctxArgs
+    );
+    return results.map((r, i) =>
+      this.adapter.revert(r, this.class, keys[i], undefined, ctx)
     );
   }
 }

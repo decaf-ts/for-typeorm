@@ -1,7 +1,16 @@
-import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
-import { SequenceOptions } from "@decaf-ts/core";
+import {
+  Context,
+  InternalError,
+  NotFoundError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
+import { Adapter, MaybeContextualArg, SequenceOptions } from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
-import { TypeORMAdapter } from "../TypeORMAdapter";
+import { TypeORMContext } from "../TypeORMAdapter";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { DataSource } from "typeorm";
+import { TypeORMQuery } from "../types";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description Abstract implementation of a database sequence for TypeORM.
@@ -37,22 +46,39 @@ import { TypeORMAdapter } from "../TypeORMAdapter";
 export class TypeORMSequence extends Sequence {
   constructor(
     options: SequenceOptions,
-    protected adapter: TypeORMAdapter
+    adapter: Adapter<
+      DataSourceOptions,
+      DataSource,
+      TypeORMQuery,
+      TypeORMContext
+    >
   ) {
-    super(options);
+    super(options, adapter);
   }
 
   /**
    * @summary Retrieves the current value for the sequence
    * @protected
    */
-  async current(): Promise<string | number | bigint> {
+  async current(
+    ...args: MaybeContextualArg<any>
+  ): Promise<string | number | bigint> {
+    const contextArgs = await Context.args<any, any>(
+      OperationKeys.READ,
+      Model as any,
+      args,
+      this.adapter
+    );
+    const ctx = contextArgs.context;
     const { name } = this.options;
     try {
-      const rows: any[] = await this.adapter.raw({
-        query: `SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1`,
-        values: [name],
-      });
+      const rows: any[] = await this.adapter.raw(
+        {
+          query: `SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1`,
+          values: [name],
+        },
+        ctx
+      );
       if (!Array.isArray(rows) || rows.length === 0)
         throw new InternalError(`Sequence ${name} not found`);
       // information_schema does not expose the current runtime value reliably; fall back to start_value
@@ -66,16 +92,6 @@ export class TypeORMSequence extends Sequence {
   }
 
   /**
-   * @summary Parses the {@link Sequence} value
-   *
-   * @protected
-   * @param value
-   */
-  private parse(value: string | number | bigint): string | number | bigint {
-    return Sequence.parseValue(this.options.type, value);
-  }
-
-  /**
    * @summary increments the sequence
    * @description Sequence specific implementation
    *
@@ -85,7 +101,8 @@ export class TypeORMSequence extends Sequence {
    */
   private async increment(
     current: string | number | bigint,
-    count?: number
+    count: number | undefined,
+    ctx: Context<any>
   ): Promise<string | number | bigint> {
     const { type, incrementBy, name, startWith } = this.options;
     if (type !== "Number" && type !== "BigInt")
@@ -94,10 +111,13 @@ export class TypeORMSequence extends Sequence {
       );
 
     try {
-      const rows: any[] = await this.adapter.raw({
-        query: `SELECT nextval($1) AS nextval;`,
-        values: [name],
-      });
+      const rows: any[] = await this.adapter.raw(
+        {
+          query: `SELECT nextval($1) AS nextval;`,
+          values: [name],
+        },
+        ctx
+      );
       const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
       return val as string | number | bigint;
     } catch (e: unknown) {
@@ -108,14 +128,20 @@ export class TypeORMSequence extends Sequence {
         );
       // Create the sequence if missing. Identifiers cannot be parameterized, so quote the name.
       const quoted = `"${name.replace(/"/g, '""')}"`;
-      await this.adapter.raw({
-        query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startWith} INCREMENT BY ${incrementBy} NO CYCLE;`,
-        values: [],
-      });
-      const rows: any[] = await this.adapter.raw({
-        query: `SELECT nextval($1) AS nextval;`,
-        values: [name],
-      });
+      await this.adapter.raw(
+        {
+          query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startWith} INCREMENT BY ${incrementBy} NO CYCLE;`,
+          values: [],
+        },
+        ctx
+      );
+      const rows: any[] = await this.adapter.raw(
+        {
+          query: `SELECT nextval($1) AS nextval;`,
+          values: [name],
+        },
+        ctx
+      );
       const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
       return val as string | number | bigint;
     }
@@ -127,17 +153,37 @@ export class TypeORMSequence extends Sequence {
    * followed by {@link Sequence#increment}
    *
    */
-  async next(): Promise<number | string | bigint> {
-    const current = await this.current();
-    return this.increment(current);
+  async next(
+    ...argz: MaybeContextualArg<any>
+  ): Promise<number | string | bigint> {
+    const contextArgs = await Context.args(
+      OperationKeys.UPDATE,
+      Model as any,
+      argz,
+      this.adapter
+    );
+    const { context, args } = contextArgs;
+    const current = await this.current(...args);
+    return this.increment(current, undefined, context);
   }
 
-  async range(count: number): Promise<(number | string | bigint)[]> {
+  async range(
+    count: number,
+    ...argz: MaybeContextualArg<any>
+  ): Promise<(number | string | bigint)[]> {
+    const contextArgs = await Context.args(
+      OperationKeys.UPDATE,
+      Model as any,
+      argz,
+      this.adapter
+    );
+    const { context } = contextArgs;
     const current = (await this.current()) as number;
     const incrementBy = this.parse(this.options.incrementBy) as number;
     const next: string | number | bigint = await this.increment(
       current,
-      (this.parse(count) as number) * incrementBy
+      (this.parse(count) as number) * incrementBy,
+      context
     );
     const range: (number | string | bigint)[] = [];
     for (let i: number = 1; i <= count; i++) {

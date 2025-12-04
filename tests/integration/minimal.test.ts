@@ -24,31 +24,23 @@ let adapter: TypeORMAdapter;
 
 import {
   Adapter,
-  BaseModel,
   column,
   createdAt,
   Observer,
   pk,
-  repository,
   Repository,
   table,
   updatedAt,
 } from "@decaf-ts/core";
-import { uses } from "@decaf-ts/decoration";
+import { uses, Metadata } from "@decaf-ts/decoration";
 import {
   ConflictError,
+  Context,
   NotFoundError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
-import {
-  maxlength,
-  minlength,
-  Model,
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { Model, model, ModelArg } from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(50000);
 
@@ -71,11 +63,11 @@ class TestModelRepo extends Model {
   //
   @column("created_on")
   @createdAt()
-  createdOn!: Date;
+  createdAt!: Date;
 
   @column("updated_on")
   @updatedAt()
-  updatedOn!: Date;
+  updatedAt!: Date;
 
   constructor(arg?: ModelArg<TestModelRepo>) {
     super(arg);
@@ -125,6 +117,7 @@ describe("minimal", () => {
     }
     adapter = new TypeORMAdapter(typeOrmCfg);
     try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const models = Adapter.models(TypeORMFlavour);
       await adapter.initialize();
     } catch (e: unknown) {
@@ -174,9 +167,10 @@ describe("minimal", () => {
 
     expect(mock).toHaveBeenCalledTimes(1);
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModelRepo),
+      Metadata.constr(TestModelRepo),
       OperationKeys.CREATE,
-      [1]
+      [1],
+      expect.any(Context)
     );
   });
 });

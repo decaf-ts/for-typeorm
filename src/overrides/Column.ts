@@ -21,7 +21,6 @@ import { ColumnWithLengthOptions } from "typeorm/decorator/options/ColumnWithLen
 import { SpatialColumnOptions } from "typeorm/decorator/options/SpatialColumnOptions";
 import { ColumnEmbeddedOptions } from "typeorm/decorator/options/ColumnEmbeddedOptions";
 import { EmbeddedMetadataArgs } from "typeorm/metadata-args/EmbeddedMetadataArgs";
-import { Validation, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { aggregateOrNewColumn } from "./utils";
 import { Metadata } from "@decaf-ts/decoration";
 

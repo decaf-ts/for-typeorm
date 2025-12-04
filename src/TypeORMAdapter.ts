@@ -2,8 +2,6 @@ import {
   Adapter,
   Cascade,
   CascadeMetadata,
-  ConnectionError,
-  final,
   JoinTableMultipleColumnsOptions,
   JoinTableOptions,
   noValidateOnCreate,
@@ -12,11 +10,13 @@ import {
   PersistenceKeys,
   relation,
   RelationsMetadata,
-  Repository,
   Sequence,
-  sequenceNameForModel,
   type SequenceOptions,
   ExtendedRelationsMetadata,
+  ContextualArgs,
+  PreparedModel,
+  ConnectionError,
+  Repository,
   DefaultSequenceOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
@@ -31,9 +31,11 @@ import {
   onCreate,
   onCreateUpdate,
   OperationKeys,
+  PrimaryKeyType,
   readonly,
   UpdateValidationKeys,
 } from "@decaf-ts/db-decorators";
+import { final } from "@decaf-ts/logging";
 import {
   type Constructor,
   Decoration,
@@ -75,6 +77,7 @@ import {
   JoinColumnOptions,
   JoinTable,
   RelationOptions,
+  Repository as Rep,
   SelectQueryBuilder,
   VersionColumn,
 } from "typeorm";
@@ -113,6 +116,8 @@ export async function createdByOnTypeORMCreateUpdate<
   }
 }
 
+export type TypeORMContext = Context<TypeORMFlags>;
+
 /**
  * @description Adapter for TypeORM-backed persistence operations.
  * @summary Implements the Decaf.ts Adapter over a TypeORM DataSource, providing CRUD operations, query/statement factories, sequence management, error parsing, and decoration helpers.
@@ -149,8 +154,7 @@ export class TypeORMAdapter extends Adapter<
   DataSourceOptions,
   DataSource,
   TypeORMQuery,
-  TypeORMFlags,
-  Context<TypeORMFlags>
+  TypeORMContext
 > {
   override getClient(): DataSource {
     const models = Adapter.models(this.alias);
@@ -187,10 +191,14 @@ export class TypeORMAdapter extends Adapter<
   }
 
   @final()
-  override repository<M extends Model>(): Constructor<TypeORMRepository<M>> {
-    return TypeORMRepository;
+  override repository<
+    R extends Repository<
+      any,
+      Adapter<DataSourceOptions, DataSource, TypeORMQuery, TypeORMContext>
+    >,
+  >(): Constructor<R> {
+    return TypeORMRepository as unknown as Constructor<R>;
   }
-
   /**
    * @description Creates a new Postgres statement for querying
    * @summary Factory method that creates a new PostgresStatement instance for building queries
@@ -263,8 +271,11 @@ export class TypeORMAdapter extends Adapter<
    * @param {TypeORMQuery} q - The query to execute
    * @return {Promise<R>} A promise that resolves to the query result
    */
-  override async raw<R>(q: TypeORMQuery): Promise<R> {
-    const log = this.log.for(this.raw);
+  override async raw<R>(
+    q: TypeORMQuery,
+    ...args: ContextualArgs<TypeORMContext>
+  ): Promise<R> {
+    const { log } = this.logCtx(args, this.raw);
     try {
       if (!this.client.isInitialized) await this.client.initialize();
     } catch (e: unknown) {
@@ -284,14 +295,10 @@ export class TypeORMAdapter extends Adapter<
 
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M,
-    child = false
-  ): {
-    record: Record<string, any>;
-    id: string;
-    transient?: Record<string, any>;
-  } {
-    const prepared = super.prepare(model, pk);
+    child = false,
+    ctx: TypeORMContext
+  ): PreparedModel {
+    const prepared = super.prepare(model, ctx);
 
     prepared.record = Object.entries(prepared.record).reduce(
       (accum: Record<string, any>, [key, value]) => {
@@ -304,7 +311,7 @@ export class TypeORMAdapter extends Adapter<
         if (value instanceof Date) {
           value = new Date(value.getTime());
         } else if (Model.isModel(value)) {
-          value = this.prepare(value, Model.pk(model), true).record;
+          value = this.prepare(value, true, ctx).record;
         } else {
           switch (typeof value) {
             case "string":
@@ -345,12 +352,12 @@ export class TypeORMAdapter extends Adapter<
 
   override revert<M extends Model>(
     obj: Record<string, any>,
-    clazz: string | Constructor<M>,
-    pk: keyof M,
-    id: string | number | bigint,
-    transient?: Record<string, any>
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    transient: Record<string, any> | undefined,
+    ctx: TypeORMContext
   ): M {
-    const log = this.log.for(this.revert);
+    const log = ctx.logger.for(this.revert);
     if (transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
@@ -376,30 +383,29 @@ export class TypeORMAdapter extends Adapter<
    * @param {...any[]} args - Additional arguments
    * @return {Promise<Record<string, any>>} A promise that resolves to the created record
    */
-  override async create(
-    tableName: string,
-    id: string | number,
+  override async create<M extends Model>(
+    m: Constructor<M>,
+    id: PrimaryKeyType,
     model: Record<string, any>,
-    pk: string,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>> {
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
-    const repo = this.client.getRepository(m);
+    const repo: Rep<M> = this.client.getRepository(m);
     if (typeof id !== "undefined") {
+      const pk = Model.pk(m) as string;
       const existing = await repo.findOne({
         where: {
-          [pk]: id,
-        },
+          [pk]: id as string,
+        } as any,
       });
       if (existing) {
         throw new ConflictError(
-          `Record already exists in table ${Repository.table(m)} with id: ${id}`
+          `Record already exists in table ${Model.tableName(m)} with id: ${id}`
         );
       }
     }
     try {
-      return await repo.save(model);
+      return await repo.save(model as any);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
@@ -413,17 +419,17 @@ export class TypeORMAdapter extends Adapter<
    * @param {string} pk - primary key colum
    * @return {Promise<Record<string, any>>} A promise that resolves to the read record
    */
-  override async read(
-    tableName: string,
-    id: string | number,
-    pk: string
+  override async read<M extends Model>(
+    m: Constructor<M>,
+    id: PrimaryKeyType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>> {
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     let result: any;
     try {
       const repo = this.client.getRepository(m);
       const { nonEager, relations } = splitEagerRelations(m);
-
+      const pk = Model.pk(m) as string;
       const q: FindOneOptions = {
         where: {
           [pk]: id,
@@ -449,19 +455,17 @@ export class TypeORMAdapter extends Adapter<
    * @param {string} pk - Additional arguments
    * @return A promise that resolves to the updated record
    */
-  override async update(
-    tableName: string,
+  override async update<M extends Model>(
+    m: Constructor<M>,
     id: string | number,
     model: Record<string, any>,
-    pk: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>> {
-    await this.read(tableName, id, pk);
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    const { ctx } = this.logCtx(args, this.update);
+    await this.read(m, id, ctx);
     try {
       const repo = this.client.getRepository(m);
-      return repo.save(model);
+      return repo.save(model as any);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
@@ -475,91 +479,87 @@ export class TypeORMAdapter extends Adapter<
    * @param {string} pk - Additional arguments
    * @return A promise that resolves to the deleted record
    */
-  override async delete(
-    tableName: string,
-    id: string | number,
-    pk: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override async delete<M extends Model>(
+    m: Constructor<M>,
+    id: PrimaryKeyType,
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
-    const model = await this.read(tableName, id, pk);
+    const { ctx } = this.logCtx(args, this.delete);
+    const model = await this.read(m, id, ctx);
     try {
       const repo = this.client.getRepository(m);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const res = await repo.delete(id);
+      const res = await repo.delete(id as any);
       return model;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
   }
 
-  override async createAll(
-    tableName: string,
-    id: (string | number)[],
+  override async createAll<M extends Model>(
+    m: Constructor<M>,
+    id: PrimaryKeyType[],
     model: Record<string, any>[],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    const { ctx } = this.logCtx(args, this.createAll);
+
     try {
       const repo = this.client.getRepository(m);
       const result: InsertResult = await repo.insert(model);
       return this.readAll(
-        tableName,
+        m,
         result.identifiers.map((id) => id.id),
-        "id"
+        ctx
       );
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
   }
 
-  override async readAll(
-    tableName: string,
-    id: (string | number | bigint)[],
-    pk: string,
+  override async readAll<M extends Model>(
+    m: Constructor<M>,
+    id: PrimaryKeyType[],
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     if (!id.length) return [];
 
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
     try {
+      const pk = Model.pk(m) as string;
       const repo = this.client.getRepository(m);
-      return repo.findBy({ [pk]: In(id) });
+      return repo.findBy({ [pk]: In(id) } as any);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
   }
 
-  override async updateAll(
-    tableName: string,
-    ids: string[] | number[],
+  override async updateAll<M extends Model>(
+    clazz: Constructor<M>,
+    ids: PrimaryKeyType[],
     model: Record<string, any>[],
-    pk: string,
-    ...args: any[]
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     const result = [];
+    const pk = Model.pk(clazz) as string;
     for (const m of model) {
-      result.push(await this.update(tableName, m[pk], m, pk, ...args));
+      result.push(await this.update(clazz, m[pk], m, ...args));
     }
     return result;
   }
 
-  override async deleteAll(
-    tableName: string,
-    ids: (string | number | bigint)[],
-    pk: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
+  override async deleteAll<M extends Model>(
+    m: Constructor<M>,
+    ids: PrimaryKeyType[],
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     if (!ids.length) return [];
-    const m: Constructor<Model> = tableName as unknown as Constructor<Model>;
+    const { ctx } = this.logCtx(args, this.deleteAll);
     try {
       const repo = this.client.getRepository(m);
-      const models = await this.readAll(tableName, ids, pk);
-      await repo.delete(ids);
+      const models = await this.readAll(m, ids, ctx);
+      const pk = Model.pk(m) as string;
+      await repo.delete({ [pk]: In(ids) } as any);
       return models;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -573,8 +573,8 @@ export class TypeORMAdapter extends Adapter<
    * @param {string} [reason] - Optional reason for the error
    * @return {BaseError} The parsed error as a BaseError
    */
-  parseError(err: Error | string, reason?: string): BaseError {
-    return TypeORMAdapter.parseError(err, reason);
+  parseError<E extends BaseError>(err: Error | string, reason?: string): E {
+    return TypeORMAdapter.parseError<E>(err, reason);
   }
 
   /**
@@ -645,14 +645,17 @@ export class TypeORMAdapter extends Adapter<
    *     ErrorTypes-->>Caller: InternalError
    *   end
    */
-  protected static parseError(err: Error | string, reason?: string): BaseError {
+  protected static parseError<E extends BaseError>(
+    err: Error | string,
+    reason?: string
+  ): E {
     if (err instanceof BaseError) return err as any;
     const code: string = typeof err === "string" ? err : err.message;
 
     if (code.match(/duplicate key|already exists/g))
-      return new ConflictError(code);
+      return new ConflictError(code) as E;
     if (code.match(/does not exist|not found|Could not find/g))
-      return new NotFoundError(code);
+      return new NotFoundError(code) as E;
 
     // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
     switch (code.toString()) {
@@ -660,22 +663,22 @@ export class TypeORMAdapter extends Adapter<
       case "23505": // unique_violation
       case "23503": // foreign_key_violation
       case "42P07": // duplicate_table
-        return new ConflictError(reason as string);
+        return new ConflictError(reason as string) as E;
 
       // Object not found errors
       case "42P01": // undefined_table
       case "42703": // undefined_column
-        return new NotFoundError(reason as string);
+        return new NotFoundError(reason as string) as E;
 
       // Invalid object definition
       case "42P16": // invalid_table_definition
-        return new IndexError(err);
+        return new IndexError(err) as E;
 
       // Connection errors
       default:
         if (code.toString().match(/ECONNREFUSED/g))
-          return new ConnectionError(err);
-        return new InternalError(err);
+          return new ConnectionError(err) as E;
+        return new InternalError(err) as E;
     }
   }
 
@@ -889,7 +892,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     key: PersistenceKeys,
     options: RelationsMetadata
   ) {
-    const tableName = Repository.table(clazz);
+    const tableName = Model.tableName(clazz);
     const { cascade } = options;
     const cascadeStr = `${cascade.update ? " ON UPDATE CASCADE" : ""}${cascade.delete ? " ON DELETE CASCADE" : ""}`;
     switch (`relations${key}`) {
@@ -1157,7 +1160,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           );
         if (options.generated) {
           const name =
-            options.name || sequenceNameForModel(original.constructor, "pk");
+            options.name || Model.sequenceName(original.constructor, "pk");
           decorators.push(
             PrimaryGeneratedColumn({
               name: name,
@@ -1198,11 +1201,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         decorator: pkDec,
       } as any)
       .apply();
-    //
-    // Decoration.flavouredAs(TypeORMFlavour)
-    //   .for(ModelKeys.ATTRIBUTE)
-    //   .extend(property())
-    //   .apply();
 
     // @column("columnName") => @Column({name: "columnName"})
     Decoration.flavouredAs(TypeORMFlavour)
@@ -1214,7 +1212,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             if (name) opts.name = name;
             let pk: string | undefined;
             try {
-              pk = Model.pk(obj.constructor);
+              pk = Model.pk(obj.constructor as Constructor<any>) as string;
               // eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (e: unknown) {
               pk = undefined; // hasn't been defined yet. means this isn't it
