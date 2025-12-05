@@ -1168,7 +1168,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             noValidateOnCreate()
           );
         } else {
-          switch (type.name || type) {
+          const typename =
+            typeof type === "function" && (type as any)?.name
+              ? (type as any).name
+              : type;
+          switch (typename) {
             case Number.name || Number.name.toLowerCase():
               type = "numeric";
               break;
