@@ -1182,13 +1182,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           readonly(),
           propMetadata(Metadata.key(DBKeys.ID, propertyKey), options),
         ];
-        options = Object.assign({}, DefaultSequenceOptions, options, {
-          generated:
-            options.type && typeof options.generated === "undefined"
-              ? true
-              : options.generated || DefaultSequenceOptions.generated,
-        }) as SequenceOptions;
-
         let type =
           options.type || Metadata.type(original.constructor, propertyKey);
         if (!type)
@@ -1213,21 +1206,18 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           }
           decorators.push(noValidateOnCreate());
         } else {
-          const typename =
-            typeof type === "function" && (type as any)?.name
-              ? (type as any).name
-              : type;
-          switch (typename) {
-            case Number.name || Number.name.toLowerCase():
+          switch (
+            typeof type === "string"
+              ? type.toLowerCase()
+              : type.name.toLowerCase()
+          ) {
+            case "number":
               type = "numeric";
               break;
-            case "serial":
-            case "uuid":
-              break;
-            case String.name || String.name.toLowerCase():
+            case "string":
               type = "varchar";
               break;
-            case BigInt.name || BigInt.name.toLowerCase():
+            case "bigint":
               type = "bigint";
               break;
             default:
