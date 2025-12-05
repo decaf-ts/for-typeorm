@@ -169,7 +169,8 @@ describe("minimal", () => {
     expect(mock).toHaveBeenCalledWith(
       Metadata.constr(TestModelRepo),
       OperationKeys.CREATE,
-      [1],
+      1,
+      expect.any(Object),
       expect.any(Context)
     );
   });

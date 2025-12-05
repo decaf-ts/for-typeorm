@@ -9,6 +9,8 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 - Decorator wiring: automatically wires Decaf decorators to TypeORM metadata on import (no need to use TypeORM decorators directly)
 - Utilities and types: constants, operator translation, raw Postgres types, and small helpers like convertJsRegexToPostgres
 
+> Release docs refreshed on 2025-11-26. See [workdocs/reports/RELEASE_NOTES.md](./workdocs/reports/RELEASE_NOTES.md) for ticket summaries.
+
 ![Licence](https://img.shields.io/github/license/decaf-ts/ts-workspace.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/ts-workspace?style=plastic)
 ![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/ts-workspace?style=plastic)
@@ -32,7 +34,7 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 
 Documentation available [here](https://decaf-ts.github.io/ts-workspace/)
 
-Minimal size: 11.2 KB kb gzipped
+Minimal size: 11.3 KB kb gzipped
 
 
 # Decaf.ts for TypeORM — Detailed Description
@@ -650,6 +652,9 @@ The TypeORM adapter wires Decaf decorators into TypeORM metadata automatically o
   - strategy;
   - builder;
   - etc;
+
+## Release Documentation Hooks
+Stay aligned with the automated release pipeline by reviewing [Release Notes](./workdocs/reports/RELEASE_NOTES.md) and [Dependencies](./workdocs/reports/DEPENDENCIES.md) after trying these recipes (updated on 2025-11-26).
 
 
 ### Related

@@ -60,7 +60,7 @@ export class TypeORMSequence extends Sequence {
    * @summary Retrieves the current value for the sequence
    * @protected
    */
-  async current(
+  override async current(
     ...args: MaybeContextualArg<any>
   ): Promise<string | number | bigint> {
     const contextArgs = await Context.args<any, any>(
@@ -99,7 +99,7 @@ export class TypeORMSequence extends Sequence {
    * @param count
    * @protected
    */
-  private async increment(
+  protected override async increment(
     current: string | number | bigint,
     count: number | undefined,
     ctx: Context<any>
@@ -153,7 +153,7 @@ export class TypeORMSequence extends Sequence {
    * followed by {@link Sequence#increment}
    *
    */
-  async next(
+  override async next(
     ...argz: MaybeContextualArg<any>
   ): Promise<number | string | bigint> {
     const contextArgs = await Context.args(
@@ -167,7 +167,7 @@ export class TypeORMSequence extends Sequence {
     return this.increment(current, undefined, context);
   }
 
-  async range(
+  override async range(
     count: number,
     ...argz: MaybeContextualArg<any>
   ): Promise<(number | string | bigint)[]> {

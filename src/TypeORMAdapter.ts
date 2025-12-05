@@ -70,6 +70,7 @@ import {
   ColumnType,
   DataSource,
   FindOneOptions,
+  getMetadataArgsStorage,
   In,
   Index,
   InsertResult,
@@ -217,7 +218,7 @@ export class TypeORMAdapter extends Adapter<
    * @return {Promise<Sequence>} A promise that resolves to a new Sequence instance
    */
   @final()
-  async Sequence(options: SequenceOptions): Promise<Sequence> {
+  override async Sequence(options: SequenceOptions): Promise<Sequence> {
     return new TypeORMSequence(options, this);
   }
 
@@ -1127,18 +1128,54 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
   static override decoration() {
     super.decoration();
 
-    // @table() => @Entity()
     Decoration.flavouredAs(TypeORMFlavour)
       .for(PersistenceKeys.TABLE)
-      .extend((original: any) => {
-        const m = Metadata.constr(original);
-        Entity()(m);
+      .extend({
+        decorator: function overrideTable(name?: string) {
+          return function tableDecorator(target: any) {
+            const ctor = Metadata.constr(target);
+            const storage = getMetadataArgsStorage();
+            const existing = storage.tables.find(
+              (table) => table.target === ctor
+            );
+            if (existing) {
+              if (name) {
+                existing.name = name;
+              }
+              return target;
+            }
+            const tableName =
+              name ||
+              (() => {
+                try {
+                  return Model.tableName(ctor as Constructor<Model>);
+                } catch {
+                  return ctor?.name;
+                }
+              })();
+            Entity(tableName)(ctor);
+            return target;
+          };
+        },
       })
       .apply();
 
     // @pk() => @PrimaryGeneratedColumn() | @PrimaryColumn()
     function pkDec(options: SequenceOptions) {
       return function pkDec(original: any, propertyKey: any) {
+        const ctor = Metadata.constr(original.constructor);
+        const storage = getMetadataArgsStorage();
+        if (!storage.tables.find((table) => table.target === ctor)) {
+          const tableName =
+            (() => {
+              try {
+                return Model.tableName(ctor as Constructor<Model>);
+              } catch {
+                return ctor?.name;
+              }
+            })() || ctor?.name;
+          Entity(tableName)(ctor);
+        }
         prop()(original, propertyKey);
         const decorators: any[] = [
           required(),
@@ -1161,12 +1198,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         if (options.generated) {
           const name =
             options.name || Model.sequenceName(original.constructor, "pk");
-          decorators.push(
-            PrimaryGeneratedColumn({
-              name: name,
-            }),
-            noValidateOnCreate()
-          );
+          const conf = {
+            name: name,
+          };
+          if (options.type === "serial" || options.type === "uuid") {
+            decorators.push(
+              PrimaryGeneratedColumn(
+                (options.type === "uuid" ? options.type : "identity") as "uuid",
+                conf
+              )
+            );
+          } else {
+            decorators.push(PrimaryGeneratedColumn(conf));
+          }
+          decorators.push(noValidateOnCreate());
         } else {
           const typename =
             typeof type === "function" && (type as any)?.name
@@ -1255,7 +1300,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     }
 
     // @timestamp(op) => @CreateDateColumn() || @UpdateDateColumn()
-    const timestampKey = ValidationUpdateKey(DBKeys.TIMESTAMP);
+    const timestampDecorationKey = DBKeys.TIMESTAMP;
+    const timestampUpdateKey = ValidationUpdateKey(DBKeys.TIMESTAMP);
 
     function ts(operation: OperationKeys[], format: string) {
       const decorators: any[] = [
@@ -1269,7 +1315,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       ];
       if (operation.indexOf(OperationKeys.UPDATE) !== -1)
         decorators.push(
-          propMetadata(timestampKey, {
+          propMetadata(timestampUpdateKey, {
             message: DB_DEFAULT_ERROR_MESSAGES.TIMESTAMP.INVALID,
           }),
           noValidateOnCreateUpdate()
@@ -1279,7 +1325,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     }
 
     Decoration.flavouredAs(TypeORMFlavour)
-      .for(timestampKey)
+      .for(timestampDecorationKey)
       .define({
         decorator: ts,
       } as any)

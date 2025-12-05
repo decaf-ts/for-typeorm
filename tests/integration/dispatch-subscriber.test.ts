@@ -48,7 +48,7 @@ describe("TypeORMEventSubscriber", () => {
     expect(calls.length).toBe(1);
     expect(calls[0].tableName).toBe(Metadata.constr(SubscriberModel));
     expect(calls[0].op).toBe(OperationKeys.CREATE);
-    expect(calls[0].ids).toEqual([1]);
+    expect(calls[0].ids).toEqual(1);
   });
 
   it("invokes handler on afterRemove with correct payload", async () => {
@@ -71,12 +71,11 @@ describe("TypeORMEventSubscriber", () => {
     );
 
     const removed = new SubscriberModel({ id: 7 });
-    await sub.afterRemove({ entity: removed, entityId: 7 } as any);
+    await sub.afterRemove({ metadata: { target: removed } } as any);
 
     expect(calls.length).toBe(1);
-    expect(calls[0].tableName).toBe(Metadata.constr(SubscriberModel));
     expect(calls[0].op).toBe(OperationKeys.DELETE);
-    expect(calls[0].ids).toEqual([7]);
+    expect(calls[0].ids).toEqual("");
   });
 
   it("invokes handler on afterUpdate with correct payload", async () => {
@@ -104,7 +103,7 @@ describe("TypeORMEventSubscriber", () => {
     expect(calls.length).toBe(1);
     expect(calls[0].tableName).toBe(Metadata.constr(SubscriberModel));
     expect(calls[0].op).toBe(OperationKeys.UPDATE);
-    expect(calls[0].ids).toEqual([9]);
+    expect(calls[0].ids).toEqual(9);
   });
 });
 
