@@ -1206,18 +1206,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           }
           decorators.push(noValidateOnCreate());
         } else {
-          switch (
-            typeof type === "string"
-              ? type.toLowerCase()
-              : type.name.toLowerCase()
-          ) {
-            case "number":
+          const typename =
+            typeof type === "function" && (type as any)?.name
+              ? (type as any).name
+              : type;
+
+          switch (typename) {
+            case Number.name || Number.name.toLowerCase():
               type = "numeric";
               break;
-            case "string":
+            case "serial":
+            case "uuid":
+              break;
+            case String.name || String.name.toLowerCase():
               type = "varchar";
               break;
-            case "bigint":
+            case BigInt.name || BigInt.name.toLowerCase():
               type = "bigint";
               break;
             default:
