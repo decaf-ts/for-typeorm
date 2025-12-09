@@ -1201,6 +1201,10 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           case "serial":
             options.generated = true;
             break;
+          case !type:
+            throw new InternalError(
+              `Missing type information for property ${propertyKey} of ${original.name}`
+            );
           default:
             throw new Error("Unsupported type");
         }
@@ -1208,10 +1212,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           options.generated = true;
         }
 
-        if (!type)
-          throw new InternalError(
-            `Missing type information for property ${propertyKey} of ${original.name}`
-          );
         if (options.generated) {
           const name =
             options.name || Model.sequenceName(original.constructor, "pk");
