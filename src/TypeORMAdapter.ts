@@ -1190,13 +1190,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             options.generated = false;
             break;
           case Number.name || String.name.toLowerCase():
-          case Number:
-            options.generated = true;
-            break;
           case BigInt.name || BigInt.name.toLowerCase():
           case BigInt:
-            options.generated = true;
-            break;
+          case Number:
           case "uuid":
           case "serial":
             options.generated = true;
