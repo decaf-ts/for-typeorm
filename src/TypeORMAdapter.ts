@@ -1184,6 +1184,30 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         ];
         let type =
           options.type || Metadata.type(original.constructor, propertyKey);
+        switch (type) {
+          case String.name || String.name.toLowerCase():
+          case String:
+            options.generated = false;
+            break;
+          case Number.name || String.name.toLowerCase():
+          case Number:
+            options.generated = true;
+            break;
+          case BigInt.name || BigInt.name.toLowerCase():
+          case BigInt:
+            options.generated = true;
+            break;
+          case "uuid":
+          case "serial":
+            options.generated = true;
+            break;
+          default:
+            throw new Error("Unsupported type");
+        }
+        if (typeof options.generated === "undefined") {
+          options.generated = true;
+        }
+
         if (!type)
           throw new InternalError(
             `Missing type information for property ${propertyKey} of ${original.name}`
