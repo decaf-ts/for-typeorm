@@ -7,6 +7,8 @@ const user = "orm_vanilla_decoration_user";
 const user_password = "password";
 const dbName = "orm_vanilla_decoration_db";
 const dbHost = "localhost";
+import fs from "fs";
+import path from "path";
 
 const config: DataSourceOptions = {
   type: "postgres",
@@ -121,7 +123,7 @@ class TypeORMParentVanilla extends BaseModel {
     eager: true,
   })
   @JoinTable()
-  children: TypeORMVanillaChild[];
+  children!: TypeORMVanillaChild[];
 
   constructor(arg?: ModelArg<TypeORMParentVanilla>) {
     super(arg);
@@ -186,6 +188,11 @@ describe("TypeORM Vanilla decoration", () => {
   let child: TypeORMVanillaChild;
 
   it("creates a record child vanilla", async () => {
+    const pcgk = fs
+      .readFileSync(path.join(process.cwd(), "package-lock.json"))
+      .toString();
+    console.log("***********PACKAGE lock*******", pcgk);
+
     const repo = dataSource.getRepository(TypeORMVanillaChild);
     expect(repo).toBeDefined();
     const toCreate = new TypeORMVanillaChild({
@@ -236,7 +243,7 @@ describe("TypeORM Vanilla decoration", () => {
       id: created.id,
     });
     expect(record).toBeDefined();
-    expect(record.hasErrors()).toBeDefined();
+    expect(record?.hasErrors()).toBeDefined();
   });
 
   let manyToMany: TypeORMParentVanilla;
@@ -266,6 +273,6 @@ describe("TypeORM Vanilla decoration", () => {
       id: manyToMany.id,
     });
     expect(record).toBeDefined();
-    expect(record.hasErrors()).toBeDefined();
+    expect(record?.hasErrors()).toBeDefined();
   });
 });
