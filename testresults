@@ -1,0 +1,1546 @@
+
+> @decaf-ts/for-typeorm@0.2.2 coverage
+> rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.ts
+
+
+> @decaf-ts/for-typeorm@0.2.2 test:all
+> jest --testPathPattern="/tests" --passWithNoTests --runInBand --coverage --config=./workdocs/reports/jest.coverage.config.ts
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/type-orm-vanilla-decoration.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:30.710Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:30.785Z] createDatabase - Created database orm_vanilla_decoration_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:30.822Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    Error: Provided class TypeORMVanillaChild is not a registered Model object
+        at ModelRegistryManager.build (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:146:13)
+        at Function.build (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:630:32)
+        at Function.fromModel (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:448:55)
+        at new TypeORMVanilla (/home/tsox/workspace/decaf-ts/for-typeorm/tests/integration/type-orm-vanilla-decoration.test.ts:97:11)
+        at Object.<anonymous> (/home/tsox/workspace/decaf-ts/for-typeorm/tests/integration/type-orm-vanilla-decoration.test.ts:210:22)
+        at Promise.then.completed (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/utils.js:298:28)
+        at new Promise (<anonymous>)
+        at callAsyncCircusFn (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/utils.js:231:10)
+        at _callCircusTest (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:316:40)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async _runTest (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:252:3)
+        at async _runTestsForDescribeBlock (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:126:9)
+        at async _runTestsForDescribeBlock (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:121:9)
+        at async run (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:71:3)
+        at async runAndTransformResultsToJestFormat (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+        at async jestAdapter (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+        at async runTestInternal (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-runner/build/runTest.js:367:16)
+        at async runTest (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-runner/build/runTest.js:444:34)
+
+      at Function.fromModel (node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:453:19)
+
+  console.log
+    Error: Provided class TypeORMVanillaChild is not a registered Model object
+        at ModelRegistryManager.build (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:146:13)
+        at Function.build (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:630:32)
+        at Function.fromModel (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:448:55)
+        at new TypeORMVanilla (/home/tsox/workspace/decaf-ts/for-typeorm/tests/integration/type-orm-vanilla-decoration.test.ts:97:11)
+        at Object.<anonymous> (/home/tsox/workspace/decaf-ts/for-typeorm/tests/integration/type-orm-vanilla-decoration.test.ts:225:22)
+        at Promise.then.completed (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/utils.js:298:28)
+        at new Promise (<anonymous>)
+        at callAsyncCircusFn (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/utils.js:231:10)
+        at _callCircusTest (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:316:40)
+        at processTicksAndRejections (node:internal/process/task_queues:105:5)
+        at async _runTest (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:252:3)
+        at async _runTestsForDescribeBlock (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:126:9)
+        at async _runTestsForDescribeBlock (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:121:9)
+        at async run (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/run.js:71:3)
+        at async runAndTransformResultsToJestFormat (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+        at async jestAdapter (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+        at async runTestInternal (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-runner/build/runTest.js:367:16)
+        at async runTest (/home/tsox/workspace/decaf-ts/for-typeorm/node_modules/jest-runner/build/runTest.js:444:34)
+
+      at Function.fromModel (node_modules/@decaf-ts/decorator-validation/src/model/Model.ts:453:19)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/repository-uuid.test.ts:1:1)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/type-orm-full-decaf-decoration.test.ts:1:1)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/nested-model.test.ts:3:1)
+
+  console.log
+    INFO [2025-12-10T12:44:31.352Z] createDatabase - Created database nested_creaton_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:31.389Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:31.390Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/prompts.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:32.197Z] createDatabase - Created database prompts_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:32.222Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:32.223Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/pagination.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:32.897Z] createDatabase - Created database pagination_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:32.923Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:32.924Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/model-relations.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:33.586Z] createDatabase - Created database complex_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:33.621Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:33.622Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+       7 |   required,
+       8 | } from "@decaf-ts/decorator-validation";
+    >  9 | import { createdBy, Observer, pk, Repository } from "@decaf-ts/core";
+         | ^
+      10 | import { ServerScope } from "nano";
+      11 | import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+      12 | import {
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (tests/integration/multi-adapter-diferent-flavour.test.ts:9:1)
+
+  console.warn
+    Deprecated "Number" type in options
+
+      2 |
+      3 | import {
+    > 4 |   Model,
+        |         ^
+      5 |   model,
+      6 |   type ModelArg,
+      7 |   required,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:124:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at nano_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:593:16)
+      at Function.registerPendingDecorator (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:532:16)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:934:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (tests/integration/multi-adapter-diferent-flavour.test.ts:4:92)
+      at Object.<anonymous> (tests/integration/multi-adapter-diferent-flavour.test.ts:23:3)
+
+  console.warn
+    Deprecated "Number" type in options
+
+      2 |
+      3 | import {
+    > 4 |   Model,
+        |         ^
+      5 |   model,
+      6 |   type ModelArg,
+      7 |   required,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:124:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at nano_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:593:16)
+      at Function.registerPendingDecorator (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:532:16)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:934:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (tests/integration/multi-adapter-diferent-flavour.test.ts:4:92)
+      at Object.<anonymous> (tests/integration/multi-adapter-diferent-flavour.test.ts:39:3)
+
+  console.log
+    INFO [2025-12-10T12:44:34.424Z] nano adapter - Created nano persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:34.479Z] createDatabase - Created database test_adapter_db_multi_flavour_new
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:34.510Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:34.511Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/nested-ownership.test.ts:3:1)
+
+  console.log
+    INFO [2025-12-10T12:44:34.915Z] createDatabase - Created database nested_ownership_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:34.941Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:34.942Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/type-orm-decaf-decoration.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:35.298Z] createDatabase - Created database orm_decoration_decaf_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:35.337Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:35.338Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/query.test.ts:2:1)
+
+  console.debug
+    VERBOSE [2025-12-10T12:44:35.606Z] createDatabase - Creating database queries_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:35.645Z] createDatabase - Created database queries_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    VERBOSE [2025-12-10T12:44:35.665Z] createNotifyFunction - Creating notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:35.671Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:35.671Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    VERBOSE [2025-12-10T12:44:35.701Z] type-orm adapter.initialize - type-orm adapter initialized
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.704Z] type-orm adapter.context - Creating new context for create operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.736Z] type-orm adapter.Adapter.create.create - Creating 20 new QueryUser in table tst_query_user
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.775Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.776Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.778Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.778Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.779Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.780Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.781Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.782Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.783Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.783Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.784Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.785Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.786Z] type-orm adapter.context - Creating new context for read operation on QueryUser model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:35.787Z] type-orm adapter.Statement.build - No limit selector defined. Using default limit of 250
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+      1 | import { Model } from "@decaf-ts/decorator-validation";
+    > 2 | import { OrderDirection, QueryError } from "@decaf-ts/core";
+        | ^
+      3 | import { TypeORMAdapter } from "../../src";
+      4 | import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
+      5 | import { DataSource, DataSourceOptions } from "typeorm";
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (tests/integration/MethodQueryBuilder.decorator.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:35.979Z] createDatabase - Created database orm_decoration_decaf_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.009Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.010Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/cross-decorated-relations.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:36.285Z] createDatabase - Created database cross_relations__d2b
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.309Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.310Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/bulk.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:36.590Z] createDatabase - Created database bulk_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.621Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.624Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/type-orm-vanilla-relations-manyToMany-decoration.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:36.945Z] createDatabase - Created database orm_vanilla_many_relations_decoration_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.971Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:36.972Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/adapter.test.ts:3:1)
+
+  console.log
+    INFO [2025-12-10T12:44:37.235Z] createDatabase - Created database test_adapter_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.262Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.262Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/repository2.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:37.507Z] createDatabase - Created database repository2_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.534Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.535Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/repository-serial.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:37.777Z] createDatabase - Created database repository_db_serial
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.813Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.814Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.839Z] type-orm adapter.observe - Creating dispatch for type-orm
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:37.842Z] TypeORMDispatch - Subscribed to TypeORM notifications
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/repository-aimodel.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:38.042Z] createDatabase - Created database repository_aimodel
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.067Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.068Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/type-orm-vanilla-relations-decoration.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:38.266Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.312Z] createDatabase - Created database orm_vanilla_relations_decoration_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.351Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/model-record.test.ts:3:1)
+
+  console.log
+    INFO [2025-12-10T12:44:38.602Z] createDatabase - Created database test_adapter_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.634Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.635Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/minimal.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:38.885Z] createDatabase - Created database repository_db_minimal
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.912Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.912Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.938Z] type-orm adapter.observe - Creating dispatch for type-orm
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:38.940Z] TypeORMDispatch - Subscribed to TypeORM notifications
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/repository.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:39.139Z] createDatabase - Created database repository_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.171Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.172Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.202Z] type-orm adapter.observe - Creating dispatch for type-orm
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.204Z] TypeORMDispatch - Subscribed to TypeORM notifications
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/cross-decorated.test.ts:2:1)
+
+  console.log
+    INFO [2025-12-10T12:44:39.380Z] createDatabase - Created database cross_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.408Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.409Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/integration/repository-oinjection.test.ts:1:1)
+
+  console.log
+    INFO [2025-12-10T12:44:39.648Z] createDatabase - Created database repositoy_inj_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.673Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.674Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (tests/integration/sequences.test.ts:3:1)
+
+  console.debug
+    VERBOSE [2025-12-10T12:44:39.827Z] createDatabase - Creating database sequences_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.863Z] createDatabase - Created database sequences_db
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    VERBOSE [2025-12-10T12:44:39.885Z] createNotifyFunction - Creating notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.891Z] createNotifyFunction - Created notify function
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.log
+    INFO [2025-12-10T12:44:39.891Z] type-orm adapter - Created type-orm persistence adapter  persistence adapter
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    VERBOSE [2025-12-10T12:44:39.901Z] type-orm adapter.initialize - type-orm adapter initialized
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:39.904Z] type-orm adapter.context - Creating new context for update operation on Model model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:39.908Z] type-orm adapter.type-orm adapter.raw.raw - executing query: SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:39.911Z] type-orm adapter.context - Creating new context for update operation on Model model with flag overrides: {}
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.debug
+    DEBUG [2025-12-10T12:44:39.911Z] type-orm adapter.type-orm adapter.raw.raw - executing query: SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+    > 1 | import {
+        | ^
+      2 |   Adapter,
+      3 |   Cascade,
+      4 |   CascadeMetadata,
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMAdapter.ts:1:1)
+      at Object.<anonymous> (src/index.ts:2:1)
+      at Object.<anonymous> (tests/unit/type-orm-decoration.test.ts:1:1)
+
+  console.warn
+    Deprecated "String" type in options
+
+       6 |   UpdateEvent,
+       7 | } from "typeorm";
+    >  8 | import { Adapter, ContextualArgs, EventIds } from "@decaf-ts/core";
+         | ^
+       9 | import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+      10 | import { Constructor } from "@decaf-ts/decoration";
+      11 | import { TypeORMContext } from "./TypeORMAdapter";
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (src/TypeORMEventSubscriber.ts:8:1)
+      at Object.<anonymous> (tests/integration/dispatch-subscriber.test.ts:1:1)
+
+  console.warn
+    Deprecated "Number" type in options
+
+      2 | import { OperationKeys } from "@decaf-ts/db-decorators";
+      3 | import { table, pk, EventIds } from "@decaf-ts/core";
+    > 4 | import { model, ModelArg } from "@decaf-ts/decorator-validation";
+        |                                                                  ^
+      5 | import { TypeORMFlavour } from "../../src/constants";
+      6 | import { TypeORMBaseModel } from "./baseModel";
+      7 | import { TypeORMDispatch } from "../../src/TypeORMDispatch";
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:124:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (tests/integration/dispatch-subscriber.test.ts:4:92)
+      at Object.<anonymous> (tests/integration/dispatch-subscriber.test.ts:18:3)
+
+  console.error
+    ERROR [2025-12-10T12:44:40.125Z] TypeORMDispatch.notificationHandler.notificationHandler - Failed to process notification: Error: boom
+
+      70 |       log.debug(`pks: ${ids}`);
+      71 |     } catch (e: unknown) {
+    > 72 |       log.error(`Failed to process notification: ${e}`);
+         |           ^
+      73 |     }
+      74 |   }
+      75 |
+
+      at Proxy.log (node_modules/@decaf-ts/logging/src/logging.ts:337:5)
+      at Proxy.error (node_modules/@decaf-ts/logging/src/logging.ts:402:10)
+      at TypeORMDispatch.notificationHandler (src/TypeORMDispatch.ts:72:11)
+      at async Object.<anonymous> (tests/integration/dispatch-subscriber.test.ts:118:5)
+
+  console.warn
+    Deprecated "String" type in options
+
+      1 | import { Model, model, ModelArg } from "@decaf-ts/decorator-validation";
+    > 2 | import { Adapter } from "@decaf-ts/core";
+        | ^
+      3 | import { uses } from "@decaf-ts/decoration";
+      4 | import { TypeORMFlavour } from "../../src";
+      5 |
+
+      at pkDec (node_modules/@decaf-ts/core/src/identity/decorators.ts:117:17)
+      at node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:867:25
+          at Array.forEach (<anonymous>)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:838:15)
+      at Function.applyPendingEntry (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:411:73)
+      at Function.resolvePendingDecorators (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:619:14)
+      at decaf_decorator_for_id (node_modules/@decaf-ts/decoration/src/decoration/Decoration.ts:945:20)
+      at DecorateProperty (node_modules/reflect-metadata/Reflect.js:561:33)
+      at Reflect.decorate (node_modules/reflect-metadata/Reflect.js:136:24)
+      at Object.<anonymous>.__decorate (node_modules/@decaf-ts/core/lib/model/SequenceModel.cjs:4:92)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/model/SequenceModel.ts:32:3)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/Sequence.ts:21:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/persistence/index.ts:8:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/overrides.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/overrides/index.ts:4:1)
+      at Object.<anonymous> (node_modules/@decaf-ts/core/src/index.ts:17:1)
+      at Object.<anonymous> (tests/unit/model-assignment.test.ts:2:1)
+
+📦 report is created on: /home/tsox/workspace/decaf-ts/for-typeorm/workdocs/reports/html/test-report.html
+----------------------------|---------|----------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+File                        | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                                                                                                                                                                    
+----------------------------|---------|----------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+All files                   |   76.91 |    56.67 |   82.88 |    78.5 |                                                                                                                                                                                                                                      
+ src                        |   78.71 |    56.07 |      88 |   80.25 |                                                                                                                                                                                                                                      
+  TypeORMAdapter.ts         |   73.97 |    51.86 |   89.04 |   75.39 | 114,235,252-264,283,293,307,309,334,363-371,403,411,471,496,517,534,557-566,657,662-682,702,739,784,826-1124,1148-1157,1174,1201-1205,1208,1236-1240,1245-1248,1399,1406,1464,1471,1476,1496,1548,1555,1627,1634,1658-1660,1663-1664 
+  TypeORMDispatch.ts        |      76 |        0 |   85.71 |      76 | 105,109,118,128,145-148                                                                                                                                                                                                              
+  TypeORMEventSubscriber.ts |      95 |       60 |     100 |   94.44 | 54                                                                                                                                                                                                                                   
+  TypeORMRepository.ts      |   87.76 |    71.69 |   87.87 |   92.18 | 144-155,278,582-593                                                                                                                                                                                                                  
+  constants.ts              |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  errors.ts                 |   66.66 |      100 |       0 |   66.66 | 22                                                                                                                                                                                                                                   
+  index.ts                  |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  types.ts                  |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  utils.ts                  |   76.74 |    70.58 |      80 |      75 | 23-35,58                                                                                                                                                                                                                             
+ src/indexes                |   27.27 |        0 |       0 |   27.27 |                                                                                                                                                                                                                                      
+  generator.ts              |    23.8 |        0 |       0 |    23.8 | 24-25,82-112                                                                                                                                                                                                                         
+  index.ts                  |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+ src/overrides              |   77.77 |    62.42 |   76.47 |   80.28 |                                                                                                                                                                                                                                      
+  Column.ts                 |   81.81 |    54.28 |     100 |   83.87 | 139,168,172,185,206                                                                                                                                                                                                                  
+  CreateDateColumn.ts       |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  Entity.ts                 |     100 |    56.25 |     100 |     100 | 26-43                                                                                                                                                                                                                                
+  ManyToMany.ts             |   83.33 |    72.72 |     100 |   88.23 | 23,45                                                                                                                                                                                                                                
+  ManyToOne.ts              |   83.33 |    76.92 |     100 |   88.23 | 23,45                                                                                                                                                                                                                                
+  ObjectUtils.ts            |   33.33 |       40 |   33.33 |   33.33 | 17-61                                                                                                                                                                                                                                
+  OneToMany.ts              |   85.71 |    81.81 |     100 |    92.3 | 35                                                                                                                                                                                                                                   
+  OneToOne.ts               |   83.33 |    73.33 |     100 |   88.23 | 22,44                                                                                                                                                                                                                                
+  PrimaryColumn.ts          |   73.91 |    54.54 |     100 |   84.21 | 91,112,128                                                                                                                                                                                                                           
+  PrimaryGeneratedColumn.ts |   88.46 |    76.92 |     100 |      88 | 112,123-124                                                                                                                                                                                                                          
+  UpdateDateColumn.ts       |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  utils.ts                  |   59.18 |       50 |   45.45 |   58.33 | 19-34,62,65,70-71,74-75,90,99-108                                                                                                                                                                                                    
+ src/query                  |   92.45 |    74.19 |   94.11 |    93.2 |                                                                                                                                                                                                                                      
+  Paginator.ts              |   96.66 |       70 |     100 |     100 | 121,151-154                                                                                                                                                                                                                          
+  Statement.ts              |   89.65 |       75 |    87.5 |   89.65 | 143,160,177,231,295,312                                                                                                                                                                                                              
+  constants.ts              |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  index.ts                  |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+  translate.ts              |   88.88 |      100 |     100 |   85.71 | 44                                                                                                                                                                                                                                   
+ src/sequences              |   34.69 |       15 |      60 |   36.17 |                                                                                                                                                                                                                                      
+  Sequence.ts               |   33.33 |       15 |      60 |   34.78 | 85-88,107-146,167-194                                                                                                                                                                                                                
+  index.ts                  |     100 |      100 |     100 |     100 |                                                                                                                                                                                                                                      
+----------------------------|---------|----------|---------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
