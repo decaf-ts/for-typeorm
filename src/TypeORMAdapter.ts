@@ -17,7 +17,6 @@ import {
   PreparedModel,
   ConnectionError,
   Repository,
-  DefaultSequenceOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {

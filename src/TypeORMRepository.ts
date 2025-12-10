@@ -175,11 +175,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     model = new this.class(model);
-    if (shouldRunHandlers)
+    if (!ignoreHandlers)
       await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
         this,
         contextArgs.context,
@@ -188,7 +187,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         OperationKeys.ON
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const errors = await Promise.resolve(
         model.hasErrors(
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
@@ -270,9 +269,8 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
@@ -280,7 +278,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       );
     const oldModel = await this.read(pk, ...contextArgs.args);
     model = Model.merge(oldModel, model, this.class);
-    if (shouldRunHandlers)
+    if (ignoreHandlers)
       await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
         this,
         contextArgs.context,
@@ -290,7 +288,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         oldModel
       );
 
-    if (shouldValidate) {
+    if (ignoreValidate) {
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
@@ -372,15 +370,14 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     if (!models.length) return [models, ...contextArgs.args];
 
     models = await Promise.all(
       models.map(async (m) => {
         m = new this.class(m);
-        if (shouldRunHandlers)
+        if (!ignoreHandlers)
           await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
             this,
             contextArgs.context,
@@ -392,7 +389,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       })
     );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const ignoredProps =
         contextArgs.context.get("ignoredValidationProperties") || [];
 
@@ -490,9 +487,8 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
@@ -503,7 +499,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       m = Model.merge(oldModels[i], m, this.class);
       return m;
     });
-    if (shouldRunHandlers)
+    if (!ignoreHandlers)
       await Promise.all(
         models.map((m, i) =>
           enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
@@ -517,7 +513,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         )
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const ignoredProps =
         contextArgs.context.get("ignoredValidationProperties") || [];
 
