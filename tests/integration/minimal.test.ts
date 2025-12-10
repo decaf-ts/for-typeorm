@@ -142,7 +142,7 @@ describe("minimal", () => {
 
   afterAll(async () => {
     if (con) await con.destroy();
-    await adapter.shutdown();
+    await adapter?.shutdown();
     con = await TypeORMAdapter.connect(config);
     await TypeORMAdapter.deleteDatabase(con, dbName, user);
     await TypeORMAdapter.deleteUser(con, user, admin);

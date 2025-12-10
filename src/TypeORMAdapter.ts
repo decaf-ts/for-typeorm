@@ -17,6 +17,7 @@ import {
   PreparedModel,
   ConnectionError,
   Repository,
+  DefaultSequenceOptions,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -1183,10 +1184,30 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         ];
         let type =
           options.type || Metadata.type(original.constructor, propertyKey);
-        if (!type)
-          throw new InternalError(
-            `Missing type information for property ${propertyKey} of ${original.name}`
-          );
+        switch (type) {
+          case String.name || String.name.toLowerCase():
+          case String:
+            options.generated = false;
+            break;
+          case Number.name || String.name.toLowerCase():
+          case BigInt.name || BigInt.name.toLowerCase():
+          case BigInt:
+          case Number:
+          case "uuid":
+          case "serial":
+            options.generated = true;
+            break;
+          case !type:
+            throw new InternalError(
+              `Missing type information for property ${propertyKey} of ${original.name}`
+            );
+          default:
+            throw new Error("Unsupported type");
+        }
+        if (typeof options.generated === "undefined") {
+          options.generated = true;
+        }
+
         if (options.generated) {
           const name =
             options.name || Model.sequenceName(original.constructor, "pk");
@@ -1205,18 +1226,22 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           }
           decorators.push(noValidateOnCreate());
         } else {
-          switch (
-            typeof type === "string"
-              ? type.toLowerCase()
-              : type.name.toLowerCase()
-          ) {
-            case "number":
+          const typename =
+            typeof type === "function" && (type as any)?.name
+              ? (type as any).name
+              : type;
+
+          switch (typename) {
+            case Number.name || Number.name.toLowerCase():
               type = "numeric";
               break;
-            case "string":
+            case "serial":
+            case "uuid":
+              break;
+            case String.name || String.name.toLowerCase():
               type = "varchar";
               break;
-            case "bigint":
+            case BigInt.name || BigInt.name.toLowerCase():
               type = "bigint";
               break;
             default:

@@ -121,7 +121,7 @@ class TypeORMParentVanilla extends BaseModel {
     eager: true,
   })
   @JoinTable()
-  children: TypeORMVanillaChild[];
+  children!: TypeORMVanillaChild[];
 
   constructor(arg?: ModelArg<TypeORMParentVanilla>) {
     super(arg);
@@ -236,7 +236,7 @@ describe("TypeORM Vanilla decoration", () => {
       id: created.id,
     });
     expect(record).toBeDefined();
-    expect(record.hasErrors()).toBeDefined();
+    expect(record?.hasErrors()).toBeDefined();
   });
 
   let manyToMany: TypeORMParentVanilla;
@@ -266,6 +266,6 @@ describe("TypeORM Vanilla decoration", () => {
       id: manyToMany.id,
     });
     expect(record).toBeDefined();
-    expect(record.hasErrors()).toBeDefined();
+    expect(record?.hasErrors()).toBeDefined();
   });
 });

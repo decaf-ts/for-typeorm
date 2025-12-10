@@ -15,7 +15,9 @@ import {
   TypeORMRepository,
 } from "../../src/index";
 import { NanoAdapter, NanoFlavour } from "@decaf-ts/for-nano";
-
+import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { DataSource } from "typeorm";
 @uses(TypeORMFlavour)
 @model()
 class Model1 extends Model {
@@ -75,10 +77,6 @@ const config: DataSourceOptions = {
 } as PostgresConnectionOptions;
 
 let con2: DataSource;
-
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
-import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
-import { DataSource } from "typeorm";
 
 jest.setTimeout(50000);
 
