@@ -6,12 +6,12 @@ import {
   Operator,
   OrderDirection,
   Paginator,
+  QueryError,
   Statement,
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
 import { TypeORMQueryLimit } from "./constants";
-import { TypeORMPaginator } from "./Paginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
 import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
@@ -153,7 +153,9 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    * @return {Promise<Paginator<M, R, TypeORMQuery>>} A promise that resolves to a paginator.
    * @throws {InternalError} If there's an error building the query.
    */
-  async paginate<R>(size: number): Promise<Paginator<M, R, TypeORMQuery>> {
+  override async paginate<R>(
+    size: number
+  ): Promise<Paginator<M, R, TypeORMQuery>> {
     try {
       const transformedQuery: FindManyOptions<M> = {};
       if (this.whereCondition)
@@ -167,14 +169,13 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           [this.orderBySelector[0]]: this.orderBySelector[1].toString(),
         } as any;
 
-      return new TypeORMPaginator(
-        this.adapter as any,
+      return this.adapter.Paginator(
         transformedQuery as any,
         size,
         this.fromSelector
       );
     } catch (e: any) {
-      throw new InternalError(e);
+      throw new QueryError(e);
     }
   }
   //

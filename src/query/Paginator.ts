@@ -1,10 +1,9 @@
 import { MaybeContextualArg, Paginator, PagingError } from "@decaf-ts/core";
 import { TypeORMQuery } from "../types";
 import { Model } from "@decaf-ts/decorator-validation";
-import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
+import { TypeORMAdapter } from "../TypeORMAdapter";
 import { FindManyOptions, Repository as Repo } from "typeorm";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Context, OperationKeys } from "@decaf-ts/db-decorators";
 
 /**
  * @description Paginator for TypeORM query results.
@@ -117,18 +116,12 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
    *   Paginator-->>Client: results
    */
 
-  async page(
+  override async page(
     page: number = 1,
-    ...args: MaybeContextualArg<TypeORMContext>
+    ...args: MaybeContextualArg<any>
   ): Promise<R[]> {
-    const contextArgs = await Context.args<M, TypeORMContext>(
-      OperationKeys.READ,
-      this.clazz,
-      args,
-      this.adapter,
-      {}
-    );
-    const ctx = contextArgs.context;
+    const { ctxArgs, ctx } = this.adapter["logCtx"](args, this.page);
+    if (this.isPreparedStatement()) return this.pagePrepared(page, ...ctxArgs);
     const statement = { ...this.statement };
 
     // Get total count if not already calculated

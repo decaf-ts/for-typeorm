@@ -131,6 +131,14 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
   TypeORMAdapter
 > {
+  protected override _overrides = Object.assign({}, super["_overrides"], {
+    ignoreValidation: false,
+    ignoreHandlers: false,
+    allowRawStatements: true,
+    forcePrepareSimpleQueries: false,
+    forcePrepareComplexQueries: false,
+  });
+
   constructor(adapter: TypeORMAdapter, model: Constructor<M>, ...args: any[]) {
     super(adapter, model, ...args);
   }

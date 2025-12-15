@@ -1,6 +1,7 @@
 import { RepositoryFlags } from "@decaf-ts/db-decorators";
 import { SelectQueryBuilder } from "typeorm";
 import { Model } from "@decaf-ts/decorator-validation";
+import { AdapterFlags } from "@decaf-ts/core";
 
 /**
  * @description SQL operators available for building TypeORM queries.
@@ -76,7 +77,7 @@ export interface TypeORMQuery<
  * @interface TypeORMFlags
  * @memberOf module:for-typeorm
  */
-export interface TypeORMFlags extends RepositoryFlags {
+export interface TypeORMFlags extends AdapterFlags {
   /**
    * @description User authentication information for Postgres database connections
    */

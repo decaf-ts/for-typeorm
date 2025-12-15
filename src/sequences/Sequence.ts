@@ -77,6 +77,7 @@ export class TypeORMSequence extends Sequence {
           query: `SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1`,
           values: [name],
         },
+        true,
         ctx
       );
       if (!Array.isArray(rows) || rows.length === 0)
@@ -116,6 +117,7 @@ export class TypeORMSequence extends Sequence {
           query: `SELECT nextval($1) AS nextval;`,
           values: [name],
         },
+        true,
         ctx
       );
       const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
@@ -133,6 +135,7 @@ export class TypeORMSequence extends Sequence {
           query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startWith} INCREMENT BY ${incrementBy} NO CYCLE;`,
           values: [],
         },
+        true,
         ctx
       );
       const rows: any[] = await this.adapter.raw(
@@ -140,6 +143,7 @@ export class TypeORMSequence extends Sequence {
           query: `SELECT nextval($1) AS nextval;`,
           values: [name],
         },
+        true,
         ctx
       );
       const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;

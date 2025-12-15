@@ -17,12 +17,15 @@ import {
   PreparedModel,
   ConnectionError,
   Repository,
+  Context,
+  generated,
+  Paginator,
+  RawResult,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
   BaseError,
   ConflictError,
-  Context,
   DBKeys,
   DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
   InternalError,
@@ -56,7 +59,7 @@ import {
   ValidatorOptions,
 } from "@decaf-ts/decorator-validation";
 import { IndexError } from "./errors";
-import { TypeORMStatement } from "./query";
+import { TypeORMPaginator, TypeORMStatement } from "./query";
 import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
 import { TypeORMFlags, TypeORMQuery } from "./types";
@@ -210,6 +213,14 @@ export class TypeORMAdapter extends Adapter<
     return new TypeORMStatement(this);
   }
 
+  override Paginator<M extends Model>(
+    query: TypeORMQuery,
+    size: number,
+    clazz: Constructor<M>
+  ): Paginator<M, any, TypeORMQuery> {
+    return new TypeORMPaginator(this, query, size, clazz);
+  }
+
   /**
    * @description Creates a new PostgreSQL sequence
    * @summary Factory method that creates a new PostgreSQLSequence instance for managing sequences
@@ -271,10 +282,12 @@ export class TypeORMAdapter extends Adapter<
    * @param {TypeORMQuery} q - The query to execute
    * @return {Promise<R>} A promise that resolves to the query result
    */
-  override async raw<R>(
+  override async raw<R, D extends boolean>(
     q: TypeORMQuery,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    docsOnly: D = true as D,
     ...args: ContextualArgs<TypeORMContext>
-  ): Promise<R> {
+  ): Promise<RawResult<R, D>> {
     const { log } = this.logCtx(args, this.raw);
     try {
       if (!this.client.isInitialized) await this.client.initialize();
@@ -287,7 +300,7 @@ export class TypeORMAdapter extends Adapter<
         `executing query: ${typeof query !== "string" ? (query as unknown as SelectQueryBuilder<any>).getSql() : query}`
       );
       const response = await this.client.query(query, values);
-      return response as R;
+      return response as any;
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
@@ -1253,6 +1266,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             })
           );
         }
+
+        if (options.generated) decorators.push(generated());
         return apply(...decorators)(original, propertyKey);
       };
     }
