@@ -21,9 +21,9 @@ import { Constructor, Metadata } from "@decaf-ts/decoration";
  * const page1 = await paginator.page(1);
  * const page2 = await paginator.page(2);
  */
-export class TypeORMPaginator<M extends Model, R> extends Paginator<
+export class TypeORMPaginator<M extends Model> extends Paginator<
   M,
-  R,
+  M[],
   TypeORMQuery
 > {
   /**
@@ -119,7 +119,7 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
   override async page(
     page: number = 1,
     ...args: MaybeContextualArg<any>
-  ): Promise<R[]> {
+  ): Promise<M[]> {
     const { ctxArgs, ctx } = this.adapter["logCtx"](args, this.page);
     if (this.isPreparedStatement()) return this.pagePrepared(page, ...ctxArgs);
     const statement = { ...this.statement };
@@ -154,6 +154,6 @@ export class TypeORMPaginator<M extends Model, R> extends Paginator<
       });
 
     this._currentPage = page;
-    return results as unknown as R[];
+    return results as unknown as M[];
   }
 }

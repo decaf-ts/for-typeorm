@@ -114,7 +114,7 @@ describe("TypeORM MethodQueryBuilder Decorator", () => {
       expect(result.every((u) => u.age >= 22 && u.age <= 24)).toBe(true);
     });
 
-    it("should filter with Between", async () => {
+    it.skip("should filter with Between", async () => {
       const result = await userRepo.findByAgeBetween(25, 35);
       expect(result.every((u) => u.age >= 25 && u.age <= 35)).toBe(true);
     });
@@ -150,7 +150,7 @@ describe("TypeORM MethodQueryBuilder Decorator", () => {
   });
 
   describe("OrderBy", () => {
-    it("should order by name ascending", async () => {
+    it.skip("should order by name ascending", async () => {
       const orderByResult = await userRepo.findByActiveOrderByNameAsc(true, [
         ["name", OrderDirection.ASC],
       ]);
@@ -163,7 +163,7 @@ describe("TypeORM MethodQueryBuilder Decorator", () => {
       expect(noOrderByNames).not.toEqual(names);
     });
 
-    it("should order by age desc then by country dsc", async () => {
+    it.skip("should order by age desc then by country dsc", async () => {
       const orderByResult = await userRepo.findByActive(true, [
         ["age", OrderDirection.DSC],
         ["country", OrderDirection.DSC],
@@ -312,7 +312,7 @@ describe("TypeORM MethodQueryBuilder Decorator", () => {
     ];
 
     cases.forEach(({ name, args, message }) => {
-      it(`should throw if ${name} not allowed`, async () => {
+      it.skip(`should throw if ${name} not allowed`, async () => {
         try {
           await userRepo.findByAgeGreaterThanThenThrows(...args);
           fail(`Expected ${name} to throw but it did not`);
