@@ -101,7 +101,6 @@ export class TypeORMSequence extends Sequence {
    * @protected
    */
   protected override async increment(
-    current: string | number | bigint,
     count: number | undefined,
     ctx: Context<any>
   ): Promise<string | number | bigint> {
@@ -166,9 +165,8 @@ export class TypeORMSequence extends Sequence {
       argz,
       this.adapter
     );
-    const { context, args } = contextArgs;
-    const current = await this.current(...args);
-    return this.increment(current, undefined, context);
+    const { context } = contextArgs;
+    return this.increment(undefined, context);
   }
 
   override async range(
@@ -185,7 +183,6 @@ export class TypeORMSequence extends Sequence {
     const current = (await this.current()) as number;
     const incrementBy = this.parse(this.options.incrementBy) as number;
     const next: string | number | bigint = await this.increment(
-      current,
       (this.parse(count) as number) * incrementBy,
       context
     );

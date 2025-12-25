@@ -269,7 +269,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   protected override async updatePrefix(
     model: M,
     ...args: MaybeContextualArg<TypeORMContext>
-  ): Promise<[M, ...args: any[], TypeORMContext]> {
+  ): Promise<[M, ...args: any[], TypeORMContext, M | undefined]> {
     const contextArgs = await Context.args(
       OperationKeys.UPDATE,
       this.class,
@@ -277,19 +277,24 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
-    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
-    const ignoreValidate = contextArgs.context.get("ignoreValidation");
+    const ctx = contextArgs.context;
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    const ignoreValidate = ctx.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
         `No value for the Id is defined under the property ${this.pk as string}`
       );
-    const oldModel = await this.read(pk, ...contextArgs.args);
-    model = Model.merge(oldModel, model, this.class);
+    let oldModel: M | undefined;
+    if (ctx.get("applyUpdateValidation")) {
+      oldModel = await this.read(pk as string);
+      if (ctx.get("mergeForUpdate"))
+        model = Model.merge(oldModel, model, this.class);
+    }
     if (ignoreHandlers)
       await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
         this,
-        contextArgs.context,
+        ctx,
         model,
         OperationKeys.UPDATE,
         OperationKeys.ON,
@@ -306,7 +311,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       );
       if (errors) throw new ValidationError(errors.toString());
     }
-    return [model, ...contextArgs.args];
+    return [model, ...contextArgs.args, oldModel];
   }
 
   /**
@@ -487,7 +492,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   protected override async updateAllPrefix(
     models: M[],
     ...args: MaybeContextualArg<TypeORMContext>
-  ): Promise<[M[], ...args: any[], TypeORMContext]> {
+  ): Promise<[M[], ...args: any[], TypeORMContext, M[] | undefined]> {
     const contextArgs = await Context.args<M, TypeORMContext>(
       OperationKeys.UPDATE,
       this.class,
@@ -495,18 +500,23 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter,
       this._overrides || {}
     );
-    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
-    const ignoreValidate = contextArgs.context.get("ignoreValidation");
+    const context = contextArgs.context;
+
+    const ignoreHandlers = context.get("ignoreHandlers");
+    const ignoreValidate = context.get("ignoreValidation");
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
       return id;
     });
-    const oldModels = await this.readAll(ids, ...contextArgs.args);
-    models = models.map((m, i) => {
-      m = Model.merge(oldModels[i], m, this.class);
-      return m;
-    });
+    let oldModels: M[] | undefined;
+    if (context.get("applyUpdateValidation")) {
+      oldModels = await this.readAll(ids as string[], context);
+      if (context.get("mergeForUpdate"))
+        models = models.map((m, i) =>
+          Model.merge((oldModels as any)[i], m, this.class)
+        );
+    }
     if (!ignoreHandlers)
       await Promise.all(
         models.map((m, i) =>
@@ -516,26 +526,33 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
             m,
             OperationKeys.UPDATE,
             OperationKeys.ON,
-            oldModels[i]
+            oldModels ? oldModels[i] : undefined
           )
         )
       );
 
     if (!ignoreValidate) {
-      const ignoredProps =
-        contextArgs.context.get("ignoredValidationProperties") || [];
+      const ignoredProps = context.get("ignoredValidationProperties") || [];
+      let modelsValidation: any;
+      if (!context.get("applyUpdateValidation")) {
+        modelsValidation = await Promise.resolve(
+          models.map((m) => m.hasErrors(...ignoredProps))
+        );
+      } else {
+        modelsValidation = await Promise.all(
+          models.map((m, i) =>
+            Promise.resolve(
+              m.hasErrors((oldModels as any)[i] as any, ...ignoredProps)
+            )
+          )
+        );
+      }
 
-      const errors = await Promise.all(
-        models.map((m, i) =>
-          Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
-        )
-      );
-
-      const errorMessages = reduceErrorsToPrint(errors);
+      const errorMessages = reduceErrorsToPrint(modelsValidation);
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }
-    return [models, ...contextArgs.args];
+    return [models, ...contextArgs.args, oldModels];
   }
 
   /**

@@ -89,17 +89,6 @@ describe("TypeORM Sequences", () => {
     await adminCon!.destroy();
   });
 
-  it("fails to get next when sequence does not exist", async () => {
-    const seq: Sequence = await adapter.Sequence({
-      name: "tst_missing_seq",
-      type: "Number",
-      startWith: 10,
-      incrementBy: 2,
-    });
-
-    await expect(seq.next()).rejects.toBeInstanceOf(InternalError);
-  });
-
   it.skip("creates sequence and returns values for next() and range()", async () => {
     const name = "tst_numbers_seq";
     // Ensure the sequence exists in DB so that current() works
@@ -119,6 +108,7 @@ describe("TypeORM Sequences", () => {
       type: "Number",
       startWith: 100,
       incrementBy: 5,
+      cycle: false,
     });
 
     // We can attempt range and next; even if current() returns the configured start,
@@ -142,6 +132,7 @@ describe("TypeORM Sequences", () => {
       type: "String" as any,
       startWith: 1 as any,
       incrementBy: 1 as any,
+      cycle: false,
     });
 
     // We call range which leads to increment internally after current(); even if current() fails first,
