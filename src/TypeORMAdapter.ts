@@ -1199,12 +1199,20 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         switch (type) {
           case String.name || String.name.toLowerCase():
           case String:
-            options.generated = false;
+            options.generated =
+              typeof options.generated === "undefined"
+                ? false
+                : options.generated;
             break;
           case Number.name || String.name.toLowerCase():
           case BigInt.name || BigInt.name.toLowerCase():
           case BigInt:
           case Number:
+            options.generated =
+              typeof options.generated === "undefined"
+                ? true
+                : options.generated;
+            break;
           case "uuid":
           case "serial":
             options.generated = true;
