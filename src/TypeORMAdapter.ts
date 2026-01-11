@@ -18,7 +18,6 @@ import {
   ConnectionError,
   Repository,
   Context,
-  generated,
   Paginator,
   RawResult,
 } from "@decaf-ts/core";
@@ -28,6 +27,7 @@ import {
   ConflictError,
   DBKeys,
   DEFAULT_ERROR_MESSAGES as DB_DEFAULT_ERROR_MESSAGES,
+  generated,
   InternalError,
   NotFoundError,
   onCreate,
@@ -368,9 +368,9 @@ export class TypeORMAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     transient: Record<string, any> | undefined,
-    ctx: TypeORMContext
+    ...args: ContextualArgs<TypeORMContext>
   ): M {
-    const log = ctx.logger.for(this.revert);
+    const { log } = this.logCtx(args, this.revert);
     if (transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
@@ -495,7 +495,7 @@ export class TypeORMAdapter extends Adapter<
   override async delete<M extends Model>(
     m: Constructor<M>,
     id: PrimaryKeyType,
-    ...args: any[]
+    ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>> {
     const { ctx } = this.logCtx(args, this.delete);
     const model = await this.read(m, id, ctx);
@@ -515,7 +515,9 @@ export class TypeORMAdapter extends Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
-    const { ctx } = this.logCtx(args, this.createAll);
+    const { ctx, log } = this.logCtx(args, this.createAll);
+    const tableLabel = Model.tableName(m);
+    log.debug(`Creating ${id.length} entries ${tableLabel} table`);
 
     try {
       const repo = this.client.getRepository(m);
@@ -533,10 +535,13 @@ export class TypeORMAdapter extends Adapter<
   override async readAll<M extends Model>(
     m: Constructor<M>,
     id: PrimaryKeyType[],
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     if (!id.length) return [];
+    const { log } = this.logCtx(args, this.readAll);
+    const tableLabel = Model.tableName(m);
+    log.debug(`Reading ${id.length} entries ${tableLabel} table`);
 
     try {
       const pk = Model.pk(m) as string;
@@ -553,10 +558,13 @@ export class TypeORMAdapter extends Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
+    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
+    const tableLabel = Model.tableName(clazz);
+    log.debug(`Updating ${ids.length} entries ${tableLabel} table`);
     const result = [];
     const pk = Model.pk(clazz) as string;
     for (const m of model) {
-      result.push(await this.update(clazz, m[pk], m, ...args));
+      result.push(await this.update(clazz, m[pk], m, ...ctxArgs));
     }
     return result;
   }
@@ -567,10 +575,12 @@ export class TypeORMAdapter extends Adapter<
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     if (!ids.length) return [];
-    const { ctx } = this.logCtx(args, this.deleteAll);
+    const { ctxArgs, log } = this.logCtx(args, this.deleteAll);
+    const tableLabel = Model.tableName(m);
+    log.debug(`Deleting ${ids.length} entries from ${tableLabel} table`);
     try {
       const repo = this.client.getRepository(m);
-      const models = await this.readAll(m, ids, ctx);
+      const models = await this.readAll(m, ids, ...ctxArgs);
       const pk = Model.pk(m) as string;
       await repo.delete({ [pk]: In(ids) } as any);
       return models;

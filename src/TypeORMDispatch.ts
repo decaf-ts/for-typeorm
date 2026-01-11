@@ -1,4 +1,11 @@
-import { Adapter, ContextualArgs, Dispatch, EventIds } from "@decaf-ts/core";
+import {
+  Adapter,
+  ContextualArgs,
+  Dispatch,
+  EventIds,
+  MaybeContextualArg,
+  PersistenceKeys,
+} from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
@@ -99,7 +106,9 @@ export class TypeORMDispatch extends Dispatch<
    *     S-->>D: Promise rejects
    *   end
    */
-  protected override async initialize(): Promise<void> {
+  protected override async initialize(
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<void> {
     async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
       if (!this.adapter)
         throw new InternalError(`No adapter/native observed for dispatch`);
@@ -119,10 +128,14 @@ export class TypeORMDispatch extends Dispatch<
       }
     }
 
+    const { log } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
+
     subscribeToTypeORM
       .call(this)
       .then(() => {
-        this.log.info(`Subscribed to TypeORM notifications`);
+        log.info(`Subscribed to TypeORM notifications`);
       })
       .catch((e: unknown) => {
         throw new InternalError(
