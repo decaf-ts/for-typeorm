@@ -1,16 +1,19 @@
 import {
-  Context,
   InternalError,
   NotFoundError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { Adapter, MaybeContextualArg, SequenceOptions } from "@decaf-ts/core";
+import {
+  Adapter,
+  Context,
+  MaybeContextualArg,
+  SequenceOptions,
+} from "@decaf-ts/core";
 import { Sequence } from "@decaf-ts/core";
 import { TypeORMContext } from "../TypeORMAdapter";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DataSource } from "typeorm";
 import { TypeORMQuery } from "../types";
-import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description Abstract implementation of a database sequence for TypeORM.
@@ -63,13 +66,9 @@ export class TypeORMSequence extends Sequence {
   override async current(
     ...args: MaybeContextualArg<any>
   ): Promise<string | number | bigint> {
-    const contextArgs = await Context.args<any, any>(
-      OperationKeys.READ,
-      Model as any,
-      args,
-      this.adapter
+    const { ctx } = (await this.logCtx(args, OperationKeys.READ, true)).for(
+      this.current
     );
-    const ctx = contextArgs.context;
     const { name } = this.options;
     try {
       const rows: any[] = await this.adapter.raw(
@@ -159,32 +158,24 @@ export class TypeORMSequence extends Sequence {
   override async next(
     ...argz: MaybeContextualArg<any>
   ): Promise<number | string | bigint> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      Model as any,
-      argz,
-      this.adapter
+    const { ctx } = (await this.logCtx(argz, OperationKeys.UPDATE, true)).for(
+      this.next
     );
-    const { context } = contextArgs;
-    return this.increment(undefined, context);
+    return this.increment(undefined, ctx);
   }
 
   override async range(
     count: number,
     ...argz: MaybeContextualArg<any>
   ): Promise<(number | string | bigint)[]> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      Model as any,
-      argz,
-      this.adapter
+    const { ctx } = (await this.logCtx(argz, OperationKeys.UPDATE, true)).for(
+      this.range
     );
-    const { context } = contextArgs;
-    const current = (await this.current()) as number;
+    const current = (await this.current(ctx)) as number;
     const incrementBy = this.parse(this.options.incrementBy) as number;
     const next: string | number | bigint = await this.increment(
       (this.parse(count) as number) * incrementBy,
-      context
+      ctx
     );
     const range: (number | string | bigint)[] = [];
     for (let i: number = 1; i <= count; i++) {

@@ -8,6 +8,7 @@ import {
   Paginator,
   QueryError,
   Statement,
+  UnsupportedError,
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
@@ -202,9 +203,14 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    */
   override async raw<R>(
     rawInput: TypeORMQuery<M>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<R> {
+    const { ctx } = this.logCtx(args, this.raw);
+    const allowRawStatements = ctx.get("allowRawStatements");
+    if (!allowRawStatements)
+      throw new UnsupportedError(
+        "Raw statements are not allowed in the current configuration"
+      );
     const { nonEager } = splitEagerRelations(this.fromSelector);
     // for (const relation of relations) {
     rawInput.query = (
