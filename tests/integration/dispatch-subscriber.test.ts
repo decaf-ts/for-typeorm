@@ -110,6 +110,14 @@ describe("TypeORMEventSubscriber", () => {
 describe("TypeORMDispatch.notificationHandler", () => {
   it("logs error when updateObservers throws", async () => {
     const dispatch = new TypeORMDispatch();
+    const ctx = new Context().accumulate({ logger: Logging.get() });
+    (dispatch as any).adapter = {
+      logCtx: () => ({
+        log: Logging.get(),
+        ctx,
+        ctxArgs: [ctx],
+      }),
+    };
     // Force an error inside notificationHandler
     const original = (dispatch as any).updateObservers.bind(dispatch);
     (dispatch as any).updateObservers = async () => {
@@ -119,7 +127,7 @@ describe("TypeORMDispatch.notificationHandler", () => {
       SubscriberModel,
       OperationKeys.DELETE,
       [2],
-      new Context().accumulate({ logger: Logging.get() })
+      ctx
     );
     // restore to avoid side effects
     (dispatch as any).updateObservers = original;
