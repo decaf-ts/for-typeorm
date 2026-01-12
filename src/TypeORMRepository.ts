@@ -239,7 +239,49 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     );
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }
+  protected override async createSuffix(
+    model: M,
+    context: TypeORMContext
+  ): Promise<M> {
+    if (!context.get("ignoreHandlers"))
+      await enforceDbDecoratorsRecursive(
+        this,
+        context as any,
+        model,
+        OperationKeys.CREATE,
+        OperationKeys.AFTER
+      );
+    return model;
+  }
+  /**
+   * @description Prepares for reading a model by ID.
+   * @summary Prepares the context and enforces decorators before reading a model.
+   * @param {string} key - The primary key of the model to read.
+   * @param {...any[]} args - Additional arguments.
+   * @return The key and context arguments.
+   */
+  protected override async readPrefix(
+    key: PrimaryKeyType,
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<[PrimaryKeyType, ...any[], TypeORMContext]> {
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.READ, true)
+    ).for(this.readPrefix);
 
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    log.silly(`handlerSetting: ${ignoreHandlers}`);
+    const model: M = new this.class();
+    model[this.pk] = key as M[keyof M];
+    if (!ignoreHandlers)
+      await enforceDbDecoratorsRecursive(
+        this as any,
+        ctx,
+        model,
+        OperationKeys.READ,
+        OperationKeys.ON
+      );
+    return [key, ...ctxArgs];
+  }
   /**
    * @description Reads a model from the database by ID.
    * @summary Retrieves a model instance from the database using its primary key.
@@ -266,7 +308,20 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     );
     return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
-
+  protected override async readSuffix(
+    model: M,
+    context: TypeORMContext
+  ): Promise<M> {
+    if (!context.get("ignoreHandlers"))
+      await enforceDbDecoratorsRecursive(
+        this,
+        context as any,
+        model,
+        OperationKeys.READ,
+        OperationKeys.AFTER
+      );
+    return model;
+  }
   /**
    * @description Prepares a model for update.
    * @summary Validates the model and prepares it for update in the database.
@@ -353,6 +408,23 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }
 
+  protected override async updateSuffix(
+    model: M,
+    oldModel: M,
+    context: TypeORMContext
+  ): Promise<M> {
+    if (!context.get("ignoreHandlers"))
+      await enforceDbDecoratorsRecursive(
+        this,
+        context as any,
+        model,
+        OperationKeys.UPDATE,
+        OperationKeys.AFTER,
+        oldModel
+      );
+    return model;
+  }
+
   /**
    * @description Deletes a model from the database by ID.
    * @summary Removes a model instance from the database using its primary key.
@@ -380,6 +452,20 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
 
+  protected override async deleteSuffix(
+    model: M,
+    context: TypeORMContext
+  ): Promise<M> {
+    if (!context.get("ignoreHandlers"))
+      await enforceDbDecoratorsRecursive(
+        this,
+        context as any,
+        model,
+        OperationKeys.DELETE,
+        OperationKeys.AFTER
+      );
+    return model;
+  }
   /**
    * @description Prepares multiple models for creation.
    * @summary Validates multiple models and prepares them for creation in the database.
@@ -505,6 +591,25 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     );
   }
 
+  protected override async createAllSuffix(
+    models: M[],
+    context: TypeORMContext
+  ): Promise<M[]> {
+    if (!context.get("ignoreHandlers"))
+      await Promise.all(
+        models.map((m) =>
+          enforceDbDecoratorsRecursive(
+            this,
+            context as any,
+            m,
+            OperationKeys.CREATE,
+            OperationKeys.AFTER
+          )
+        )
+      );
+    return models;
+  }
+
   /**
    * @description Reads multiple models by their primary keys.
    * @summary Retrieves a list of models corresponding to the provided keys.
@@ -533,7 +638,24 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       this.adapter.revert(r, this.class, keys[i], undefined, ctx)
     );
   }
-
+  protected override async readAllSuffix(
+    models: M[],
+    context: TypeORMContext
+  ): Promise<M[]> {
+    if (!context.get("ignoreHandlers"))
+      await Promise.all(
+        models.map((m) =>
+          enforceDbDecoratorsRecursive(
+            this,
+            context as any,
+            m,
+            OperationKeys.READ,
+            OperationKeys.AFTER
+          )
+        )
+      );
+    return models;
+  }
   /**
    * @description Prepares multiple models for update.
    * @summary Validates multiple models and prepares them for update in the database.
@@ -643,6 +765,33 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         ctx
       )
     );
+  }
+  protected override async updateAllSuffix(
+    models: M[],
+    oldModels: M[] | undefined,
+    context: TypeORMContext
+  ): Promise<M[]> {
+    if (
+      context.get("applyUpdateValidation") &&
+      !context.get("ignoreDevSafeGuards")
+    ) {
+      if (!oldModels)
+        throw new InternalError("No previous versions of models provided");
+    }
+    if (!context.get("ignoreHandlers"))
+      await Promise.all(
+        models.map((m, i) =>
+          enforceDbDecoratorsRecursive(
+            this,
+            context as any,
+            m,
+            OperationKeys.UPDATE,
+            OperationKeys.AFTER,
+            oldModels ? oldModels[i] : undefined
+          )
+        )
+      );
+    return models;
   }
 
   /**
