@@ -1,6 +1,7 @@
 import { SelectQueryBuilder } from "typeorm";
 import { Model } from "@decaf-ts/decorator-validation";
 import { AdapterFlags } from "@decaf-ts/core";
+import { Logger } from "@decaf-ts/logging";
 
 /**
  * @description SQL operators available for building TypeORM queries.
@@ -76,12 +77,12 @@ export interface TypeORMQuery<
  * @interface TypeORMFlags
  * @memberOf module:for-typeorm
  */
-export interface TypeORMFlags extends AdapterFlags {
+export type TypeORMFlags<LOG extends Logger = Logger> = AdapterFlags<LOG> & {
   /**
    * @description User authentication information for Postgres database connections
    */
   user: string;
-}
+};
 
 /**
  * @description Specification for a table creation/change statement used by the TypeORM adapter.

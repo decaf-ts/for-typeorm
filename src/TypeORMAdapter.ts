@@ -2,24 +2,25 @@ import {
   Adapter,
   Cascade,
   CascadeMetadata,
+  ConnectionError,
+  Context,
+  ContextualArgs,
+  ExtendedRelationsMetadata,
   JoinTableMultipleColumnsOptions,
   JoinTableOptions,
+  MaybeContextualArg,
   noValidateOnCreate,
   noValidateOnCreateUpdate,
   OrderDirection,
+  Paginator,
   PersistenceKeys,
+  PreparedModel,
+  RawResult,
   relation,
   RelationsMetadata,
+  Repository,
   Sequence,
   type SequenceOptions,
-  ExtendedRelationsMetadata,
-  ContextualArgs,
-  PreparedModel,
-  ConnectionError,
-  Repository,
-  Context,
-  Paginator,
-  RawResult,
 } from "@decaf-ts/core";
 import { reservedAttributes, TypeORMFlavour } from "./constants";
 import {
@@ -37,10 +38,13 @@ import {
   readonly,
   UpdateValidationKeys,
 } from "@decaf-ts/db-decorators";
-import { final } from "@decaf-ts/logging";
+import { final, Logging } from "@decaf-ts/logging";
 import {
+  apply,
   type Constructor,
   Decoration,
+  Metadata,
+  prop,
   propMetadata,
 } from "@decaf-ts/decoration";
 import {
@@ -51,6 +55,7 @@ import {
   MinLengthValidatorOptions,
   MinValidatorOptions,
   Model,
+  ModelConstructor,
   PatternValidatorOptions,
   required,
   type,
@@ -64,7 +69,6 @@ import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
 import { TypeORMFlags, TypeORMQuery } from "./types";
 import { TypeORMRepository } from "./TypeORMRepository";
-import { Logging } from "@decaf-ts/logging";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres, splitEagerRelations } from "./utils";
 import {
@@ -95,15 +99,16 @@ import { ManyToMany } from "./overrides/ManyToMany";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { apply, Metadata, prop } from "@decaf-ts/decoration";
 import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+
+export type TypeORMContext = Context<TypeORMFlags>;
 
 export async function createdByOnTypeORMCreateUpdate<
   M extends Model,
   R extends TypeORMRepository<M>,
 >(
   this: R,
-  context: Context<TypeORMFlags>,
+  context: TypeORMContext,
   data: any,
   key: keyof M,
   model: M
@@ -118,8 +123,6 @@ export async function createdByOnTypeORMCreateUpdate<
     );
   }
 }
-
-export type TypeORMContext = Context<TypeORMFlags>;
 
 /**
  * @description Adapter for TypeORM-backed persistence operations.
@@ -237,14 +240,18 @@ export class TypeORMAdapter extends Adapter<
    * @summary Sets up the necessary database indexes for all models managed by this adapter
    * @return {Promise<void>} A promise that resolves when initialization is complete
    */
-  override async initialize(): Promise<void> {
+  override async initialize(
+    ...args: MaybeContextualArg<TypeORMContext>
+  ): Promise<void> {
+    const { log } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
     const ds = this.client;
     try {
       await ds.initialize();
     } catch (e: unknown) {
       throw this.parseError(e as Error);
     }
-    const log = this.log.for(this.initialize);
     log.verbose(`${this.toString()} initialized`);
   }
 
@@ -257,9 +264,15 @@ export class TypeORMAdapter extends Adapter<
    */
   @final()
   protected async index<M extends Model>(
-    ...models: Constructor<M>[]
+    ...models: MaybeContextualArg<TypeORMContext, Constructor<M>[]>
   ): Promise<void> {
-    const indexes: TypeORMQuery[] = generateIndexes(models);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { log, ctx } = (
+      await this.logCtx(models, PersistenceKeys.INDEX, true)
+    ).for(this.index);
+    const indexes: TypeORMQuery[] = generateIndexes(
+      models as ModelConstructor<M>[]
+    );
 
     try {
       await this.client.query("BEGIN");

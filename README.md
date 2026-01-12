@@ -34,7 +34,7 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 
 Documentation available [here](https://decaf-ts.github.io/ts-workspace/)
 
-Minimal size: 11.6 KB kb gzipped
+Minimal size: 12.2 KB kb gzipped
 
 
 # Decaf.ts for TypeORM — Detailed Description

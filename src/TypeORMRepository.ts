@@ -1,7 +1,11 @@
 import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
-import { MaybeContextualArg, Repository } from "@decaf-ts/core";
 import {
-  Context,
+  ContextualizedArgs,
+  MaybeContextualArg,
+  Repository,
+} from "@decaf-ts/core";
+import {
+  BulkCrudOperationKeys,
   ContextOfRepository,
   enforceDBDecorators,
   InternalError,
@@ -176,35 +180,32 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     model: M,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<[M, ...any[], TypeORMContext]> {
-    const contextArgs = await Context.args<M, TypeORMContext>(
-      OperationKeys.CREATE,
-      this.class,
-      args,
-      this.adapter,
-      this._overrides || {}
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.createPrefix) as ContextualizedArgs<TypeORMContext>;
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
     );
-    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
-    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     model = new this.class(model);
     if (!ignoreHandlers)
       await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
         this,
-        contextArgs.context,
+        ctx,
         model,
         OperationKeys.CREATE,
         OperationKeys.ON
       );
 
     if (!ignoreValidate) {
-      const errors = await Promise.resolve(
-        model.hasErrors(
-          ...(contextArgs.context.get("ignoredValidationProperties") || [])
-        )
-      );
+      const propsToIgnore = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${propsToIgnore}`);
+      const errors = await Promise.resolve(model.hasErrors(...propsToIgnore));
       if (errors) throw new ValidationError(errors.toString());
     }
 
-    return [model, ...contextArgs.args];
+    return [model, ...ctxArgs];
   }
 
   /**
@@ -218,7 +219,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     model: M,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.create
+    ) as ContextualizedArgs<TypeORMContext>;
     log.debug(
       `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -244,7 +248,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     id: PrimaryKeyType,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.read
+    ) as ContextualizedArgs<TypeORMContext>;
     log.debug(
       `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
     );
@@ -270,16 +277,14 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     model: M,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<[M, ...args: any[], TypeORMContext, M | undefined]> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      this.class,
-      args,
-      this.adapter,
-      this._overrides || {}
-    );
-    const ctx = contextArgs.context;
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.UPDATE, true)
+    ).for(this.updatePrefix) as ContextualizedArgs<TypeORMContext>;
     const ignoreHandlers = ctx.get("ignoreHandlers");
     const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
+    );
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
@@ -287,11 +292,11 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       );
     let oldModel: M | undefined;
     if (ctx.get("applyUpdateValidation")) {
-      oldModel = await this.read(pk as string);
+      oldModel = await this.read(pk as string, ctx);
       if (ctx.get("mergeForUpdate"))
         model = Model.merge(oldModel, model, this.class);
     }
-    if (ignoreHandlers)
+    if (!ignoreHandlers)
       await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
         this,
         ctx,
@@ -301,17 +306,19 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         oldModel
       );
 
-    if (ignoreValidate) {
+    if (!ignoreValidate) {
+      const propsToIgnore = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${propsToIgnore}`);
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
           ...Model.relations(this.class),
-          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+          ...propsToIgnore
         )
       );
       if (errors) throw new ValidationError(errors.toString());
     }
-    return [model, ...contextArgs.args, oldModel];
+    return [model, ...ctxArgs, oldModel];
   }
 
   /**
@@ -325,7 +332,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     model: M,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M> {
-    const { ctxArgs, log, ctx } = this.logCtx(args, this.create);
+    const { ctxArgs, log, ctx } = this.logCtx(
+      args,
+      this.update
+    ) as ContextualizedArgs<TypeORMContext>;
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, false, ctx);
     log.debug(
@@ -351,7 +361,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     id: PrimaryKeyType,
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.delete
+    ) as ContextualizedArgs<TypeORMContext>;
     log.debug(
       `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
     );
@@ -376,24 +389,50 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     models: M[],
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<[M[], ...any[], TypeORMContext]> {
-    const contextArgs = await Context.args<M, TypeORMContext>(
-      OperationKeys.CREATE,
-      this.class,
-      args,
-      this.adapter,
-      this._overrides || {}
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
+    ).for(this.createAllPrefix) as ContextualizedArgs<TypeORMContext>;
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
     );
-    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
-    const ignoreValidate = contextArgs.context.get("ignoreValidation");
-    if (!models.length) return [models, ...contextArgs.args];
+    if (!models.length) return [models, ...ctxArgs];
+    const opts = Model.sequenceFor(models[0]);
+    let ids: (string | number | bigint | undefined)[] = [];
+    if (Model.generatedBySequence(this.class)) {
+      if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
+      ids = await (
+        await this.adapter.Sequence(opts)
+      ).range(models.length, ...ctxArgs);
+    } else if (!Model.generated(this.class, this.pk)) {
+      ids = models.map((m, i) => {
+        if (typeof m[this.pk] === "undefined")
+          throw new InternalError(
+            `Primary key is not defined for model in position ${i}`
+          );
+        return m[this.pk] as string;
+      });
+    } else {
+      // do nothing. The pk is tagged as generated, so it'll be handled by some other decorator
+    }
 
     models = await Promise.all(
-      models.map(async (m) => {
+      models.map(async (m, i) => {
         m = new this.class(m);
+        if (opts.type) {
+          m[this.pk] = (
+            opts.type !== "String"
+              ? ids[i]
+              : opts.generated
+                ? ids[i]
+                : `${m[this.pk]}`.toString()
+          ) as M[keyof M];
+        }
         if (!ignoreHandlers)
           await enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
             this,
-            contextArgs.context,
+            ctx,
             m,
             OperationKeys.CREATE,
             OperationKeys.ON
@@ -401,10 +440,16 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         return m;
       })
     );
+    const timestamp = ctx.timestamp || new Date();
+    models = models.map((m) => {
+      if ("createdAt" in m) Object.assign(m, { createdAt: timestamp });
+      if ("updatedAt" in m) Object.assign(m, { updatedAt: timestamp });
+      return m;
+    });
 
     if (!ignoreValidate) {
-      const ignoredProps =
-        contextArgs.context.get("ignoredValidationProperties") || [];
+      const ignoredProps = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${ignoredProps}`);
 
       const errors = await Promise.all(
         models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
@@ -414,7 +459,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }
-    return [models, ...contextArgs.args];
+    return [models, ...ctxArgs];
   }
 
   /**
@@ -429,7 +474,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M[]> {
     if (!models.length) return models;
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.createAll
+    ) as ContextualizedArgs<TypeORMContext>;
     log.debug(
       `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -465,7 +513,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M[]> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.readAll
+    ) as ContextualizedArgs<TypeORMContext>;
     log.debug(
       `reading ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -493,26 +544,24 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     models: M[],
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<[M[], ...args: any[], TypeORMContext, M[] | undefined]> {
-    const contextArgs = await Context.args<M, TypeORMContext>(
-      OperationKeys.UPDATE,
-      this.class,
-      args,
-      this.adapter,
-      this._overrides || {}
-    );
-    const context = contextArgs.context;
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, BulkCrudOperationKeys.UPDATE_ALL, true)
+    ).for(this.updateAllPrefix) as ContextualizedArgs<TypeORMContext>;
 
-    const ignoreHandlers = context.get("ignoreHandlers");
-    const ignoreValidate = context.get("ignoreValidation");
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
+    );
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
       return id;
     });
     let oldModels: M[] | undefined;
-    if (context.get("applyUpdateValidation")) {
-      oldModels = await this.readAll(ids as string[], context);
-      if (context.get("mergeForUpdate"))
+    if (ctx.get("applyUpdateValidation")) {
+      oldModels = await this.readAll(ids as string[], ctx);
+      if (ctx.get("mergeForUpdate"))
         models = models.map((m, i) =>
           Model.merge((oldModels as any)[i], m, this.class)
         );
@@ -522,7 +571,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
         models.map((m, i) =>
           enforceDbDecoratorsRecursive<M, TypeORMRepository<M>, any>(
             this,
-            contextArgs.context,
+            ctx,
             m,
             OperationKeys.UPDATE,
             OperationKeys.ON,
@@ -532,9 +581,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       );
 
     if (!ignoreValidate) {
-      const ignoredProps = context.get("ignoredValidationProperties") || [];
+      const ignoredProps = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${ignoredProps}`);
       let modelsValidation: any;
-      if (!context.get("applyUpdateValidation")) {
+      if (!ctx.get("applyUpdateValidation")) {
         modelsValidation = await Promise.resolve(
           models.map((m) => m.hasErrors(...ignoredProps))
         );
@@ -552,7 +602,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }
-    return [models, ...contextArgs.args, oldModels];
+    return [models, ...ctxArgs, oldModels];
   }
 
   /**
@@ -566,8 +616,11 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     models: M[],
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M[]> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
-    log.debug(
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.updateAll
+    ) as ContextualizedArgs<TypeORMContext>;
+    log.verbose(
       `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
 
@@ -600,7 +653,10 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<M[]> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(
+      args,
+      this.create
+    ) as ContextualizedArgs<TypeORMContext>;
     log.debug(
       `deleting ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );

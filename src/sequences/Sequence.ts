@@ -69,24 +69,31 @@ export class TypeORMSequence extends Sequence {
     const { ctx } = (await this.logCtx(args, OperationKeys.READ, true)).for(
       this.current
     );
-    const { name } = this.options;
+    const { name, startWith } = this.options;
     try {
+      if (!name)
+        throw new InternalError(`Sequence name is required to read current`);
+      const quoted = `"${name.replace(/"/g, '""')}"`;
       const rows: any[] = await this.adapter.raw(
         {
-          query: `SELECT sequence_name, start_value, minimum_value, increment FROM information_schema.sequences WHERE sequence_name = $1`,
-          values: [name],
+          query: `SELECT last_value, is_called FROM ${quoted};`,
+          values: [],
         },
         true,
         ctx
       );
       if (!Array.isArray(rows) || rows.length === 0)
-        throw new InternalError(`Sequence ${name} not found`);
-      // information_schema does not expose the current runtime value reliably; fall back to start_value
+        throw new InternalError(`Failed to read current value for ${name}`);
       const row = rows[0] as Record<string, any>;
-      const candidate =
-        row["current_value"] ?? row["last_value"] ?? row["start_value"];
-      return this.parse(candidate as string | number);
+      return this.parse(row["last_value"] as string | number);
     } catch (e: unknown) {
+      if (e instanceof NotFoundError) {
+        if (typeof startWith === "undefined")
+          throw new InternalError(
+            `Starting value is not defined for a non existing sequence`
+          );
+        return this.parse(startWith);
+      }
       throw this.adapter.parseError(e as Error);
     }
   }
@@ -103,49 +110,78 @@ export class TypeORMSequence extends Sequence {
     count: number | undefined,
     ctx: Context<any>
   ): Promise<string | number | bigint> {
-    const { type, incrementBy, name, startWith } = this.options;
+    const { type, incrementBy, name, startWith, minValue, maxValue, cycle } =
+      this.options;
     if (type !== "Number" && type !== "BigInt")
       throw new InternalError(
         `Cannot increment sequence of type ${type} with ${count}`
       );
+    if (!name)
+      throw new InternalError(`Cannot increment sequence without a name: ${name}`);
 
     try {
-      const rows: any[] = await this.adapter.raw(
+      const toIncrementBy = count ?? incrementBy;
+      if (toIncrementBy % incrementBy !== 0)
+        throw new InternalError(
+          `Value to increment does not consider the incrementBy setting: ${incrementBy}`
+        );
+      const current = await this.current(ctx);
+      const next =
+        type === "BigInt"
+          ? (this.parse(current) as bigint) + BigInt(toIncrementBy)
+          : (this.parse(current) as number) + toIncrementBy;
+      await this.adapter.raw(
         {
-          query: `SELECT nextval($1) AS nextval;`,
-          values: [name],
+          query: `SELECT setval($1::regclass, $2, true) AS nextval;`,
+          values: [name, next],
         },
         true,
         ctx
       );
-      const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
-      return val as string | number | bigint;
+      return next as string | number | bigint;
     } catch (e: unknown) {
       if (!(e instanceof NotFoundError)) throw e;
-      if (!name)
-        throw new InternalError(
-          `Cannot increment sequence without a name: ${name}`
-        );
       // Create the sequence if missing. Identifiers cannot be parameterized, so quote the name.
       const quoted = `"${name.replace(/"/g, '""')}"`;
+      const startValue =
+        typeof startWith === "number" ? startWith : incrementBy;
+      const minValueClause =
+        typeof minValue === "number"
+          ? ` MINVALUE ${minValue}`
+          : typeof startWith === "number" && startWith < 1
+            ? ` MINVALUE ${startWith}`
+            : "";
+      const maxValueClause =
+        typeof maxValue === "number" ? ` MAXVALUE ${maxValue}` : "";
+      const cycleClause = cycle ? " CYCLE" : " NO CYCLE";
       await this.adapter.raw(
         {
-          query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startWith} INCREMENT BY ${incrementBy} NO CYCLE;`,
+          query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startValue} INCREMENT BY ${incrementBy}${minValueClause}${maxValueClause}${cycleClause};`,
           values: [],
         },
         true,
         ctx
       );
-      const rows: any[] = await this.adapter.raw(
+      const toIncrementBy = count ?? incrementBy;
+      if (toIncrementBy % incrementBy !== 0)
+        throw new InternalError(
+          `Value to increment does not consider the incrementBy setting: ${incrementBy}`
+        );
+      const current =
+        typeof startWith === "number" ? startWith : this.parse(startWith);
+      const next =
+        type === "BigInt"
+          ? (this.parse(current) as bigint) + BigInt(toIncrementBy)
+          : (this.parse(current) as number) + toIncrementBy;
+      await this.adapter.raw(
         {
-          query: `SELECT nextval($1) AS nextval;`,
-          values: [name],
+          query: `SELECT setval($1::regclass, $2, true) AS nextval;`,
+          values: [name, next],
         },
         true,
         ctx
       );
-      const val = Array.isArray(rows) && rows[0] ? rows[0]["nextval"] : rows;
-      return val as string | number | bigint;
+      return next as string | number | bigint;
     }
   }
 
