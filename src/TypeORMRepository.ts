@@ -3,6 +3,7 @@ import {
   ContextualizedArgs,
   MaybeContextualArg,
   Repository,
+  Adapter,
 } from "@decaf-ts/core";
 import {
   BulkCrudOperationKeys,
@@ -15,9 +16,11 @@ import {
   reduceErrorsToPrint,
   ValidationError,
 } from "@decaf-ts/db-decorators";
-import { QueryBuilder, Repository as NativeRepo } from "typeorm";
+import { DataSource, QueryBuilder, Repository as NativeRepo } from "typeorm";
 import { type Constructor, Metadata } from "@decaf-ts/decoration";
-import { TypeORMAdapter, TypeORMContext } from "./TypeORMAdapter";
+import type { TypeORMAdapter, TypeORMContext } from "./TypeORMAdapter";
+import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
+import { TypeORMQuery } from "./types";
 
 export async function enforceDbDecoratorsRecursive<
   M extends Model<true | false>,
@@ -133,7 +136,7 @@ export async function enforceDbDecoratorsRecursive<
  */
 export class TypeORMRepository<M extends Model<boolean>> extends Repository<
   M,
-  TypeORMAdapter
+  Adapter<DataSourceOptions, DataSource, TypeORMQuery, TypeORMContext>
 > {
   protected override _overrides = Object.assign({}, super["_overrides"], {
     ignoreValidation: false,
