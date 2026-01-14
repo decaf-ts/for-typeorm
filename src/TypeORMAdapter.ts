@@ -4,6 +4,7 @@ import {
   CascadeMetadata,
   ConnectionError,
   Context,
+  ContextOf,
   ContextualArgs,
   ExtendedRelationsMetadata,
   JoinTableMultipleColumnsOptions,
@@ -108,7 +109,7 @@ export async function createdByOnTypeORMCreateUpdate<
   R extends TypeORMRepository<M>,
 >(
   this: R,
-  context: TypeORMContext,
+  context: ContextOf<R>,
   data: any,
   key: keyof M,
   model: M
@@ -186,9 +187,16 @@ export class TypeORMAdapter extends Adapter<
     model: Constructor<M>,
     flags: Partial<TypeORMFlags>
   ): Promise<TypeORMFlags> {
-    return Object.assign(await super.flags(operation, model, flags), {
-      user: (this.config as PostgresConnectionOptions).username,
-    });
+    return super.flags(
+      operation,
+      model,
+      Object.assign(
+        {
+          user: (this.config as PostgresConnectionOptions).username,
+        },
+        flags
+      )
+    );
   }
 
   @final()
