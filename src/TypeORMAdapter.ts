@@ -397,7 +397,7 @@ export class TypeORMAdapter extends Adapter<
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
       Object.entries(transient).forEach(([key, val]) => {
-        if (key in obj)
+        if (key in obj && typeof obj[key as keyof typeof obj] !== "undefined")
           throw new InternalError(
             `Transient property ${key} already exists on model ${typeof clazz === "string" ? clazz : clazz.name}. should be impossible`
           );
