@@ -104,6 +104,24 @@ import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConne
 
 export type TypeORMContext = Context<TypeORMFlags>;
 
+export async function pkOnTypeORMCreate<
+  M extends Model,
+  R extends Repository<M, any>,
+  V extends SequenceOptions,
+>(
+  this: R,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  context: ContextOf<R>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  data: V,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  key: keyof M,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  model: M
+): Promise<void> {
+  // TODO do nothing. solves the bug this missing adapter handlers
+}
+
 export async function createdByOnTypeORMCreateUpdate<
   M extends Model,
   R extends TypeORMRepository<M>,
@@ -1224,6 +1242,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           required(),
           readonly(),
           propMetadata(Metadata.key(DBKeys.ID, propertyKey), options),
+          onCreate(pkOnTypeORMCreate, options, { priority: 60 }),
         ];
         let type =
           options.type || Metadata.type(original.constructor, propertyKey);
