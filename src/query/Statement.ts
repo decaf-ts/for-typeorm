@@ -104,11 +104,60 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
         .createQueryBuilder(tableName) as SelectQueryBuilder<M>,
     };
 
-    if (this.selectSelector)
+    // Handle aggregation functions
+    if (typeof this.countSelector !== "undefined") {
+      // COUNT or COUNT(field)
+      const field =
+        this.countSelector === null
+          ? "*"
+          : `${tableName}.${this.countSelector as string}`;
+      q.query = q.query.select(`COUNT(${field})`, "count");
+    } else if (typeof this.countDistinctSelector !== "undefined") {
+      // COUNT DISTINCT
+      const field =
+        this.countDistinctSelector === null
+          ? "*"
+          : `${tableName}.${this.countDistinctSelector as string}`;
+      q.query = q.query.select(`COUNT(DISTINCT ${field})`, "count");
+    } else if (this.sumSelector) {
+      // SUM
+      q.query = q.query.select(
+        `SUM(${tableName}.${this.sumSelector as string})`,
+        "sum"
+      );
+    } else if (this.avgSelector) {
+      // AVG
+      q.query = q.query.select(
+        `AVG(${tableName}.${this.avgSelector as string})`,
+        "avg"
+      );
+    } else if (this.maxSelector) {
+      // MAX
+      q.query = q.query.select(
+        `MAX(${tableName}.${this.maxSelector as string})`,
+        "max"
+      );
+    } else if (this.minSelector) {
+      // MIN
+      q.query = q.query.select(
+        `MIN(${tableName}.${this.minSelector as string})`,
+        "min"
+      );
+    } else if (this.distinctSelector) {
+      // DISTINCT
+      q.query = q.query.select(
+        `DISTINCT ${tableName}.${this.distinctSelector as string}`,
+        this.distinctSelector as string
+      );
+    } else if (this.selectSelector) {
+      // Regular select with specific fields
       q.query = q.query.select(
         this.selectSelector.map((s) => `${tableName}.${s as string}`)
       );
-    else q.query = q.query.select();
+    } else {
+      // Select all
+      q.query = q.query.select();
+    }
 
     if (this.whereCondition)
       q.query = this.parseCondition(
@@ -117,26 +166,75 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
         q.query as SelectQueryBuilder<any>
       ).query as unknown as SelectQueryBuilder<M>;
 
-    let orderByArgs: [string, "DESC" | "ASC"];
-    if (!this.orderBySelector)
-      orderByArgs = [
-        `${tableName}.${Model.pk(this.fromSelector) as string}`,
-        OrderDirection.ASC.toUpperCase() as "ASC",
-      ];
-    else
-      orderByArgs = [
-        `${tableName}.${this.orderBySelector[0] as string}`,
-        this.orderBySelector[1].toUpperCase() as "DESC" | "ASC",
-      ];
-
-    q.query = (q.query as SelectQueryBuilder<any>).orderBy(...orderByArgs);
-    if (this.limitSelector) {
-      q.query = (q.query as SelectQueryBuilder<any>).limit(this.limitSelector);
-    } else {
-      log.debug(
-        `No limit selector defined. Using default limit of ${TypeORMQueryLimit}`
+    // Handle GROUP BY
+    if (this.groupBySelectors && this.groupBySelectors.length) {
+      const [primary, ...rest] = this.groupBySelectors;
+      q.query = (q.query as SelectQueryBuilder<any>).groupBy(
+        `${tableName}.${primary as string}`
       );
-      q.query = (q.query as SelectQueryBuilder<any>).limit(TypeORMQueryLimit);
+      for (const attr of rest) {
+        q.query = (q.query as SelectQueryBuilder<any>).addGroupBy(
+          `${tableName}.${attr as string}`
+        );
+      }
+    }
+
+    // Handle ordering - support multi-level sort with orderBySelectors
+    // Skip default ordering for aggregation queries (count, sum, avg, etc.)
+    const isAggregation = this.hasAggregation();
+    if (!isAggregation) {
+      if (!this.orderBySelectors || !this.orderBySelectors.length) {
+        q.query = (q.query as SelectQueryBuilder<any>).orderBy(
+          `${tableName}.${Model.pk(this.fromSelector) as string}`,
+          OrderDirection.ASC.toUpperCase() as "ASC"
+        );
+      } else {
+        // Primary orderBy
+        const [primaryAttr, primaryDir] = this.orderBySelectors[0];
+        q.query = (q.query as SelectQueryBuilder<any>).orderBy(
+          `${tableName}.${primaryAttr as string}`,
+          primaryDir.toUpperCase() as "DESC" | "ASC"
+        );
+        // Additional orderBy clauses (thenBy)
+        for (let i = 1; i < this.orderBySelectors.length; i++) {
+          const [attr, dir] = this.orderBySelectors[i];
+          q.query = (q.query as SelectQueryBuilder<any>).addOrderBy(
+            `${tableName}.${attr as string}`,
+            dir.toUpperCase() as "DESC" | "ASC"
+          );
+        }
+      }
+    } else if (this.orderBySelectors && this.orderBySelectors.length) {
+      // For aggregations, only add order if explicitly specified
+      const [primaryAttr, primaryDir] = this.orderBySelectors[0];
+      q.query = (q.query as SelectQueryBuilder<any>).orderBy(
+        `${tableName}.${primaryAttr as string}`,
+        primaryDir.toUpperCase() as "DESC" | "ASC"
+      );
+      for (let i = 1; i < this.orderBySelectors.length; i++) {
+        const [attr, dir] = this.orderBySelectors[i];
+        q.query = (q.query as SelectQueryBuilder<any>).addOrderBy(
+          `${tableName}.${attr as string}`,
+          dir.toUpperCase() as "DESC" | "ASC"
+        );
+      }
+    }
+
+    // For non-aggregation queries, apply limit
+    if (!isAggregation) {
+      if (this.limitSelector) {
+        q.query = (q.query as SelectQueryBuilder<any>).limit(
+          this.limitSelector
+        );
+      } else {
+        log.debug(
+          `No limit selector defined. Using default limit of ${TypeORMQueryLimit}`
+        );
+        q.query = (q.query as SelectQueryBuilder<any>).limit(TypeORMQueryLimit);
+      }
+    } else if (this.limitSelector) {
+      // For aggregations, only apply limit if explicitly set
+      q.query = (q.query as SelectQueryBuilder<any>).limit(this.limitSelector);
     }
 
     // Add offset
@@ -165,10 +263,13 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           Model.tableName(this.fromSelector)
         );
 
-      if (this.orderBySelector)
-        transformedQuery.order = {
-          [this.orderBySelector[0]]: this.orderBySelector[1].toString(),
-        } as any;
+      if (this.orderBySelectors && this.orderBySelectors.length) {
+        const orderObj: Record<string, string> = {};
+        for (const [attr, dir] of this.orderBySelectors) {
+          orderObj[attr as string] = dir.toString().toUpperCase();
+        }
+        transformedQuery.order = orderObj as any;
+      }
 
       return this.adapter.Paginator(
         transformedQuery as any,
@@ -211,20 +312,88 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       throw new UnsupportedError(
         "Raw statements are not allowed in the current configuration"
       );
+
+    const qb = rawInput.query as unknown as SelectQueryBuilder<M>;
+
+    // Handle aggregation queries
+    if (this.hasAggregation()) {
+      // For scalar aggregations (COUNT, SUM, AVG, MAX, MIN without GROUP BY)
+      if (!this.groupBySelectors || !this.groupBySelectors.length) {
+        const result = await qb.getRawOne();
+        // Extract the scalar value from the result object
+        if (typeof this.countSelector !== "undefined" || typeof this.countDistinctSelector !== "undefined") {
+          return Number(result?.count || 0) as R;
+        } else if (this.sumSelector) {
+          return Number(result?.sum || 0) as R;
+        } else if (this.avgSelector) {
+          return Number(result?.avg || 0) as R;
+        } else if (this.maxSelector) {
+          return result?.max as R;
+        } else if (this.minSelector) {
+          return result?.min as R;
+        } else if (this.distinctSelector) {
+          // DISTINCT returns multiple values
+          const results = await qb.getRawMany();
+          return results.map(
+            (r: any) => r[this.distinctSelector as string]
+          ) as R;
+        }
+        return result as R;
+      } else {
+        // For GROUP BY queries, get raw results
+        const results = await qb.getRawMany();
+        // Transform results into grouped structure
+        return this.groupResults(results) as R;
+      }
+    }
+
+    // Standard query - load relations
     const { nonEager } = splitEagerRelations(this.fromSelector);
-    // for (const relation of relations) {
-    rawInput.query = (
-      rawInput.query as unknown as SelectQueryBuilder<M>
-    ).setFindOptions({
+    rawInput.query = qb.setFindOptions({
       loadEagerRelations: true,
       loadRelationIds: {
         relations: nonEager,
       },
     }) as any;
-    // }
+
     return (await (
       rawInput.query as unknown as SelectQueryBuilder<M>
     ).getMany()) as R;
+  }
+
+  /**
+   * @description Groups raw query results by the groupBySelectors
+   * @summary Transforms flat results into nested grouped structure
+   */
+  protected groupResults(results: any[]): any {
+    if (!this.groupBySelectors || !this.groupBySelectors.length) {
+      return results;
+    }
+
+    const tableName = Model.tableName(this.fromSelector);
+    const groupKeys = this.groupBySelectors.map(
+      (s) => `${tableName}_${s as string}`
+    );
+
+    // Build nested structure
+    const grouped: Record<string, any> = {};
+    for (const row of results) {
+      let current = grouped;
+      for (let i = 0; i < groupKeys.length - 1; i++) {
+        const key = row[groupKeys[i]];
+        if (!current[key]) {
+          current[key] = {};
+        }
+        current = current[key];
+      }
+      const lastKey = row[groupKeys[groupKeys.length - 1]];
+      if (!current[lastKey]) {
+        current[lastKey] = [];
+      }
+      current[lastKey].push(row);
+    }
+
+    return grouped;
   }
 
   protected parseConditionForPagination(
@@ -285,10 +454,32 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     function parse(): TypeORMQuery<M> {
       const sqlOperator = translateOperators(operator);
       const attrRef = `${attr1}${counter}`;
-      const queryStr = `${tableName}.${attr1} ${sqlOperator} :${attrRef}`;
-      const values = {
-        [attrRef]: comparison,
-      };
+      let queryStr: string;
+      let values: Record<string, any>;
+
+      // Handle BETWEEN operator specially - comparison is [min, max]
+      if (operator === Operator.BETWEEN) {
+        const [min, max] = comparison as [any, any];
+        const minRef = `${attr1}${counter}_min`;
+        const maxRef = `${attr1}${counter}_max`;
+        queryStr = `${tableName}.${attr1} ${sqlOperator} :${minRef} AND :${maxRef}`;
+        values = {
+          [minRef]: min,
+          [maxRef]: max,
+        };
+      } else if (operator === Operator.IN) {
+        // Handle IN operator - comparison is an array
+        queryStr = `${tableName}.${attr1} ${sqlOperator} (:...${attrRef})`;
+        values = {
+          [attrRef]: comparison,
+        };
+      } else {
+        queryStr = `${tableName}.${attr1} ${sqlOperator} :${attrRef}`;
+        values = {
+          [attrRef]: comparison,
+        };
+      }
+
       switch (conditionalOp) {
         case GroupOperator.AND:
           return {
