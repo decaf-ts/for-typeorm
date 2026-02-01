@@ -47,6 +47,8 @@ export const TypeORMOperator: Record<string, SQLOperator | string> = {
   IREGEXP: "~*",
   LIKE: SQLOperator.LIKE,
   ILIKE: SQLOperator.ILIKE,
+  STARTS_WITH: SQLOperator.LIKE,
+  ENDS_WITH: SQLOperator.LIKE,
 };
 
 /**

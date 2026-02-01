@@ -13,10 +13,21 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
 import { TypeORMQueryLimit } from "./constants";
-import { InternalError } from "@decaf-ts/db-decorators";
 import { TypeORMQuery } from "../types";
 import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
-import { FindManyOptions, SelectQueryBuilder } from "typeorm";
+import {
+  FindManyOptions,
+  FindOperator,
+  In,
+  Like,
+  LessThan,
+  LessThanOrEqual,
+  MoreThan,
+  MoreThanOrEqual,
+  Raw,
+  Between,
+  SelectQueryBuilder,
+} from "typeorm";
 import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
 import { splitEagerRelations } from "../utils";
 import { Metadata } from "@decaf-ts/decoration";
@@ -321,7 +332,10 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       if (!this.groupBySelectors || !this.groupBySelectors.length) {
         const result = await qb.getRawOne();
         // Extract the scalar value from the result object
-        if (typeof this.countSelector !== "undefined" || typeof this.countDistinctSelector !== "undefined") {
+        if (
+          typeof this.countSelector !== "undefined" ||
+          typeof this.countDistinctSelector !== "undefined"
+        ) {
           return Number(result?.count || 0) as R;
         } else if (this.sumSelector) {
           return Number(result?.sum || 0) as R;
@@ -399,12 +413,119 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   protected parseConditionForPagination(
     condition: Condition<M>,
     tableName: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     counter = 0,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     conditionalOp?: GroupOperator | Operator
   ): FindOptionsWhere<M>[] | FindOptionsWhere<M> {
-    throw new InternalError("Not implemented");
+    const { attr1, operator, comparison } = condition as unknown as {
+      attr1: string | Condition<M>;
+      operator: Operator | GroupOperator;
+      comparison: any;
+    };
+
+    const buildSimpleCondition = () => {
+      if (typeof attr1 !== "string") {
+        throw new QueryError("Invalid attribute for pagination condition");
+      }
+      return {
+        [attr1]: this.buildFindValue(operator as Operator, comparison),
+      } as FindOptionsWhere<M>;
+    };
+
+    if (
+      [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(
+        operator as GroupOperator
+      ) === -1
+    ) {
+      return buildSimpleCondition();
+    }
+
+    if (operator === GroupOperator.OR) {
+      const left =
+        attr1 instanceof Condition
+          ? this.parseConditionForPagination(
+              attr1,
+              tableName,
+              ++counter,
+              conditionalOp
+            )
+          : buildSimpleCondition();
+      const right =
+        comparison instanceof Condition
+          ? this.parseConditionForPagination(
+              comparison,
+              tableName,
+              ++counter,
+              conditionalOp
+            )
+          : buildSimpleCondition();
+      const flatten = (value: any) =>
+        Array.isArray(value) ? value : value ? [value] : [];
+      return [...flatten(left), ...flatten(right)];
+    }
+
+    if (operator === GroupOperator.AND) {
+      const left =
+        attr1 instanceof Condition
+          ? this.parseConditionForPagination(
+              attr1,
+              tableName,
+              ++counter,
+              conditionalOp
+            )
+          : buildSimpleCondition();
+      const right =
+        comparison instanceof Condition
+          ? this.parseConditionForPagination(
+              comparison,
+              tableName,
+              ++counter,
+              conditionalOp
+            )
+          : buildSimpleCondition();
+      if (Array.isArray(left) || Array.isArray(right)) {
+        throw new QueryError(
+          "AND conditions with OR branches are not supported in pagination"
+        );
+      }
+      return {
+        ...((left || {}) as FindOptionsWhere<M>),
+        ...((right || {}) as FindOptionsWhere<M>),
+      };
+    }
+
+    throw new QueryError("NOT operator is not supported for pagination");
+  }
+
+  private buildFindValue(
+    operator: Operator,
+    comparison: any
+  ): FindOperator<any> | any {
+    switch (operator) {
+      case Operator.STARTS_WITH:
+        return Like(`${comparison}%`);
+      case Operator.ENDS_WITH:
+        return Like(`%${comparison}`);
+      case Operator.REGEXP:
+        return Raw((alias) => `${alias} ~ :regex`, { regex: comparison });
+      case Operator.IN:
+        return In(Array.isArray(comparison) ? comparison : [comparison]);
+      case Operator.BETWEEN:
+        if (!Array.isArray(comparison) || comparison.length !== 2)
+          throw new QueryError(
+            "BETWEEN operator requires an array with two values"
+          );
+        return Between(comparison[0], comparison[1]);
+      case Operator.BIGGER:
+        return MoreThan(comparison);
+      case Operator.BIGGER_EQ:
+        return MoreThanOrEqual(comparison);
+      case Operator.SMALLER:
+        return LessThan(comparison);
+      case Operator.SMALLER_EQ:
+        return LessThanOrEqual(comparison);
+      default:
+        return comparison;
+    }
   }
 
   /**
@@ -474,9 +595,24 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           [attrRef]: comparison,
         };
       } else {
+        if (
+          operator === Operator.STARTS_WITH ||
+          operator === Operator.ENDS_WITH
+        ) {
+          if (typeof comparison !== "string")
+            throw new QueryError(
+              `Operator ${operator} requires a string comparison value`
+            );
+        }
+        const paramValue =
+          operator === Operator.STARTS_WITH
+            ? `${comparison}%`
+            : operator === Operator.ENDS_WITH
+              ? `%${comparison}`
+              : comparison;
         queryStr = `${tableName}.${attr1} ${sqlOperator} :${attrRef}`;
         values = {
-          [attrRef]: comparison,
+          [attrRef]: paramValue,
         };
       }
 

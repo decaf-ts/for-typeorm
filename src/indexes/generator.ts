@@ -108,6 +108,24 @@ export function generateIndexes<M extends Model>(
 
       generate();
     });
+    let defaultQueryAttrs: string[] = [];
+    try {
+      defaultQueryAttrs = Model.defaultQueryAttributes(m);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (err: unknown) {
+      defaultQueryAttrs = [];
+    }
+    defaultQueryAttrs.forEach((attr) => {
+      const defaultName = generateIndexName([
+        Model.tableName(m),
+        attr,
+        "defaultQuery",
+      ]);
+      indexes[defaultName] = {
+        query: `CREATE INDEX ${defaultName} ON ${Model.tableName(m)} (${attr});`,
+        values: [],
+      };
+    });
   });
   return Object.values(indexes);
 }

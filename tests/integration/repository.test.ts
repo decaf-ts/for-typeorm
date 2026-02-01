@@ -24,10 +24,13 @@ let adapter: TypeORMAdapter;
 
 import {
   column,
+  defaultQueryAttr,
   Observer,
+  OrderDirection,
   pk,
   repository,
   Repository,
+  SerializedPage,
   table,
 } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
@@ -68,6 +71,28 @@ class TestModelRepo extends TypeORMBaseModel {
   nif!: string;
 
   constructor(arg?: ModelArg<TestModelRepo>) {
+    super(arg);
+  }
+}
+
+@uses(TypeORMFlavour)
+@table("default_query_models")
+@model()
+class DefaultQueryModel extends TypeORMBaseModel {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @column("dq_attr1")
+  @required()
+  @defaultQueryAttr()
+  attr1!: string;
+
+  @column("dq_attr2")
+  @required()
+  @defaultQueryAttr()
+  attr2!: string;
+
+  constructor(arg?: ModelArg<DefaultQueryModel>) {
     super(arg);
   }
 }
@@ -207,5 +232,124 @@ describe("repositories", () => {
       expect.any(Object),
       expect.any(Context)
     );
+  });
+
+  describe("default query find and page helpers", () => {
+    const fixtures = () => [
+      new DefaultQueryModel({ attr1: "apple", attr2: "zebra" }),
+      new DefaultQueryModel({ attr1: "apricot", attr2: "alpha" }),
+      new DefaultQueryModel({ attr1: "banana", attr2: "alpha" }),
+      new DefaultQueryModel({ attr1: "delta", attr2: "aardvark" }),
+    ];
+
+    let defaultRepo: Repository<DefaultQueryModel>;
+    let insertedKeys: number[] = [];
+
+    beforeAll(() => {
+      defaultRepo = Repository.forModel(DefaultQueryModel);
+    });
+
+    beforeEach(async () => {
+      const existing = await defaultRepo.select().execute();
+      const keysToDelete = existing
+        .map((record) => record.id)
+        .filter((id): id is number => typeof id !== "undefined");
+      if (keysToDelete.length) {
+        await defaultRepo.deleteAll(keysToDelete);
+      }
+      const created = await defaultRepo.createAll(fixtures());
+      insertedKeys = created
+        .map((record) => record.id)
+        .filter((id): id is number => typeof id !== "undefined");
+    });
+
+    afterEach(async () => {
+      if (insertedKeys.length) {
+        await defaultRepo.deleteAll(insertedKeys);
+        insertedKeys = [];
+      }
+    });
+
+    it("finds records using the default attributes", async () => {
+      const matches = await defaultRepo.find("ap", OrderDirection.ASC);
+      expect(matches.map((record) => record.attr1)).toEqual([
+        "apple",
+        "apricot",
+      ]);
+      expect(
+        matches.every(
+          (record) =>
+            record.attr1?.startsWith("ap") || record.attr2?.startsWith("ap")
+        )
+      ).toEqual(true);
+
+      const stmtMatches = (await defaultRepo.statement(
+        "find",
+        "ap",
+        "asc"
+      )) as DefaultQueryModel[];
+      expect(stmtMatches.map((record) => record.attr1)).toEqual(
+        matches.map((record) => record.attr1)
+      );
+    });
+
+    it("paginates using the default attributes", async () => {
+      const pageResult = await defaultRepo.page("a", OrderDirection.DSC, {
+        offset: 1,
+        limit: 2,
+      });
+      expect(pageResult.data.length).toEqual(2);
+      expect(
+        pageResult.data.every(
+          (record) =>
+            record.attr1?.startsWith("a") || record.attr2?.startsWith("a")
+        )
+      ).toEqual(true);
+
+      const stmtPage = (await defaultRepo.statement(
+        "page",
+        "a",
+        "desc",
+        {
+          offset: 1,
+          limit: 2,
+        }
+      )) as SerializedPage<DefaultQueryModel>;
+      expect(stmtPage.data.map((record) => record.attr1)).toEqual(
+        pageResult.data.map((record) => record.attr1)
+      );
+    });
+
+    it("falls back to prepared find when raw statements are disabled", async () => {
+      const prepared = defaultRepo.override({
+        allowRawStatements: false,
+        forcePrepareSimpleQueries: true,
+        forcePrepareComplexQueries: false,
+      });
+      const matches = await prepared.find("ap", OrderDirection.ASC);
+      expect(matches.map((record) => record.attr1)).toEqual([
+        "apple",
+        "apricot",
+      ]);
+    });
+
+    it("falls back to prepared paging when raw statements are disabled", async () => {
+      const prepared = defaultRepo.override({
+        allowRawStatements: false,
+        forcePrepareSimpleQueries: true,
+        forcePrepareComplexQueries: false,
+      });
+      const pageResult = await prepared.page("a", OrderDirection.ASC, {
+        offset: 1,
+        limit: 2,
+      });
+      expect(pageResult.data.length).toEqual(2);
+      expect(
+        pageResult.data.every(
+          (record) =>
+            record.attr1?.startsWith("a") || record.attr2?.startsWith("a")
+        )
+      ).toEqual(true);
+    });
   });
 });
