@@ -492,7 +492,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     if (Model.generatedBySequence(this.class)) {
       if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
       ids = await (
-        await this.adapter.Sequence(opts)
+        await this.adapter.Sequence(opts, this._overrides)
       ).range(models.length, ...ctxArgs);
     } else if (!Model.generated(this.class, this.pk)) {
       ids = models.map((m, i) => {
