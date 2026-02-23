@@ -270,7 +270,7 @@ describe("Adapter with nested ownership", () => {
     expect(deleted).toBeDefined();
     expect(deleted.equals(updated)).toEqual(true);
 
-    await expect(repo.read(created.id as number)).rejects.toThrowError(
+    await expect(repo.read(created.id as number)).rejects.toThrow(
       NotFoundError
     );
   });

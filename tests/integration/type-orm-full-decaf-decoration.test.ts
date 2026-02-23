@@ -137,6 +137,6 @@ describe.skip("TypeORM Decaf full decoration", () => {
       active: true,
     });
 
-    await expect(() => repo.create(toCreate)).rejects.toThrowError();
+    await expect(() => repo.create(toCreate)).rejects.toThrow();
   });
 });

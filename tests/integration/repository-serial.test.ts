@@ -204,7 +204,7 @@ describe("repositories serial", () => {
 
     expect(deleted).toBeDefined();
     expect(deleted.id).toEqual(created.id); // same model
-    await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
+    await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
     expect(mock).toHaveBeenCalledWith(
       Metadata.constr(TestModelSerial),
       OperationKeys.DELETE,
