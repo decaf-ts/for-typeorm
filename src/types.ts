@@ -85,6 +85,72 @@ export type TypeORMFlags<LOG extends Logger = Logger> = AdapterFlags<LOG> & {
 };
 
 /**
+ * @description Database drivers supported by TypeORM
+ * @summary Enumeration of all database drivers that the TypeORM adapter can work with
+ * @enum {string}
+ * @readonly
+ * @memberOf module:for-typeorm
+ */
+export enum TypeORMDriver {
+  POSTGRES = "postgres",
+  MYSQL = "mysql",
+  MARIA = "mariadb",
+  SQLITE = "sqlite",
+  SQLSERVER = "mssql",
+}
+
+/**
+ * @description Event dispatch modes for TypeORM adapter
+ * @summary Enumeration of available modes for dispatching database events
+ * @enum {string}
+ * @readonly
+ * @memberOf module:for-typeorm
+ */
+export enum TypeORMEventMode {
+  SUBSCRIBER = "SUBSCRIBER",
+  TRIGGER = "TRIGGER",
+}
+
+/**
+ * @description Detects the TypeORM driver from the data source options
+ * @summary Analyzes the configuration and returns the appropriate driver type
+ * @param {DataSourceOptions} options - The TypeORM data source options
+ * @return {TypeORMDriver} The detected driver type
+ * @memberOf module:for-typeorm
+ */
+export function detectTypeORMDriver(
+  options: any
+): TypeORMDriver {
+  if (!options || !options.type) {
+    throw new Error("Invalid TypeORM configuration: missing type");
+  }
+  
+  const type = options.type.toLowerCase();
+  
+  if (type === TypeORMDriver.POSTGRES || type === "postgres" || type === "pg") {
+    return TypeORMDriver.POSTGRES;
+  }
+  
+  if (type === TypeORMDriver.MYSQL || type === "mysql") {
+    return TypeORMDriver.MYSQL;
+  }
+  
+  if (type === TypeORMDriver.MARIA || type === "mariadb" || type === "maria") {
+    return TypeORMDriver.MARIA;
+  }
+  
+  if (type === TypeORMDriver.SQLITE || type === "sqlite" || type === "better-sqlite3") {
+    return TypeORMDriver.SQLITE;
+  }
+  
+  if (type === TypeORMDriver.SQLSERVER || type === "mssql") {
+    return TypeORMDriver.SQLSERVER;
+  }
+  
+  throw new Error(`Unsupported TypeORM driver: ${options.type}`);
+}
+
+/**
  * @description Specification for a table creation/change statement used by the TypeORM adapter.
  * @summary Extends a TypeORMQuery with table metadata such as primary key flag, constraints, and foreign keys.
  * @typedef TypeORMTableSpec

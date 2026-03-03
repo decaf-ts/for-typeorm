@@ -1,3 +1,4 @@
+import { detectTypeORMDriver, TypeORMDriver } from "./types";
 import { Metadata } from "@decaf-ts/decoration";
 import { TypeORMAdapter } from "./TypeORMAdapter";
 import "@decaf-ts/core";
@@ -34,4 +35,5 @@ export const VERSION = "##VERSION##";
  */
 export const PACKAGE_NAME = "##PACKAGE##";
 
+export { detectTypeORMDriver, TypeORMDriver };
 Metadata.registerLibrary(PACKAGE_NAME, VERSION);

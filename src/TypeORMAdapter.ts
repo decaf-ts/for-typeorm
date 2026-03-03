@@ -1,3 +1,5 @@
+/* eslint-disable no-fallthrough */
+
 import {
   Adapter,
   Cascade,
@@ -68,7 +70,12 @@ import { IndexError } from "./errors";
 import { TypeORMPaginator, TypeORMStatement } from "./query";
 import { TypeORMSequence } from "./sequences";
 import { generateIndexes } from "./indexes";
-import { TypeORMFlags, TypeORMQuery } from "./types";
+import {
+  TypeORMDriver,
+  TypeORMFlags,
+  TypeORMQuery,
+  detectTypeORMDriver,
+} from "./types";
 import { TypeORMRepository } from "./TypeORMRepository";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres, splitEagerRelations } from "./utils";
@@ -163,6 +170,8 @@ export class TypeORMAdapter extends Adapter<
   TypeORMQuery,
   TypeORMContext
 > {
+  readonly driver: TypeORMDriver;
+
   override getClient(): DataSource {
     const models = Adapter.models(this.alias);
     const entities = models.map(Metadata.constr);
@@ -173,6 +182,7 @@ export class TypeORMAdapter extends Adapter<
 
   constructor(options: DataSourceOptions, alias?: string) {
     super(options, TypeORMFlavour, alias);
+    this.driver = detectTypeORMDriver(options);
   }
 
   override async shutdown(): Promise<void> {
@@ -861,87 +871,238 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     }
   }
 
-  private static parseTypeToPostgres(
+  private static parseTypeToDriver(
     type: string,
     isPk: boolean,
-    isFk = false
+    isFk = false,
+    driver: TypeORMDriver
   ) {
-    switch (type.toLowerCase()) {
-      case "string":
-        return isPk ? "TEXT PRIMARY KEY" : isFk ? "TEXT" : "VARCHAR";
-      case "number":
-        return isPk ? "SERIAL PRIMARY KEY" : "INTEGER";
-      case "boolean":
-        return "BOOLEAN";
-      case "date":
-        return "TIMESTAMP";
-      case "bigint":
-        return isPk ? "BIGINT PRIMARY KEY" : "BIGINT";
-      default: {
-        const m = Model.get(type);
-        if (m) {
-          const type = Metadata.type(m, Model.pk(m));
-          // Reflection.getTypeFromDecorator(
-          //   mm,
-          //   Model.pk(mm)
-          // );
-          return {
-            model: m,
-            pkType: type,
-          };
+    const baseType = type.toLowerCase();
+    switch (driver) {
+      case TypeORMDriver.POSTGRES:
+        switch (baseType) {
+          case "string":
+            return isPk ? "TEXT PRIMARY KEY" : isFk ? "TEXT" : "VARCHAR";
+          case "number":
+            return isPk ? "SERIAL PRIMARY KEY" : "INTEGER";
+          case "boolean":
+            return "BOOLEAN";
+          case "date":
+            return "TIMESTAMP";
+          case "bigint":
+            return isPk ? "BIGINT PRIMARY KEY" : "BIGINT";
+          default: {
+            const m = Model.get(type);
+            if (m) {
+              const type = Metadata.type(m, Model.pk(m));
+              return {
+                model: m,
+                pkType: type,
+              };
+            }
+            throw new InternalError(`Unsupported type: ${type}`);
+          }
         }
-        throw new InternalError(`Unsupported type: ${type}`);
-      }
+      case TypeORMDriver.MYSQL:
+      case TypeORMDriver.MARIA:
+        switch (baseType) {
+          case "string":
+            return isPk ? "VARCHAR(255) PRIMARY KEY" : "VARCHAR(255)";
+          case "number":
+            return isPk ? "INT PRIMARY KEY AUTO_INCREMENT" : "INT";
+          case "boolean":
+            return "TINYINT(1)";
+          case "date":
+            return "DATETIME";
+          case "bigint":
+            return isPk ? "BIGINT PRIMARY KEY" : "BIGINT";
+          default: {
+            const m = Model.get(type);
+            if (m) {
+              const type = Metadata.type(m, Model.pk(m));
+              return {
+                model: m,
+                pkType: type,
+              };
+            }
+            throw new InternalError(`Unsupported type: ${type}`);
+          }
+        }
+      case TypeORMDriver.SQLITE:
+        switch (baseType) {
+          case "string":
+            return isPk ? "TEXT PRIMARY KEY" : "TEXT";
+          case "number":
+            return isPk ? "INTEGER PRIMARY KEY AUTOINCREMENT" : "INTEGER";
+          case "boolean":
+            return "INTEGER";
+          case "date":
+            return "DATETIME";
+          case "bigint":
+            return isPk ? "INTEGER PRIMARY KEY AUTOINCREMENT" : "INTEGER";
+          default: {
+            const m = Model.get(type);
+            if (m) {
+              const type = Metadata.type(m, Model.pk(m));
+              return {
+                model: m,
+                pkType: type,
+              };
+            }
+            throw new InternalError(`Unsupported type: ${type}`);
+          }
+        }
+      case TypeORMDriver.SQLSERVER:
+        switch (baseType) {
+          case "string":
+            return isPk ? "NVARCHAR(255) PRIMARY KEY" : "NVARCHAR(255)";
+          case "number":
+            return isPk ? "INT PRIMARY KEY IDENTITY" : "INT";
+          case "boolean":
+            return "BIT";
+          case "date":
+            return "DATETIME2";
+          case "bigint":
+            return isPk ? "BIGINT PRIMARY KEY IDENTITY" : "BIGINT";
+          default: {
+            const m = Model.get(type);
+            if (m) {
+              const type = Metadata.type(m, Model.pk(m));
+              return {
+                model: m,
+                pkType: type,
+              };
+            }
+            throw new InternalError(`Unsupported type: ${type}`);
+          }
+        }
     }
   }
 
-  private static parseValidationToPostgres(
+  private static parseValidationToDriver(
     prop: string,
     type: string,
     isPk: boolean,
     key: string,
-    options: ValidatorOptions
+    options: ValidatorOptions,
+    driver: TypeORMDriver
   ) {
     switch (key) {
       case ValidationKeys.REQUIRED:
         return "NOT NULL";
-      case ValidationKeys.MAX_LENGTH:
+      case ValidationKeys.MAX_LENGTH: {
         if (isPk || !options || type.toLowerCase() !== "string") {
           return "";
         }
-        return `(${(options as MaxLengthValidatorOptions)[ValidationKeys.MAX_LENGTH]})`;
-      case ValidationKeys.MIN_LENGTH:
-        return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) >= ${(options as MinLengthValidatorOptions)[ValidationKeys.MIN_LENGTH]})`;
+
+        const maxLength = (options as MaxLengthValidatorOptions)[
+          ValidationKeys.MAX_LENGTH
+        ];
+        switch (driver) {
+          case TypeORMDriver.POSTGRES:
+            return `(${maxLength})`;
+          case TypeORMDriver.MYSQL:
+          case TypeORMDriver.MARIA:
+            return `(${maxLength})`;
+          case TypeORMDriver.SQLITE:
+            return `(${maxLength})`;
+          case TypeORMDriver.SQLSERVER:
+            return `(${maxLength})`;
+        }
+        break;
+      }
+      case ValidationKeys.MIN_LENGTH: {
+        const minLength = (options as MinLengthValidatorOptions)[
+          ValidationKeys.MIN_LENGTH
+        ];
+        switch (driver) {
+          case TypeORMDriver.POSTGRES:
+            return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) >= ${minLength})`;
+          case TypeORMDriver.MYSQL:
+          case TypeORMDriver.MARIA:
+            return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) >= ${minLength})`;
+          case TypeORMDriver.SQLITE:
+            return `CONSTRAINT ${prop}_min_length_check CHECK (LENGTH(${prop}) >= ${minLength})`;
+          case TypeORMDriver.SQLSERVER:
+            return `CONSTRAINT ${prop}_min_length_check CHECK (LEN(${prop}) >= ${minLength})`;
+        }
+        break;
+      }
       case ValidationKeys.PATTERN:
       case ValidationKeys.URL:
-      case ValidationKeys.EMAIL:
-        return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} ~ '${convertJsRegexToPostgres((options as PatternValidatorOptions)[ValidationKeys.PATTERN] as string)}')`;
+      case ValidationKeys.EMAIL: {
+        const pattern = convertJsRegexToPostgres(
+          (options as PatternValidatorOptions)[ValidationKeys.PATTERN] as string
+        );
+        switch (driver) {
+          case TypeORMDriver.POSTGRES:
+            return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} ~ '${pattern}')`;
+          case TypeORMDriver.MYSQL:
+          case TypeORMDriver.MARIA:
+            return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} REGEXP '${pattern}')`;
+          case TypeORMDriver.SQLITE:
+            return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} LIKE '${pattern}')`;
+          case TypeORMDriver.SQLSERVER:
+            return `CONSTRAINT ${prop}_pattern_check CHECK (${prop} LIKE '${pattern}')`;
+        }
+        break;
+      }
       case ValidationKeys.TYPE:
       case ValidationKeys.DATE:
         return "";
-      case ValidationKeys.MIN:
-        return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} >= ${(options as MinValidatorOptions)[ValidationKeys.MIN]})`;
-      case ValidationKeys.MAX:
-        return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} <= ${(options as MaxValidatorOptions)[ValidationKeys.MAX]})`;
+      case ValidationKeys.MIN: {
+        const min = (options as MinValidatorOptions)[ValidationKeys.MIN];
+        switch (driver) {
+          case TypeORMDriver.POSTGRES:
+          case TypeORMDriver.MYSQL:
+          case TypeORMDriver.MARIA:
+          case TypeORMDriver.SQLITE:
+            return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} >= ${min})`;
+          case TypeORMDriver.SQLSERVER:
+            return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} >= ${min})`;
+        }
+      }
+      case ValidationKeys.MAX: {
+        const max = (options as MaxValidatorOptions)[ValidationKeys.MAX];
+        switch (driver) {
+          case TypeORMDriver.POSTGRES:
+          case TypeORMDriver.MYSQL:
+          case TypeORMDriver.MARIA:
+          case TypeORMDriver.SQLITE:
+            return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} <= ${max})`;
+          case TypeORMDriver.SQLSERVER:
+            return `CONSTRAINT ${prop}_${key}_check CHECK (${prop} <= ${max})`;
+        }
+        break;
+      }
       case ValidationKeys.PASSWORD:
       default:
         throw new InternalError(`Unsupported type: ${key}`);
     }
   }
 
-  private static parseRelationsToPostgres(
+  private static parseRelationsToDriver(
     prop: string,
     clazz: Constructor<Model>,
     pk: string,
     key: PersistenceKeys,
-    options: RelationsMetadata
+    options: RelationsMetadata,
+    driver: TypeORMDriver
   ) {
     const tableName = Model.tableName(clazz);
     const { cascade } = options;
     const cascadeStr = `${cascade.update ? " ON UPDATE CASCADE" : ""}${cascade.delete ? " ON DELETE CASCADE" : ""}`;
     switch (`relations${key}`) {
       case PersistenceKeys.ONE_TO_ONE:
-        return `FOREIGN KEY (${prop}) REFERENCES ${tableName}(${pk})${cascadeStr}`;
+        switch (driver) {
+          case TypeORMDriver.POSTGRES:
+          case TypeORMDriver.MYSQL:
+          case TypeORMDriver.MARIA:
+          case TypeORMDriver.SQLSERVER:
+            return `FOREIGN KEY (${prop}) REFERENCES ${tableName}(${pk})${cascadeStr}`;
+          case TypeORMDriver.SQLITE:
+            return `FOREIGN KEY (${prop}) REFERENCES ${tableName}(${pk})${cascadeStr}`;
+        }
       default:
         throw new InternalError(`Unsupported operation: ${key}`);
     }

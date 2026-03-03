@@ -8,6 +8,7 @@ import {
 } from "@decaf-ts/core";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TypeORMEventSubscriber } from "./TypeORMEventSubscriber";
+import { TypeORMDriver, TypeORMEventMode } from "./types";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DataSource } from "typeorm";
 import { TypeORMQuery } from "./types";
@@ -16,7 +17,7 @@ import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Dispatcher for TypeORM-driven change events.
- * @summary Subscribes a TypeORM DataSource with a custom EntitySubscriber to notify observers when records are created, updated, or deleted.
+ * @summary Subscribes a TypeORM DataSource with a custom EntitySubscriber to notify observers when records are created, updated, or deleted. Supports both SUBSCRIBER and TRIGGER modes for multi-database compatibility.
  * @param {number} [timeout=5000] Timeout in milliseconds for initialization retries.
  * @class TypeORMDispatch
  * @example
@@ -40,8 +41,21 @@ import { Constructor } from "@decaf-ts/decoration";
 export class TypeORMDispatch extends Dispatch<
   Adapter<DataSourceOptions, DataSource, TypeORMQuery, TypeORMContext>
 > {
+  private eventMode: TypeORMEventMode;
+  private driver: TypeORMDriver;
+  private subscriber?: TypeORMEventSubscriber;
+
   constructor() {
     super();
+    this.eventMode = TypeORMEventMode.SUBSCRIBER;
+    this.driver = TypeORMDriver.POSTGRES;
+  }
+  
+  setEventMode(mode: TypeORMEventMode, driver?: TypeORMDriver): void {
+    this.eventMode = mode;
+    if (driver) {
+      this.driver = driver;
+    }
   }
 
   /**
@@ -83,6 +97,7 @@ export class TypeORMDispatch extends Dispatch<
   /**
    * @description Initializes the dispatcher and subscribes to TypeORM notifications.
    * @summary Registers the TypeORMEventSubscriber on the DataSource and logs the subscription lifecycle.
+   * Supports both SUBSCRIBER mode (TypeORM event subscribers) and TRIGGER mode (database triggers + polling).
    * @return {Promise<void>} A promise that resolves when the subscription is established.
    * @mermaid
    * sequenceDiagram
@@ -96,7 +111,11 @@ export class TypeORMDispatch extends Dispatch<
    *     S-->>S: throw InternalError
    *   end
    *   S->>DS: initialize()
-   *   S->>DS: subscribers.push(TypeORMEventSubscriber)
+   *   alt SUBSCRIBER mode
+   *     S->>DS: subscribers.push(TypeORMEventSubscriber)
+   *   else TRIGGER mode (PostgreSQL)
+   *     S->>DS: CREATE TRIGGER ... EXECUTE FUNCTION ...
+   *   end
    *   alt Success
    *     DS-->>S: Subscription established
    *     S-->>D: Promise resolves
@@ -117,12 +136,74 @@ export class TypeORMDispatch extends Dispatch<
         if (!this.adapter.client.isInitialized)
           await this.adapter.client.initialize();
 
-        this.adapter.client.subscribers.push(
-          new TypeORMEventSubscriber(
-            this.adapter,
-            this.notificationHandler.bind(this)
-          )
-        );
+        const { driver } = (this.adapter as any).constructor.getDriverConfig?.(this.adapter.client) || {
+          driver: this.driver,
+        };
+        this.driver = driver;
+
+        switch (this.eventMode) {
+          case TypeORMEventMode.SUBSCRIBER:
+            if (!this.subscriber) {
+              this.subscriber = new TypeORMEventSubscriber(
+                this.adapter,
+                this.notificationHandler.bind(this)
+              );
+              const subs = (this.adapter.client as any).subscribers as
+                | Array<any>
+                | undefined;
+              if (subs) subs.push(this.subscriber);
+            }
+            break;
+          case TypeORMEventMode.TRIGGER:
+            switch (this.driver) {
+              case TypeORMDriver.POSTGRES:
+                await this.adapter.client.query(
+                  `CREATE OR REPLACE FUNCTION notify_table_changes()
+RETURNS trigger AS $$
+BEGIN
+    PERFORM pg_notify(
+        'table_changes',
+        json_build_object(
+            'table', TG_TABLE_NAME,
+            'action', TG_OP,
+            'data', row_to_json(NEW),
+            'old_data', row_to_json(OLD)
+        )::text
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;`
+                );
+                break;
+              case TypeORMDriver.MYSQL:
+              case TypeORMDriver.MARIA:
+                await this.adapter.client.query(
+                  `CREATE FUNCTION notify_table_changes()
+RETURNS trigger
+BEGIN
+    SELECT JSON_OBJECT('table', TG_TABLE_NAME, 'action', TG_OP, 'data', JSON_OBJECTIFY(NEW), 'old_data', JSON_OBJECTIFY(OLD)) INTO @notify_data;
+    SELECT GET_LOCK('table_changes_lock', 10) INTO @lock_result;
+    SELECT RELEASE_LOCK('table_changes_lock') INTO @release_result;
+    RETURN NEW;
+END;`
+                );
+                break;
+              case TypeORMDriver.SQLITE:
+                throw new Error("SQLite does not support TRIGGER mode");
+              case TypeORMDriver.SQLSERVER:
+                await this.adapter.client.query(
+                  `CREATE PROCEDURE notify_table_changes
+AS
+BEGIN
+    DECLARE @notify_data NVARCHAR(MAX);
+    SET @notify_data = (SELECT * FROM inserted FOR JSON PATH);
+    EXEC sp_notify_db_change @notify_data;
+END;`
+                );
+                break;
+            }
+            break;
+        }
       } catch (e: unknown) {
         throw new InternalError(e as Error);
       }
@@ -135,13 +216,32 @@ export class TypeORMDispatch extends Dispatch<
     subscribeToTypeORM
       .call(this)
       .then(() => {
-        log.info(`Subscribed to TypeORM notifications`);
+        log.info(`Subscribed to TypeORM notifications in ${this.eventMode} mode for ${this.driver}`);
       })
       .catch((e: unknown) => {
         throw new InternalError(
           `Failed to subscribe to TypeORM notifications: ${e}`
         );
       });
+  }
+
+  override async close(
+    ...ctxArgs: [...any[], TypeORMContext]
+  ): Promise<void> {
+    await this.detachSubscriber();
+    return super.close(...ctxArgs);
+  }
+
+  private async detachSubscriber(): Promise<void> {
+    if (!this.subscriber || !this.adapter) return;
+    const subscribers = (this.adapter.client as any).subscribers as
+      | Array<any>
+      | undefined;
+    if (subscribers) {
+      const idx = subscribers.indexOf(this.subscriber);
+      if (idx >= 0) subscribers.splice(idx, 1);
+    }
+    this.subscriber = undefined;
   }
 
   override async updateObservers(
