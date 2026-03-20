@@ -8,10 +8,11 @@ import { getRepo } from "./MethodQueryBuilderRepo";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "orm_decoration_decaf_user";
 const user_password = "password";
-const dbName = "orm_decoration_decaf_db";
 const dbHost = "localhost";
+const suffix = `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+const dbName = `orm_decoration_decaf_db_${suffix}`;
+const user = `orm_decoration_decaf_user_${suffix}`;
 
 const config: DataSourceOptions = {
   type: "postgres",

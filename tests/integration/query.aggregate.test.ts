@@ -1,12 +1,17 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter, TypeORMFlavour, TypeORMRepository } from "../../src";
+import "@decaf-ts/core";
 import { Logging, LogLevel } from "@decaf-ts/logging";
 
 const admin = "alfred";
 const admin_password = "password";
-const user = "agg_query_user";
 const user_password = "password";
 const dbHost = "localhost";
+const suffix = `${Date.now().toString(36)}_${Math.random()
+  .toString(36)
+  .slice(2, 8)}`;
+const dbName = `agg_queries_db_${suffix}`;
+const user = `agg_query_user_${suffix}`;
 
 const config: DataSourceOptions = {
   type: "postgres",
@@ -48,7 +53,6 @@ import {
 } from "@decaf-ts/db-decorators";
 
 import { TypeORMBaseModel } from "./baseModel";
-const dbName = "agg_queries_db";
 
 jest.setTimeout(50000);
 

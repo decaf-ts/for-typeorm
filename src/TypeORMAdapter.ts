@@ -2,6 +2,7 @@
 
 import {
   Adapter,
+  type AdapterFlags,
   Cascade,
   CascadeMetadata,
   ConnectionError,
@@ -230,7 +231,10 @@ export class TypeORMAdapter extends Adapter<
    * @return {TypeORMStatement<M, any>} A new PostgresStatement instance
    */
   @final()
-  Statement<M extends Model>(): TypeORMStatement<M, any> {
+  Statement<M extends Model>(
+    overrides?: Partial<AdapterFlags>
+  ): TypeORMStatement<M, any> {
+    void overrides;
     return new TypeORMStatement(this);
   }
 

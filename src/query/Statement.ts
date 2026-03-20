@@ -1,5 +1,5 @@
+import "@decaf-ts/core";
 import {
-  Adapter,
   Condition,
   ContextualArgs,
   GroupOperator,
@@ -51,7 +51,7 @@ import { Metadata } from "@decaf-ts/decoration";
  */
 export class TypeORMStatement<M extends Model, R> extends Statement<
   M,
-  Adapter<any, any, any>,
+  TypeORMAdapter,
   R,
   TypeORMQuery<M>
 > {
