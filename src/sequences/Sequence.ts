@@ -112,7 +112,9 @@ export class TypeORMSequence extends Sequence {
   ): Promise<string | number | bigint> {
     const { type, incrementBy, name, startWith, minValue, maxValue, cycle } =
       this.options;
-    if (type !== "Number" && type !== "BigInt")
+    const typeName =
+      typeof type === "function" && (type as any)?.name ? (type as any).name : type;
+    if (typeName !== Number.name && typeName !== BigInt.name)
       throw new InternalError(
         `Cannot increment sequence of type ${type} with ${count}`
       );
@@ -127,7 +129,7 @@ export class TypeORMSequence extends Sequence {
         );
       const current = await this.current(ctx);
       const next =
-        type === "BigInt"
+        typeName === BigInt.name
           ? (this.parse(current) as bigint) + BigInt(toIncrementBy)
           : (this.parse(current) as number) + toIncrementBy;
       await this.adapter.raw(
@@ -170,7 +172,7 @@ export class TypeORMSequence extends Sequence {
       const current =
         typeof startWith === "number" ? startWith : this.parse(startWith);
       const next =
-        type === "BigInt"
+        typeName === BigInt.name
           ? (this.parse(current) as bigint) + BigInt(toIncrementBy)
           : (this.parse(current) as number) + toIncrementBy;
       await this.adapter.raw(
@@ -220,5 +222,119 @@ export class TypeORMSequence extends Sequence {
     if (range[range.length - 1] !== next)
       throw new InternalError("Miscalculation of range");
     return range;
+  }
+
+  /**
+   * @summary Ensures the backing Postgres sequence exists and is at least a given value.
+   * @description This is required for @sequence() / @version(true) behaviours that seed sequences
+   * from an already-present model value (allowGenerationOverride) without relying on SequenceModel.
+   */
+  override async ensureAtLeast(
+    value: string | number | bigint,
+    ...argz: MaybeContextualArg<any>
+  ): Promise<string | number | bigint> {
+    const { ctx } = (await this.logCtx(argz, OperationKeys.UPDATE, true)).for(
+      this.ensureAtLeast
+    );
+    const { name, type, incrementBy, startWith, minValue, maxValue, cycle } =
+      this.options;
+    if (!name) throw new InternalError("Sequence name is required");
+    const typeName =
+      typeof type === "function" && (type as any)?.name ? (type as any).name : type;
+    if (typeName !== Number.name && typeName !== BigInt.name) {
+      throw new InternalError(
+        `Cannot ensure sequence of type ${type} is at least ${value}`
+      );
+    }
+
+    const desired = this.parse(value) as number | bigint;
+
+    const quoted = `"${name.replace(/"/g, '""')}"`;
+    const minValueClause =
+      typeof minValue === "number"
+        ? ` MINVALUE ${minValue}`
+        : typeof startWith === "number" && startWith < 1
+          ? ` MINVALUE ${startWith}`
+          : "";
+    const maxValueClause = typeof maxValue === "number" ? ` MAXVALUE ${maxValue}` : "";
+    const cycleClause = cycle ? " CYCLE" : " NO CYCLE";
+    const createSeq = async () => {
+      const startValue =
+        typeof startWith === "number"
+          ? startWith
+          : typeof incrementBy === "number"
+            ? incrementBy
+            : 1;
+      await this.adapter.raw(
+        {
+          query: `CREATE SEQUENCE IF NOT EXISTS ${quoted} START WITH ${startValue} INCREMENT BY ${incrementBy}${minValueClause}${maxValueClause}${cycleClause};`,
+          values: [],
+        },
+        true,
+        ctx
+      );
+    };
+
+    const exists = async (): Promise<boolean> => {
+      const rows: any[] = await this.adapter.raw(
+        {
+          query: `SELECT to_regclass($1) AS reg;`,
+          values: [name],
+        },
+        true,
+        ctx
+      );
+      const reg = rows?.[0]?.["reg"];
+      return !!reg;
+    };
+
+    const readCurrent = async (): Promise<number | bigint> => {
+      const rows: any[] = await this.adapter.raw(
+        {
+          query: `SELECT last_value FROM ${quoted};`,
+          values: [],
+        },
+        true,
+        ctx
+      );
+      if (!Array.isArray(rows) || rows.length === 0) {
+        throw new InternalError(`Failed to read current value for ${name}`);
+      }
+      return this.parse(rows[0]["last_value"]) as any;
+    };
+
+    const greaterThan = (a: number | bigint, b: number | bigint) => {
+      if (typeof a === "bigint" || typeof b === "bigint") {
+        return BigInt(a as any) > BigInt(b as any);
+      }
+      return Number(a) > Number(b);
+    };
+
+    // Always create the sequence when missing, then seed/advance it if required.
+    if (!(await exists())) {
+      await createSeq();
+      await this.adapter.raw(
+        {
+          query: `SELECT setval($1::regclass, $2, true) AS nextval;`,
+          values: [name, desired],
+        },
+        true,
+        ctx
+      );
+      return desired;
+    }
+
+    const current = await readCurrent();
+    if (!greaterThan(desired, current)) return current;
+
+    await this.adapter.raw(
+      {
+        query: `SELECT setval($1::regclass, $2, true) AS nextval;`,
+        values: [name, desired],
+      },
+      true,
+      ctx
+    );
+    return desired;
   }
 }

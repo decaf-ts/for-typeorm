@@ -1389,6 +1389,9 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
           required(),
           readonly(),
           propMetadata(Metadata.key(DBKeys.ID, propertyKey), options),
+          // Keep core sequence metadata in sync so helpers like Model.sequenceFor(...)
+          // work for bulk operations (Repository.createAllPrefix).
+          propMetadata(Metadata.key(PersistenceKeys.SEQUENCE, propertyKey), options),
         ];
         let type =
           options.type || Metadata.type(original.constructor, propertyKey);
