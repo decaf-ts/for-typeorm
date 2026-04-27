@@ -636,8 +636,74 @@ The TypeORM adapter wires Decaf decorators into TypeORM metadata automatically o
 | @index(directionsOrName?, compositionsOrName?) | @Index()                                                                                                                           | Single or composite indexes are registered; when compositions are present, Index([prop, ...compositions]). |
 
 
-## Coding Principles
+## Migration lifecycle (Nano + TypeORM)
 
+The migration suites now exercise live CouchDB (via NanoAdapter) and Postgres (via TypeORMAdapter) in the same flow. Each run boots a dedicated `RamAdapter` task engine (alias such as `decaf-cli-task-engine`) that stays out of the migrating set so lease metadata never collides with schema changes. The flow always includes a schema change that adds a required column/property plus data backfill before moving to the next version, and `MigrationService` filters decorated migrations whose normalized versions lie strictly above `currentVersion` but below or equal to the `targetVersion` supplied via `toVersion`/CLI `--to`.
+
+`retrieveLastVersion` executes before building the plan, and `setCurrentVersion` records the head after each completed version (after every `CompositeTask` when `taskMode` is enabled, once at the end in inline mode) so rerunning the CLI resumes from the last fully applied hop. Failed versions leave the recorded version unchanged, allowing `MigrationService.retry(taskId)` to reset the failed `TaskModel` to `PENDING`, clear `error`/lease metadata, and queue the same version again.
+
+`for-typeorm` tests must:
+
+- Combine `NanoAdapter` + `TypeORMAdapter` in `MigrationService.migrateAdapters`, letting the framework inspect both adapters' `@migration` metadata.
+- Always include a schema change (add a required column/property) plus the matching data backfill before the next version runs.
+- Keep `NanoAdapter` steps separate; `includeGenericInTaskMode` is automatically adjusted when multiple adapters migrate simultaneously.
+- Provide flavour-specific handlers so every adapter persists its current version independently.
+
+```ts
+const migrations = await MigrationService.migrateAdapters(
+  [nanoAdapter, typeormAdapter],
+  {
+    toVersion: "1.2.0",
+    flavours: ["nano", "type-orm"],
+    taskMode: true,
+    taskService,
+    handlers: {
+      nano: nanoVersionHandler,
+      "type-orm": typeormVersionHandler,
+    },
+  }
+);
+
+for (const migration of migrations) {
+  await migration.track();
+}
+```
+
+Each `@migration` class targets a single semver reference. For TypeORM you typically use `adapter.raw()` to change schema and repository helpers to backfill data:
+
+```ts
+@migration("1.2.0-add-profileName", {
+  precedence: "1.2.0",
+  flavour: "type-orm",
+})
+export class AddProfileNameMigration implements Migration<DataSource, TypeORMAdapter> {
+  async up(_, adapter) {
+    await adapter.raw({
+      sql: `ALTER TABLE app_user ADD COLUMN profile_name TEXT NOT NULL DEFAULT ''`,
+    });
+    const repo = Repository.forModel(AppUser);
+    const users = await repo.select().execute();
+    await Promise.all(
+      users.map((user) => repo.update({ ...user, profileName: "Unnamed" }))
+    );
+  }
+}
+```
+
+`MigrationService` starts by calling the flavour-specific `retrieveLastVersion` handler so it knows which version already lives in the database, then filters decorated migrations whose normalized versions lie between `currentVersion` and `targetVersion`. `setCurrentVersion` is invoked after each completed version—once at the end of inline runs, immediately after every tracked `CompositeTask` in `taskMode`—so the recorded version always equals the last fully applied hop. Failed versions leave the version unchanged, so rerunning the CLI or calling `MigrationService.retry(taskId)` (it resets the `TaskModel` to `PENDING`, clears `error`/lease metadata, and resubmits the work) will replay only the pending version before moving forward.
+
+Control ordering with `@migration`:
+
+- `reference`: the canonical semver/label used in logs and dependency hints.
+- `precedence`: point to another migration (constructor or token) to resolve ties when two migrations share version/flavour.
+- `flavour`: restrict the migration to a specific adapter flavour (`"type-orm"`, `"nano"`, ...).
+- `rules`: async predicates that can skip migration execution without failing the whole plan.
+
+Keep the TaskEngine on a dedicated `RamAdapter` alias that never overlaps migrating adapters so leases and task logs stay isolated.
+
+`MigrationRule`s are especially useful if a migration should only run once another table exists or if a previous upgrade left the database in a specific state.
+
+## Coding Principles
 - group similar functionality in folders (analog to namespaces but without any namespace declaration)
 - one class per file;
 - one interface per file (unless interface is just used as a type);
