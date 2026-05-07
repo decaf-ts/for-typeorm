@@ -21,8 +21,7 @@
     // "outFile": "./",                             /* Concatenate and emit output to single file. */
     "outDir": "lib" /* Redirect output structure to the directory. */,
     "rootDirs": [
-      "src",
-      "tests"
+      "src"
     ] /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */,
     // "composite": true,                           /* Enable project compilation */
     // "tsBuildInfoFile": "./",                     /* Specify file to store incremental compilation information */
@@ -79,6 +78,6 @@
     "skipLibCheck": true /* Skip type checking of declaration files. */,
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
   },
-  "include": ["src"],
+  "include": ["src", "tests"],
   "exclude": ["node_modules", "tests/web"]
 }
