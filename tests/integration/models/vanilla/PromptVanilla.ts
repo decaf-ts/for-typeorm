@@ -13,8 +13,8 @@ import {
   oneToOne,
   unique,
 } from "@decaf-ts/core";
-import { AIFeature } from "./AIFeature";
-import { TypeORMBaseModel } from "../baseModel";
+import { AIFeature } from "../AIFeature";
+import { TypeORMBaseModel } from "../../baseModel";
 import { Entity, PrimaryGeneratedColumn } from "typeorm";
 
 /**
