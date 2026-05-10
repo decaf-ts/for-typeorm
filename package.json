@@ -1,6 +1,6 @@
 {
   "name": "@decaf-ts/for-typeorm",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "decaf typeorm wrapper",
   "type": "module",
   "exports": {
