@@ -13,7 +13,7 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
 import { TypeORMQueryLimit } from "./constants";
-import { TypeORMQuery } from "../types";
+import { SQLOperator, TypeORMQuery } from "../types";
 import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
 import {
   FindManyOptions,
@@ -573,6 +573,31 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     };
 
     function parse(): TypeORMQuery<M> {
+      // EQUAL/DIFFERENT against a literal `null` have no parameter to bind -
+      // TypeORM's query builder requires the dedicated IS [NOT] NULL SQL form
+      // instead of `= :param`, which Postgres would otherwise evaluate to
+      // NULL (never true) rather than matching NULL rows.
+      if (
+        (operator === Operator.EQUAL || operator === Operator.DIFFERENT) &&
+        comparison === null
+      ) {
+        const nullOperator =
+          operator === Operator.EQUAL
+            ? SQLOperator.IS_NULL
+            : SQLOperator.IS_NOT_NULL;
+        const queryStr = `${tableName}.${attr1} ${nullOperator}`;
+        switch (conditionalOp) {
+          case GroupOperator.AND:
+            return { query: qb.andWhere(queryStr) as any };
+          case GroupOperator.OR:
+            return { query: qb.orWhere(queryStr) as any };
+          case Operator.NOT:
+            throw new Error("NOT operator not implemented");
+          default:
+            return { query: qb.where(queryStr) as any };
+        }
+      }
+
       const sqlOperator = translateOperators(operator);
       const attrRef = `${attr1}${counter}`;
       let queryStr: string;
