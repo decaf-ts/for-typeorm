@@ -34,7 +34,7 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 
 Documentation available [here](https://decaf-ts.github.io/ts-workspace/)
 
-Minimal size: 14.9 KB kb gzipped
+Minimal size: 15.1 KB kb gzipped
 
 
 # Decaf.ts for TypeORM — Detailed Description
@@ -478,6 +478,81 @@ const readAll = await repo.readAll(createdAll.map(u => u.id));
 const updatedAll = await repo.updateAll(readAll.map(u => ({ ...u, name: u.name + "!" }) as User));
 await repo.deleteAll(updatedAll.map(u => u.id));
 ```
+
+## Transactions (`@transactional` backed by real Postgres transactions)
+
+`@decaf-ts/for-typeorm` overrides `Adapter.transactionLock()` with `TypeORMContextLock`, so any method decorated with `@transactional()` (imported from `@decaf-ts/core`) runs on a dedicated TypeORM `QueryRunner` and issues real `BEGIN`/`COMMIT`/`ROLLBACK` statements against Postgres. No extra code is needed in your own repository methods: `create`/`read`/`update`/`delete`/`createAll`/`readAll`/`deleteAll` already detect the active transaction (via the `Context` they're called with) and route themselves through its transactional connection instead of the adapter's regular pooled connection.
+
+```ts
+import { Repository, transactional } from "@decaf-ts/core";
+import { TypeORMAdapter, TypeORMRepository } from "@decaf-ts/for-typeorm";
+import { User } from "./models/User";
+
+class UserRepository extends TypeORMRepository<User> {
+  constructor(adapter: TypeORMAdapter) {
+    super(adapter, User);
+  }
+
+  @transactional()
+  async createPair(first: User, second: User, ...args: any[]): Promise<[User, User]> {
+    // both INSERTs run on the SAME Postgres connection, inside ONE transaction
+    const created1 = await this.create(first, ...args);
+    const created2 = await this.create(second, ...args);
+    return [created1, created2];
+  }
+
+  @transactional()
+  async createPairThenUpdateFirst(
+    first: User,
+    second: User,
+    ...args: any[]
+  ): Promise<[User, User]> {
+    // nested @transactional call - reuses createPair's transaction, doesn't open a new one
+    const [created1, created2] = await this.createPair(first, second, ...args);
+    const updated1 = await this.update(
+      { ...created1, name: created1.name + " (updated)" } as User,
+      ...args
+    );
+    return [updated1, created2];
+  }
+}
+
+const repo = new UserRepository(adapter);
+// if createPairThenUpdateFirst throws anywhere - including inside the nested createPair call -
+// every insert/update it made, at every nesting level, is rolled back together.
+const [u1, u2] = await repo.createPairThenUpdateFirst(
+  new User({ name: "Alice" }),
+  new User({ name: "Bob" })
+);
+```
+
+As with the base `@transactional()` contract (see `@decaf-ts/core`'s "How to Use" guide), always forward the trailing `...args` between nested `@transactional()` calls and into `create`/`read`/`update`/`delete` - that's how the active `TypeORMContextLock` (and its transactional `EntityManager`) reaches every operation in the call tree.
+
+### What happens under the hood
+
+*   **First entry** into the outermost `@transactional()` call: `TypeORMContextLock.begin()` ensures the `DataSource` is initialized, opens a dedicated `QueryRunner`, connects it, and calls `startTransaction()`.
+*   **Every CRUD call inside the call tree** resolves its TypeORM `Repository` from that `QueryRunner`'s transactional `EntityManager` (via `TypeORMAdapter`'s internal `getRepository(model, ctx)`), instead of the `DataSource`'s normal pooled connection.
+*   **Successful return from the outermost call** triggers exactly one `commitTransaction()`, then releases the `QueryRunner` back to the pool.
+*   **Any error, at any nesting depth,** triggers exactly one `rollbackTransaction()` for the whole call tree (not one per nesting level), then releases the `QueryRunner`.
+
+> **`maxConcurrentTransactions` has no effect here.** `@decaf-ts/core`'s `AdapterFlags.maxConcurrentTransactions` flag (see its "How to Use" guide) only gates the *default* `ContextLock`'s in-process counting semaphore. `TypeORMContextLock` fully overrides `begin()`/`commit()`/`rollback()` without calling `super.*()`, so that semaphore is never consulted - concurrency between Postgres transactions is governed entirely by the database itself (connection pool size, row/table locks, isolation level), not by this flag. Setting it on a `TypeORMAdapter` is silently ignored.
+
+### Concurrent transactions and Postgres isolation
+
+Two `@transactional()` calls running concurrently each resolve their own `TypeORMContextLock` and therefore their own dedicated `QueryRunner`/connection - they never share a transaction unless one is nested inside the other via the same `Context`. This means ordinary Postgres transaction semantics apply between them (default isolation level: `READ COMMITTED`):
+
+*   Rows written by one transaction are **invisible to other connections until it commits**.
+*   A concurrent `UPDATE` (or `DELETE`) targeting the **same row** as an open, uncommitted transaction **blocks** on Postgres's row-level write lock until that transaction commits or rolls back, then proceeds against the now-current data.
+
+```ts
+// two concurrent transactions, each via its own @transactional() call
+const txA = repoA.updateAndHold(/* ... */); // holds an uncommitted UPDATE open
+const txB = repoB.updateAndHold(/* ... */); // blocks until txA commits or rolls back
+```
+
+If your application logic depends on this (e.g. expecting to "see" another transaction's writes, or relying on update ordering between concurrent requests), design around Postgres's standard `READ COMMITTED` guarantees rather than assuming any decaf-ts-specific behavior - the decorator does not change or configure isolation levels.
+
+> **Caution when writing your own `@transactional()` methods:** don't pass callbacks or `Promise`s as plain positional method arguments if they're only meant to control test/call timing rather than being domain data - `Adapter.context()`/`Adapter.flags()` capture every trailing positional argument into the `Context`'s flags cache, where an unresolved `Promise` sitting in there can end up awaited before your method itself gets a chance to resolve it. Keep that kind of out-of-band state on an instance field instead.
 
 ## Native TypeORM repository and QueryBuilder access
 

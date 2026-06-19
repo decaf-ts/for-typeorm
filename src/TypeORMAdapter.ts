@@ -78,6 +78,7 @@ import {
   detectTypeORMDriver,
 } from "./types";
 import { TypeORMRepository } from "./TypeORMRepository";
+import { TypeORMContextLock } from "./TypeORMContextLock";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres, splitEagerRelations } from "./utils";
 import {
@@ -191,6 +192,27 @@ export class TypeORMAdapter extends Adapter<
     if (this._client) {
       await this._client.destroy();
     }
+  }
+
+  override transactionLock(...args: any[]): TypeORMContextLock<this> {
+    return new TypeORMContextLock(this, ...args);
+  }
+
+  /**
+   * @description Resolves the repository to use for a given model, honoring an active transaction
+   * @summary When a `TypeORMContextLock` is active on the context (populated by `@transactional()`),
+   * CRUD operations must run against its transactional `EntityManager` so they participate in the
+   * same Postgres transaction. Otherwise, falls back to the DataSource's default (pooled) connection.
+   */
+  private getRepository<M extends Model>(
+    m: Constructor<M>,
+    ctx?: TypeORMContext
+  ): Rep<M> {
+    const lock = ctx?.getOrUndefined("transactionLock") as
+      | TypeORMContextLock
+      | undefined;
+    const manager = lock instanceof TypeORMContextLock ? lock.manager() : undefined;
+    return manager ? manager.getRepository(m) : this.client.getRepository(m);
   }
 
   protected override async flags<M extends Model>(
@@ -435,10 +457,10 @@ export class TypeORMAdapter extends Adapter<
     m: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>> {
-    const repo: Rep<M> = this.client.getRepository(m);
+    const { ctx } = this.logCtx(args, this.create);
+    const repo: Rep<M> = this.getRepository(m, ctx);
     if (typeof id !== "undefined") {
       const pk = Model.pk(m) as string;
       const existing = await repo.findOne({
@@ -470,12 +492,12 @@ export class TypeORMAdapter extends Adapter<
   override async read<M extends Model>(
     m: Constructor<M>,
     id: PrimaryKeyType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>> {
+    const { ctx } = this.logCtx(args, this.read);
     let result: any;
     try {
-      const repo = this.client.getRepository(m);
+      const repo = this.getRepository(m, ctx);
       const { nonEager, relations } = splitEagerRelations(m);
       const pk = Model.pk(m) as string;
       const q: FindOneOptions = {
@@ -512,7 +534,7 @@ export class TypeORMAdapter extends Adapter<
     const { ctx } = this.logCtx(args, this.update);
     await this.read(m, id, ctx);
     try {
-      const repo = this.client.getRepository(m);
+      const repo = this.getRepository(m, ctx);
       return repo.save(model as any);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -535,7 +557,7 @@ export class TypeORMAdapter extends Adapter<
     const { ctx } = this.logCtx(args, this.delete);
     const model = await this.read(m, id, ctx);
     try {
-      const repo = this.client.getRepository(m);
+      const repo = this.getRepository(m, ctx);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const res = await repo.delete(id as any);
       return model;
@@ -555,7 +577,7 @@ export class TypeORMAdapter extends Adapter<
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
 
     try {
-      const repo = this.client.getRepository(m);
+      const repo = this.getRepository(m, ctx);
       const result: InsertResult = await repo.insert(model);
       return this.readAll(
         m,
@@ -574,13 +596,13 @@ export class TypeORMAdapter extends Adapter<
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     if (!id.length) return [];
-    const { log } = this.logCtx(args, this.readAll);
+    const { ctx, log } = this.logCtx(args, this.readAll);
     const tableLabel = Model.tableName(m);
     log.debug(`Reading ${id.length} entries ${tableLabel} table`);
 
     try {
       const pk = Model.pk(m) as string;
-      const repo = this.client.getRepository(m);
+      const repo = this.getRepository(m, ctx);
       return repo.findBy({ [pk]: In(id) } as any);
     } catch (e: unknown) {
       throw this.parseError(e as Error);
@@ -610,11 +632,11 @@ export class TypeORMAdapter extends Adapter<
     ...args: ContextualArgs<TypeORMContext>
   ): Promise<Record<string, any>[]> {
     if (!ids.length) return [];
-    const { ctxArgs, log } = this.logCtx(args, this.deleteAll);
+    const { ctx, ctxArgs, log } = this.logCtx(args, this.deleteAll);
     const tableLabel = Model.tableName(m);
     log.debug(`Deleting ${ids.length} entries from ${tableLabel} table`);
     try {
-      const repo = this.client.getRepository(m);
+      const repo = this.getRepository(m, ctx);
       const models = await this.readAll(m, ids, ...ctxArgs);
       const pk = Model.pk(m) as string;
       await repo.delete({ [pk]: In(ids) } as any);

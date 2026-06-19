@@ -8,6 +8,7 @@ export * from "./sequences";
 export { TypeORMAdapter };
 export * from "./constants";
 export * from "./errors";
+export * from "./TypeORMContextLock";
 export * from "./TypeORMDispatch";
 export * from "./TypeORMRepository";
 export * from "./types";
