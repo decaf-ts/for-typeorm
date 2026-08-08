@@ -108,8 +108,8 @@ describe.skip("Adapter Integration", () => {
       if (!(e instanceof ConflictError)) throw e;
     }
     adapter = new NanoAdapter({
-      user: user,
-      password: user_password,
+      couchUser: user,
+      couchPassword: user_password,
       host: dbHost,
       dbName: dbName,
       protocol: "http",

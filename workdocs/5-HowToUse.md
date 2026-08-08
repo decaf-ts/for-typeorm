@@ -576,11 +576,11 @@ The migration suites now exercise live CouchDB (via NanoAdapter) and Postgres (v
 
 - Combine `NanoAdapter` + `TypeORMAdapter` in `MigrationService.migrateAdapters`, letting the framework inspect both adapters' `@migration` metadata.
 - Always include a schema change (add a required column/property) plus the matching data backfill before the next version runs.
-- Keep `NanoAdapter` steps separate; `includeGenericInTaskMode` is automatically adjusted when multiple adapters migrate simultaneously.
+- Keep `NanoAdapter` steps separate; multi-adapter task runs exclude generic migrations by default, while `includeGenericInTaskMode: true` explicitly includes them.
 - Provide flavour-specific handlers so every adapter persists its current version independently.
 
 ```ts
-const migrations = await MigrationService.migrateAdapters(
+const migrationService = await MigrationService.migrateAdapters(
   [nanoAdapter, typeormAdapter],
   {
     toVersion: "1.2.0",
@@ -594,9 +594,7 @@ const migrations = await MigrationService.migrateAdapters(
   }
 );
 
-for (const migration of migrations) {
-  await migration.track();
-}
+await migrationService.track();
 ```
 
 Each `@migration` class targets a single semver reference. For TypeORM you typically use `adapter.raw()` to change schema and repository helpers to backfill data:

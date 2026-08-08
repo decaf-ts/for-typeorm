@@ -299,8 +299,8 @@ describe("for-typeorm task migration with multi-adapter retries", () => {
 
     const nano = new LiveNanoAdapter(
       {
-        user: nanoResources.user,
-        password: nanoResources.password,
+        couchUser: nanoResources.user,
+        couchPassword: nanoResources.password,
         host: nanoResources.host,
         dbName: nanoResources.dbName,
         protocol: nanoResources.protocol,
@@ -363,7 +363,7 @@ describe("for-typeorm task migration with multi-adapter retries", () => {
       engine = taskService.client as TaskEngine<any>;
       await engine.start();
 
-      const services = await MigrationService.migrateAdapters(
+      const migrationService = await MigrationService.migrateAdapters(
         [nano as any, typeorm as any],
         {
           taskMode: true,
@@ -396,11 +396,11 @@ describe("for-typeorm task migration with multi-adapter retries", () => {
       );
       expect(dependentTasks).toHaveLength(2);
 
-      for (const service of services) {
-        await expect(service.track()).rejects.toThrow("intentional failure");
-        await service.retry();
-        await service.track();
-      }
+      await expect(migrationService.track()).rejects.toThrow(
+        "intentional failure"
+      );
+      await migrationService.retry();
+      await migrationService.track();
 
       expect(versions[NANO_FLAVOUR]).toBe("1.0.2");
       expect(versions[TYPEORM_FLAVOUR]).toBe("1.0.2");
