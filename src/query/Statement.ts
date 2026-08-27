@@ -1,5 +1,6 @@
 import "@decaf-ts/core";
 import {
+  AdapterFlags,
   Condition,
   ContextualArgs,
   GroupOperator,
@@ -15,6 +16,7 @@ import { translateOperators } from "./translate";
 import { TypeORMQueryLimit } from "./constants";
 import { SQLOperator, TypeORMQuery } from "../types";
 import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
+import { TypeORMContextLock } from "../TypeORMContextLock";
 import {
   FindManyOptions,
   FindOperator,
@@ -57,8 +59,15 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
 > {
   protected override adapter!: TypeORMAdapter;
 
-  constructor(adapter: TypeORMAdapter) {
-    super(adapter);
+  constructor(adapter: TypeORMAdapter, overrides?: Partial<AdapterFlags>) {
+    super(adapter, overrides);
+  }
+
+  private lockAwareRepository() {
+    const lock = this.overrides?.transactionLock as TypeORMContextLock | undefined;
+    const manager = lock?.manager?.();
+    const dataSource = manager ?? this.adapter.client;
+    return dataSource.getRepository(Metadata.constr(this.fromSelector));
   }
 
   /**
@@ -110,8 +119,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     const tableName = Model.tableName(this.fromSelector);
 
     const q: TypeORMQuery<M, SelectQueryBuilder<M>> = {
-      query: this.adapter.client
-        .getRepository(Metadata.constr(this.fromSelector))
+      query: this.lockAwareRepository()
         .createQueryBuilder(tableName) as SelectQueryBuilder<M>,
     };
 

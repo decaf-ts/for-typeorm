@@ -256,8 +256,7 @@ export class TypeORMAdapter extends Adapter<
   Statement<M extends Model>(
     overrides?: Partial<AdapterFlags>
   ): TypeORMStatement<M, any> {
-    void overrides;
-    return new TypeORMStatement(this);
+    return new TypeORMStatement(this, overrides);
   }
 
   override Paginator<M extends Model>(

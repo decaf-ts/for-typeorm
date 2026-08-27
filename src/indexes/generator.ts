@@ -76,6 +76,10 @@ function generateIndexName(
  *
  *   generateIndexes-->>Caller: Array of index configurations
  */
+function quoteIdentifier(identifier: string) {
+  return `"${identifier.replace(/"/g, '""')}"`;
+}
+
 export function generateIndexes<M extends Model>(
   models: Constructor<M>[]
 ): TypeORMQuery[] {
@@ -101,8 +105,8 @@ export function generateIndexes<M extends Model>(
         );
 
         indexes[name] = {
-          query: `CREATE INDEX $1 ON $2 ($3);`,
-          values: [name, tableName, key],
+          query: `CREATE INDEX ${quoteIdentifier(name)} ON ${quoteIdentifier(tableName)} (${quoteIdentifier(key)});`,
+          values: [],
         };
       }
 
