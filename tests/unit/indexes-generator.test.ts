@@ -24,4 +24,17 @@ describe("generateIndexes produces quoted DDL", () => {
     const entry = results.find((r) => r.query.includes("CREATE INDEX"));
     expect(entry?.values).toEqual([]);
   });
+
+  it("inlines every emitted statement, keeps the table marker entry, and never emits bind parameters", () => {
+    const results = generateIndexes([class Dummy {} as any]);
+    for (const entry of results) {
+      expect(entry.values).toEqual([]);
+      expect(entry.query).not.toMatch(/\$\d/);
+    }
+    // the un-namespaced table marker entry stays untouched (empty query, empty values)
+    expect(results.some((r) => r.query === "")).toBe(true);
+    expect(
+      results.filter((r) => r.query.startsWith("CREATE INDEX"))
+    ).toHaveLength(1);
+  });
 });

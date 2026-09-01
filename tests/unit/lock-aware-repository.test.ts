@@ -46,4 +46,25 @@ describe("TypeORMStatement lockAwareRepository", () => {
     expect(adapterRepo.createQueryBuilder).toHaveBeenCalled();
     expect(query.query.query).toBe("adapter_qb");
   });
+
+  it("falls back to adapter client when the lock manager returns undefined", () => {
+    jest.spyOn(Model, "pk").mockReturnValue("id");
+    const lock = { manager: () => undefined } as any;
+    const stmt = new TypeORMStatement<Dummy, any>(adapter, { transactionLock: lock });
+    (stmt as any).fromSelector = Dummy;
+    Object.defineProperty(stmt, "log", { value: { for: () => ({ debug: () => {} }) } });
+    const query = (stmt as any).build();
+    expect(adapterRepo.createQueryBuilder).toHaveBeenCalled();
+    expect(query.query.query).toBe("adapter_qb");
+  });
+
+  it("falls back to adapter client when the lock is missing its manager", () => {
+    jest.spyOn(Model, "pk").mockReturnValue("id");
+    const stmt = new TypeORMStatement<Dummy, any>(adapter, { transactionLock: {} as any });
+    (stmt as any).fromSelector = Dummy;
+    Object.defineProperty(stmt, "log", { value: { for: () => ({ debug: () => {} }) } });
+    const query = (stmt as any).build();
+    expect(adapterRepo.createQueryBuilder).toHaveBeenCalled();
+    expect(query.query.query).toBe("adapter_qb");
+  });
 });
