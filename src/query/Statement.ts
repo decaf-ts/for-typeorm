@@ -28,6 +28,8 @@ import {
   MoreThanOrEqual,
   Raw,
   Between,
+  IsNull,
+  Not,
   SelectQueryBuilder,
 } from "typeorm";
 import { FindOptionsWhere } from "typeorm/find-options/FindOptionsWhere";
@@ -509,6 +511,10 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     comparison: any
   ): FindOperator<any> | any {
     switch (operator) {
+      case Operator.EXISTS:
+        // EXISTS is a unary condition: it carries no comparison value and
+        // maps to a column IS NOT NULL check
+        return Not(IsNull());
       case Operator.STARTS_WITH:
         return Like(`${comparison}%`);
       case Operator.ENDS_WITH:
@@ -552,7 +558,9 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    *
    *   Note over Statement: Extract condition parts
    *
-   *   alt Simple comparison operator
+   *   alt EXISTS operator
+   *     Statement->>Statement: Map to column IS NOT NULL check (no value to bind)
+   *   else Simple comparison operator
    *     Statement->>translateOperators: translateOperators(operator)
    *     translateOperators-->>Statement: Return PostgreSQL operator
    *     Statement->>Statement: Create condition with column, operator, and value
@@ -581,6 +589,22 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     };
 
     function parse(): TypeORMQuery<M> {
+      // EXISTS is a unary condition: it has no comparison value to bind and
+      // maps to a column IS NOT NULL check
+      if (operator === Operator.EXISTS) {
+        const queryStr = `${tableName}.${attr1} ${SQLOperator.IS_NOT_NULL}`;
+        switch (conditionalOp) {
+          case GroupOperator.AND:
+            return { query: qb.andWhere(queryStr) as any };
+          case GroupOperator.OR:
+            return { query: qb.orWhere(queryStr) as any };
+          case Operator.NOT:
+            throw new Error("NOT operator not implemented");
+          default:
+            return { query: qb.where(queryStr) as any };
+        }
+      }
+
       // EQUAL/DIFFERENT against a literal `null` have no parameter to bind -
       // TypeORM's query builder requires the dedicated IS [NOT] NULL SQL form
       // instead of `= :param`, which Postgres would otherwise evaluate to

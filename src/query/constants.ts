@@ -20,6 +20,7 @@ export const TypeORMQueryLimit = 250;
  * @property {string} SMALLER_EQ Less than or equal operator (<=)
  * @property {string} NOT Negation operator (NOT)
  * @property {string} IN In array operator (IN)
+ * @property {string} EXISTS Attribute existence operator (IS NOT NULL)
  * @property {string} REGEXP Regular expression operator (~)
  * @property {string} IREGEXP Case-insensitive regular expression operator (~*)
  * @property {string} LIKE Pattern matching operator (LIKE)
@@ -41,6 +42,7 @@ export const TypeORMOperator: Record<string, SQLOperator | string> = {
   BETWEEN: SQLOperator.BETWEEN,
   NOT: "NOT",
   IN: SQLOperator.IN,
+  EXISTS: SQLOperator.IS_NOT_NULL,
   IS_NULL: SQLOperator.IS_NULL,
   IS_NOT_NULL: SQLOperator.IS_NOT_NULL,
   REGEXP: "~",
