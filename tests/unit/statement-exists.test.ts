@@ -99,4 +99,55 @@ describe("TypeORMStatement EXISTS translation", () => {
 
     expect(value).toEqual(Not(IsNull()));
   });
+
+  it("translates a negated field-level EXISTS condition into IS NULL", () => {
+    const qb = new FakeQueryBuilder();
+    const condition = Condition.attribute<ExistsConditionModel>("processed")
+      .exists(false);
+
+    const result = newStatement().parseCondition(condition, "data_source", qb);
+
+    expect(result.query).toBe(qb);
+    expect(qb.calls).toEqual([
+      {
+        method: "where",
+        sql: "data_source.processed IS NULL",
+        params: undefined,
+      },
+    ]);
+  });
+
+  it("uses the TypeORM IS NULL operator constant", () => {
+    expect(SQLOperator.IS_NULL).toBe("IS NULL");
+  });
+
+  it("combines a negated EXISTS leg with a normal equality leg under AND", () => {
+    const qb = new FakeQueryBuilder();
+    const condition = Condition.attribute<ExistsConditionModel>("processed")
+      .exists(false)
+      .and(Condition.attribute<ExistsConditionModel>("entityId").eq(5));
+
+    newStatement().parseCondition(condition, "data_source", qb);
+
+    expect(qb.calls).toEqual([
+      {
+        method: "where",
+        sql: "data_source.processed IS NULL",
+        params: undefined,
+      },
+      {
+        method: "andWhere",
+        sql: "data_source.entityId = :entityId2",
+        params: { entityId2: 5 },
+      },
+    ]);
+  });
+
+  it("maps a negated EXISTS onto IsNull() for the find path", () => {
+    const statement = newStatement();
+
+    const value = statement.buildFindValue(Operator.EXISTS, false);
+
+    expect(value).toEqual(IsNull());
+  });
 });

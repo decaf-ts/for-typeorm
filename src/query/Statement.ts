@@ -512,9 +512,10 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
   ): FindOperator<any> | any {
     switch (operator) {
       case Operator.EXISTS:
-        // EXISTS is a unary condition: it carries no comparison value and
-        // maps to a column IS NOT NULL check
-        return Not(IsNull());
+        // EXISTS is a unary condition: it maps to a column nullability check.
+        // `exists(true)` (the default) requires a non-null column; the supported
+        // negation path `exists(false)` requires a null column.
+        return comparison === false ? IsNull() : Not(IsNull());
       case Operator.STARTS_WITH:
         return Like(`${comparison}%`);
       case Operator.ENDS_WITH:
@@ -590,9 +591,12 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
 
     function parse(): TypeORMQuery<M> {
       // EXISTS is a unary condition: it has no comparison value to bind and
-      // maps to a column IS NOT NULL check
+      // maps to a column nullability check. `exists(true)` (the default) maps to
+      // IS NOT NULL; the supported negation path `exists(false)` maps to IS NULL.
       if (operator === Operator.EXISTS) {
-        const queryStr = `${tableName}.${attr1} ${SQLOperator.IS_NOT_NULL}`;
+        const nullOperator =
+          comparison === false ? SQLOperator.IS_NULL : SQLOperator.IS_NOT_NULL;
+        const queryStr = `${tableName}.${attr1} ${nullOperator}`;
         switch (conditionalOp) {
           case GroupOperator.AND:
             return { query: qb.andWhere(queryStr) as any };
