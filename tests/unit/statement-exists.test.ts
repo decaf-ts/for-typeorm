@@ -151,7 +151,7 @@ describe("TypeORMStatement EXISTS translation", () => {
     expect(value).toEqual(IsNull());
   });
 
-  it("squashes a single negated EXISTS condition to the existsNotOf prepared statement", async () => {
+  it("squashes a single negated EXISTS condition to the listByNotExists prepared statement", async () => {
     const statement = newStatement();
     statement.from(ExistsConditionModel);
     statement.where(
@@ -161,12 +161,12 @@ describe("TypeORMStatement EXISTS translation", () => {
     await statement.prepare({ get: () => undefined } as any);
 
     expect((statement as any).prepared).toMatchObject({
-      method: "existsNotOf",
+      method: "listByNotExists",
       args: ["processed"],
     });
   });
 
-  it("still squashes a single positive EXISTS condition to the existsOf prepared statement", async () => {
+  it("still squashes a single positive EXISTS condition to the listByExists prepared statement", async () => {
     const statement = newStatement();
     statement.from(ExistsConditionModel);
     statement.where(
@@ -176,7 +176,7 @@ describe("TypeORMStatement EXISTS translation", () => {
     await statement.prepare({ get: () => undefined } as any);
 
     expect((statement as any).prepared).toMatchObject({
-      method: "existsOf",
+      method: "listByExists",
       args: ["processed"],
     });
   });
