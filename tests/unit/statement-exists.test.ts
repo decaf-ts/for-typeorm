@@ -150,4 +150,34 @@ describe("TypeORMStatement EXISTS translation", () => {
 
     expect(value).toEqual(IsNull());
   });
+
+  it("squashes a single negated EXISTS condition to the existsNotOf prepared statement", async () => {
+    const statement = newStatement();
+    statement.from(ExistsConditionModel);
+    statement.where(
+      Condition.attribute<ExistsConditionModel>("processed").exists(false)
+    );
+
+    await statement.prepare({ get: () => undefined } as any);
+
+    expect((statement as any).prepared).toMatchObject({
+      method: "existsNotOf",
+      args: ["processed"],
+    });
+  });
+
+  it("still squashes a single positive EXISTS condition to the existsOf prepared statement", async () => {
+    const statement = newStatement();
+    statement.from(ExistsConditionModel);
+    statement.where(
+      Condition.attribute<ExistsConditionModel>("processed").exists()
+    );
+
+    await statement.prepare({ get: () => undefined } as any);
+
+    expect((statement as any).prepared).toMatchObject({
+      method: "existsOf",
+      args: ["processed"],
+    });
+  });
 });
