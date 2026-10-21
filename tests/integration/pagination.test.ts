@@ -5,6 +5,7 @@ const admin_password = "password";
 const user = "pagination_user";
 const user_password = "password";
 const dbHost = "localhost";
+const dbPort = Number(process.env.POSTGRES_PORT ?? 5432);
 
 const config: DataSourceOptions = {
   type: "postgres",
@@ -12,7 +13,7 @@ const config: DataSourceOptions = {
   password: admin_password,
   database: "alfred",
   host: dbHost,
-  port: 5432,
+  port: dbPort,
   ssl: false,
 };
 let con: DataSource;
@@ -33,7 +34,7 @@ jest.setTimeout(500000);
 const typeOrmCfg: DataSourceOptions = {
   type: "postgres",
   host: dbHost,
-  port: 5432,
+  port: dbPort,
   username: user,
   password: user_password,
   database: dbName,
@@ -195,5 +196,77 @@ describe(`Pagination`, function () {
 
     expect(paginator.count).toEqual(created.length);
     expect(paginator.total).toEqual(Math.ceil(size / pageSize));
+  });
+
+  it("traverses all 100 records in 10 pages of 10 without duplicates or gaps", async () => {
+    const paginator: Paginator<TestCountryModel> = await repo
+      .select()
+      .orderBy(["id", OrderDirection.ASC])
+      .paginate(pageSize);
+
+    expect(paginator).toBeDefined();
+    expect(paginator.size).toEqual(pageSize);
+
+    const ctx = new Context().accumulate({ logger: Logging.get() });
+    const expectedIds = created.map((el) => el.id).sort((a, b) => a - b);
+
+    const pages: number[][] = [];
+    const firstPage = await paginator.page(1, ctx);
+    expect(firstPage).toHaveLength(pageSize);
+    pages.push(firstPage.map((el: any) => el.id));
+
+    expect(paginator.count).toEqual(size);
+    expect(paginator.total).toEqual(size / pageSize);
+
+    while ((paginator.current || 0) < paginator.total) {
+      const nextPage = await paginator.next(ctx);
+      expect(nextPage).toHaveLength(pageSize);
+      pages.push(nextPage.map((el: any) => el.id));
+    }
+
+    // 100 records / 10 per page = 10 pages
+    expect(pages).toHaveLength(size / pageSize);
+    expect(pages.map((p) => p.length)).toEqual(
+      new Array(size / pageSize).fill(pageSize)
+    );
+    expect(paginator.current).toEqual(size / pageSize);
+
+    const ids = pages.flat();
+    expect(ids).toHaveLength(size);
+
+    // No record is repeated across pages...
+    expect(new Set(ids).size).toEqual(size);
+
+    // ...and every created record appears exactly once, in stable id order.
+    expect([...new Set(ids)].sort((a, b) => a - b)).toEqual(expectedIds);
+    pages.forEach((pageIds, i) =>
+      expect(pageIds).toEqual(
+        expectedIds.slice(i * pageSize, (i + 1) * pageSize)
+      )
+    );
+  });
+
+  it("retrieves arbitrary pages by page number", async () => {
+    const paginator: Paginator<TestCountryModel> = await repo
+      .select()
+      .orderBy(["id", OrderDirection.ASC])
+      .paginate(pageSize);
+
+    const ctx = new Context().accumulate({ logger: Logging.get() });
+    const expectedIds = created.map((el) => el.id).sort((a, b) => a - b);
+    const idsOf = (page: TestCountryModel[]) => page.map((el: any) => el.id);
+    const expectedPage = (page: number) =>
+      expectedIds.slice((page - 1) * pageSize, page * pageSize);
+
+    expect(idsOf(await paginator.page(1, ctx))).toEqual(expectedPage(1));
+    expect(idsOf(await paginator.page(2, ctx))).toEqual(expectedPage(2));
+    // jump forward
+    expect(idsOf(await paginator.page(5, ctx))).toEqual(expectedPage(5));
+    expect(idsOf(await paginator.page(10, ctx))).toEqual(expectedPage(10));
+    // jump back to the first page after having traversed the dataset
+    expect(idsOf(await paginator.page(1, ctx))).toEqual(expectedPage(1));
+    // previous() from page 2 must return page 1
+    await paginator.page(2, ctx);
+    expect(idsOf(await paginator.previous(ctx))).toEqual(expectedPage(1));
   });
 });
