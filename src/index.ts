@@ -6,6 +6,11 @@ export * from "./indexes";
 export * from "./query";
 export * from "./sequences";
 export { TypeORMAdapter };
+export type {
+  TypeORMAdapterOptions,
+  TypeORMContextSessionBinding,
+  TypeORMSessionSettings,
+} from "./TypeORMAdapter";
 export * from "./constants";
 export * from "./errors";
 export * from "./TypeORMContextLock";
@@ -16,7 +21,7 @@ export * from "./utils";
 
 /**
  * @description TypeORM integration for Decaf.ts.
- * @summary Provides the TypeORM-backed implementation of the Decaf.ts data access abstractions, including the adapter, repository, statement builder, pagination utilities, index helpers, and type definitions. Key exports include {@link TypeORMAdapter}, {@link TypeORMRepository}, {@link TypeORMStatement}, {@link TypeORMPaginator}, and index generation utilities.
+ * @summary Provides the TypeORM-backed implementation of the Decaf.ts data access abstractions, including the adapter, repository, statement builder, pagination utilities, index helpers, and type definitions. Key exports include {@link TypeORMAdapter}, {@link TypeORMRepository}, {@link TypeORMStatement}, {@link TypeORMPaginator}, and index generation utilities. The adapter accepts a config-only `sessionBinding` resolver (`TypeORMAdapterOptions`, `TypeORMContextSessionBinding`, `TypeORMSessionSettings`) that `TypeORMContextLock` applies transaction-locally on Postgres.
  * @module for-typeorm
  */
 

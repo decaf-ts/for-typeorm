@@ -113,6 +113,45 @@ import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConne
 
 export type TypeORMContext = Context<TypeORMFlags>;
 
+/**
+ * @description Primitive-valued Postgres session settings resolved for a transaction
+ * @summary A readonly `name -> value` map the adapter normalizes into strings
+ * and binds transaction-locally on Postgres via `set_config`. Produced by a
+ * {@link TypeORMContextSessionBinding} resolver.
+ * @typedef {Readonly<Record<string, string | number | boolean>>} TypeORMSessionSettings
+ */
+export type TypeORMSessionSettings = Readonly<
+  Record<string, string | number | boolean>
+>;
+
+/**
+ * @description Configurable resolver mapping a request context to session settings
+ * @summary Supplied through {@link TypeORMAdapterOptions.sessionBinding} and
+ * invoked at transaction start with the request context (if any). Return the
+ * settings to bind, or `undefined` (or nothing) to bind none - fail closed,
+ * Postgres RLS then denies protected-row access. Must be synchronous and
+ * side-effect free: the adapter swallows and warns on a throwing resolver and
+ * leaves the settings unbound.
+ * @typedef {(context?: TypeORMContext) => TypeORMSessionSettings | undefined | void} TypeORMContextSessionBinding
+ */
+export type TypeORMContextSessionBinding = (
+  context?: TypeORMContext
+) => TypeORMSessionSettings | undefined | void;
+
+/**
+ * @description TypeORM adapter constructor options
+ * @summary TypeORM `DataSourceOptions` extended with the optional
+ * `sessionBinding` resolver. The `sessionBinding` key is destructured off
+ * before the remaining options reach the `DataSource`, so wiring the binding
+ * is configuration only - no subclassing or method overrides - and TypeORM
+ * never sees the extra key.
+ * @typedef {DataSourceOptions & { sessionBinding?: TypeORMContextSessionBinding }} TypeORMAdapterOptions
+ * @property {TypeORMContextSessionBinding} [sessionBinding] - Resolves the session settings to bind at transaction start; applied by {@link TypeORMContextLock}.
+ */
+export type TypeORMAdapterOptions = DataSourceOptions & {
+  sessionBinding?: TypeORMContextSessionBinding;
+};
+
 export async function createdByOnTypeORMCreateUpdate<
   M extends Model,
   R extends TypeORMRepository<M>,
@@ -140,7 +179,7 @@ export async function createdByOnTypeORMCreateUpdate<
  * @template Y The native configuration type (TypeORM DataSourceOptions).
  * @template F The repository flags type.
  * @template C The context type.
- * @param {DataSourceOptions} scope The DataSource options for the adapter.
+ * @param {TypeORMAdapterOptions} scope The adapter options: a TypeORM `DataSourceOptions` extended with the optional `sessionBinding` resolver.
  * @param {string} flavour The flavour of the adapter.
  * @param {string} [alias] Optional alias for the adapter.
  * @class TypeORMAdapter
@@ -174,6 +213,8 @@ export class TypeORMAdapter extends Adapter<
 > {
   readonly driver: TypeORMDriver;
 
+  private readonly _sessionBinding?: TypeORMContextSessionBinding;
+
   override getClient(): DataSource {
     const models = Adapter.models(this.alias);
     const entities = models.map(Metadata.constr);
@@ -182,9 +223,50 @@ export class TypeORMAdapter extends Adapter<
     );
   }
 
-  constructor(options: DataSourceOptions, alias?: string) {
-    super(options, TypeORMFlavour, alias);
-    this.driver = detectTypeORMDriver(options);
+  constructor(options: TypeORMAdapterOptions, alias?: string) {
+    const { sessionBinding, ...dataSourceOptions } = options;
+    super(dataSourceOptions as DataSourceOptions, TypeORMFlavour, alias);
+    this._sessionBinding = sessionBinding;
+    this.driver = detectTypeORMDriver(dataSourceOptions);
+  }
+
+  /**
+   * @description Resolves the session settings to bind for a context
+   * @summary Runs the configured {@link TypeORMContextSessionBinding} against
+   * the given context and normalizes the result into string values: strings
+   * are trimmed (empty ones dropped), numbers and booleans are stringified,
+   * and empty setting names are skipped. Returns `undefined` when no binding
+   * is configured, the binding returns nothing, every entry is dropped, or
+   * the binding throws - a throw is swallowed with a warning and never
+   * propagated, so a misbehaving binding cannot fail the transaction start.
+   * @param {TypeORMContext} [context] - The request context, forwarded to the binding.
+   * @returns {Record<string, string> | undefined} The normalized settings, or `undefined` when nothing should be bound.
+   */
+  sessionSettingsForContext(
+    context?: TypeORMContext
+  ): Record<string, string> | undefined {
+    if (!this._sessionBinding) return undefined;
+    let candidate: TypeORMSessionSettings | undefined | void;
+    try {
+      candidate = this._sessionBinding(context);
+    } catch {
+      this.log.warn(
+        "Could not resolve session binding settings; leaving them unbound"
+      );
+      return undefined;
+    }
+    if (!candidate || typeof candidate !== "object") return undefined;
+    const settings: Record<string, string> = {};
+    for (const [name, value] of Object.entries(candidate)) {
+      if (!name) continue;
+      if (typeof value === "string") {
+        const normalized = value.trim();
+        if (normalized) settings[name] = normalized;
+      } else if (typeof value === "number" || typeof value === "boolean") {
+        settings[name] = String(value);
+      }
+    }
+    return Object.keys(settings).length ? settings : undefined;
   }
 
   override async shutdown(): Promise<void> {

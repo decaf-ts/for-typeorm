@@ -34,7 +34,7 @@ A thin, focused TypeORM-backed adapter that plugs Decaf.ts models, repositories 
 
 Documentation available [here](https://decaf-ts.github.io/ts-workspace/)
 
-Minimal size: 15.2 KB kb gzipped
+Minimal size: 15.5 KB kb gzipped
 
 
 # Decaf.ts for TypeORM — Detailed Description
@@ -553,6 +553,33 @@ const txB = repoB.updateAndHold(/* ... */); // blocks until txA commits or rolls
 If your application logic depends on this (e.g. expecting to "see" another transaction's writes, or relying on update ordering between concurrent requests), design around Postgres's standard `READ COMMITTED` guarantees rather than assuming any decaf-ts-specific behavior - the decorator does not change or configure isolation levels.
 
 > **Caution when writing your own `@transactional()` methods:** don't pass callbacks or `Promise`s as plain positional method arguments if they're only meant to control test/call timing rather than being domain data - `Adapter.context()`/`Adapter.flags()` capture every trailing positional argument into the `Context`'s flags cache, where an unresolved `Promise` sitting in there can end up awaited before your method itself gets a chance to resolve it. Keep that kind of out-of-band state on an instance field instead.
+
+## Row-level security: binding the request principal
+
+When your database ships the `@decaf-ts/integrations` namespace RLS template, protected-row reads are gated on the Postgres `app.principal_id` session setting. The adapter binds it for you, transaction-locally, through a config-only `sessionBinding` resolver — no subclassing or method overrides:
+
+*   The constructor accepts `TypeORMAdapterOptions`, a TypeORM `DataSourceOptions` extended with an optional `sessionBinding` resolver (`(context?) => TypeORMSessionSettings | undefined`). The `sessionBinding` key is destructured off before the remaining options reach the `DataSource`, so TypeORM never sees it.
+*   On every transaction (`@transactional()` or an explicit `ContextLock`), after `BEGIN`, `TypeORMContextLock.begin(context)` asks the adapter to resolve the settings from your binding and — Postgres-only — issues one parameterized `SELECT set_config($1, $2, true)` per resolved setting. The `true` flag scopes each setting to the current transaction: Postgres discards it at commit or rollback, and it never leaks into pooled connections reused by other requests.
+*   **Silent by default, deny-by-default on purpose.** With no `sessionBinding` configured, a non-Postgres driver, or a binding that resolves nothing, zero extra statements are issued — a binding that resolves nothing binds nothing. A throwing binding is swallowed with a warning and leaves the settings unbound, so Postgres RLS denies the transaction's protected-row reads.
+*   Resolve the subject→principal UUID once, at auth-priming time, on a privileged connection (`resolvePrincipalForSubject` from `@decaf-ts/integrations` — see the integrations RLS guide), and carry the result as `principalId` on the request context. The shipped namespaced binding reads exactly that key.
+
+```ts
+import { TypeORMAdapter } from "@decaf-ts/for-typeorm";
+import {
+  namespaceRlsTypeORMOptions,
+  resolvePrincipalForSubject,
+} from "@decaf-ts/integrations/namespaces";
+
+// Auth-priming time, on a privileged (service-role) connection:
+const principalId = await resolvePrincipalForSubject(privilegedClient, authSubject, tenantId);
+
+// Request time: config-only wiring, no subclassing:
+const adapter = new TypeORMAdapter({
+  type: "postgres",
+  // ... datasource options
+  ...namespaceRlsTypeORMOptions(), // binds ctx "principalId" as app.principal_id, transaction-locally
+});
+```
 
 ## Native TypeORM repository and QueryBuilder access
 
