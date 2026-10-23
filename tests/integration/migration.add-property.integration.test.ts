@@ -274,7 +274,7 @@ class NanoAddRequiredCategoryMigration extends AbsMigration<NanoAdapter> {
 
 void NanoAddRequiredCategoryMigration;
 
-describe.skip("for-typeorm migration data evolution", () => {
+describe("for-typeorm migration data evolution", () => {
   it("applies add/remove property migrations against live Postgres and Nano adapters", async () => {
     const nanoResources = await createNanoTestResources(
       "for_typeorm_migration_add_prop"

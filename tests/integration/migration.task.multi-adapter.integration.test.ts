@@ -286,7 +286,7 @@ class TypeormMigrationHop102 extends AbsMigration<any> {
   }
 }
 
-describe.skip("for-typeorm task migration with multi-adapter retries", () => {
+describe("for-typeorm task migration with multi-adapter retries", () => {
   it("queues multi-adapter version-hop task chains and supports retries against live adapters", async () => {
     failedOnce.clear();
 
