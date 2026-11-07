@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { TypeORMEventSubscriber } from "../../src/TypeORMEventSubscriber";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { table, pk, EventIds } from "@decaf-ts/core";

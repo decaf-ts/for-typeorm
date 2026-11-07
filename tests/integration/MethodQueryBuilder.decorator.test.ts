@@ -1,9 +1,10 @@
+import { it } from "@decaf-ts/for-testing";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Condition, OrderDirection, QueryError } from "@decaf-ts/core";
 import { TypeORMAdapter } from "../../src";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
 import { DataSource, DataSourceOptions } from "typeorm";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { getRepo } from "./MethodQueryBuilderRepo";
 
 const admin = "alfred";
@@ -21,7 +22,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 let con: DataSource;
 let adapter: TypeORMAdapter;
@@ -290,13 +291,6 @@ describe("TypeORM MethodQueryBuilder Decorator", () => {
 
   // TODO > Fix offset. Not applying.
   describe.skip("Offset", () => {
-    let allResult: any[];
-
-    beforeAll(async () => {
-      // allResult = await userRepo.findByActive(true);
-      // expect(allResult.length).toBeGreaterThanOrEqual(3);
-    });
-
     it("should offset the number of results", async () => {
       const offsetResult = await userRepo.findByActive(
         true,

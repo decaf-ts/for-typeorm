@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { TypeORMAdapter } from "../../src";
 import { DataSource, DataSourceOptions } from "typeorm";
 
@@ -15,14 +16,14 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 let con: DataSource;
 let adapter: TypeORMAdapter;
 
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { ConflictError, NotFoundError } from "@decaf-ts/db-decorators";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import {
   Cascade,
   column,

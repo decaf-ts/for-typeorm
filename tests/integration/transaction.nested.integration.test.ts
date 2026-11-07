@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description End-to-end test of @transactional with deep nesting against live Postgres
  * @summary Verifies that 3+ levels of nested @transactional calls, each performing several real
@@ -9,7 +10,7 @@
  */
 import { DataSource } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { TypeORMAdapter, TypeORMFlavour } from "../../src";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { column, pk, table, transactional } from "@decaf-ts/core";
@@ -34,7 +35,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 const typeOrmCfg: DataSourceOptions = {
   type: "postgres",

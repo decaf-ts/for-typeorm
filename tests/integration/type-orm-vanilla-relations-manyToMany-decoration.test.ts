@@ -1,4 +1,5 @@
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { it } from "@decaf-ts/for-testing";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { TypeORMAdapter } from "../../src";
 import { DataSource, DataSourceOptions } from "typeorm";
 
@@ -17,7 +18,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 let adapter: TypeORMAdapter;
 

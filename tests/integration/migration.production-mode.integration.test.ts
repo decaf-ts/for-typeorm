@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { DataSourceOptions } from "typeorm";
 
 function normalizeMigrationMode(options: DataSourceOptions): DataSourceOptions {

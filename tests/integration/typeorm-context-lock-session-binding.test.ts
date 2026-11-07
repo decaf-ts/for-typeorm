@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @module for-typeorm/tests/integration/typeorm-context-lock-session-binding
  * @summary Live-Postgres assurance that `TypeORMContextLock` drives the generic
@@ -44,10 +45,10 @@ jest.setTimeout(120_000);
 
 const PG_HOST =
   process.env["DECAF_PG_HOST"] || process.env["SAA1032_PG_HOST"] || "127.0.0.1";
-const PG_PORT = process.env["DECAF_PG_PORT"] || "55435";
+const PG_PORT = process.env["DECAF_PG_PORT"] || "5432";
 const BASE_PG_URL =
   process.env["DECAF_PG_URL"] ||
-  `postgresql://decaf:decaf-integration@${PG_HOST}:${PG_PORT}/decaf_integration`;
+  `postgresql://alfred:password@${PG_HOST}:${PG_PORT}/alfred`;
 
 const RUN_TAG = `${process.pid}_${Date.now().toString(36)}`;
 const DATABASE_NAME = `saa1162_scope_${RUN_TAG}`.toLowerCase();
@@ -289,7 +290,8 @@ beforeAll(async () => {
   } catch (error) {
     throw new Error(
       `Postgres is unreachable at ${BASE_PG_URL}; start the integrations harness ` +
-        `(decaf-postgres-integration on port 55435) or set DECAF_PG_URL. ${(error as Error).message}`
+        `(the local Postgres service on port ${PG_PORT}) or set DECAF_PG_URL. ${(error as Error).message}`,
+      { cause: error }
     );
   }
 

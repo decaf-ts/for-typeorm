@@ -112,7 +112,7 @@ export function generateIndexes<M extends Model>(
 
       generate();
     });
-    let defaultQueryAttrs: string[] = [];
+    let defaultQueryAttrs: string[];
     try {
       defaultQueryAttrs = Model.defaultQueryAttributes(m);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars

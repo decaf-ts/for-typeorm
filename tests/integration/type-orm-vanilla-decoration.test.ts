@@ -1,4 +1,5 @@
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { it } from "@decaf-ts/for-testing";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { TypeORMAdapter } from "../../src";
 let con: DataSource;
 const admin = "alfred";
@@ -15,7 +16,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adapter = new TypeORMAdapter(config);

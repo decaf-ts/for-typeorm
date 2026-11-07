@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { uses } from "@decaf-ts/decoration";
 
 import {
@@ -15,7 +16,7 @@ import {
   TypeORMRepository,
 } from "../../src/index";
 import { NanoAdapter, NanoFlavour } from "@decaf-ts/for-nano";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { DataSource } from "typeorm";
 @uses(TypeORMFlavour)
@@ -74,7 +75,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: type_dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 let con2: DataSource;
 

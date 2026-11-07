@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { TypeORMAdapter } from "../../src";
 
 import { DataSource, DataSourceOptions } from "typeorm";

@@ -109,7 +109,7 @@ import { ManyToMany } from "./overrides/ManyToMany";
 import { PrimaryGeneratedColumn } from "./overrides/PrimaryGeneratedColumn";
 import { PrimaryColumn } from "./overrides/PrimaryColumn";
 import { Entity } from "./overrides/Entity";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 
 export type TypeORMContext = Context<TypeORMFlags>;
 
@@ -132,7 +132,7 @@ export type TypeORMSessionSettings = Readonly<
  * Postgres RLS then denies protected-row access. Must be synchronous and
  * side-effect free: the adapter swallows and warns on a throwing resolver and
  * leaves the settings unbound.
- * @typedef {(context?: TypeORMContext) => TypeORMSessionSettings | undefined | void} TypeORMContextSessionBinding
+ * @typedef {function(TypeORMContext=): (TypeORMSessionSettings|undefined|void)} TypeORMContextSessionBinding
  */
 export type TypeORMContextSessionBinding = (
   context?: TypeORMContext
@@ -145,7 +145,7 @@ export type TypeORMContextSessionBinding = (
  * before the remaining options reach the `DataSource`, so wiring the binding
  * is configuration only - no subclassing or method overrides - and TypeORM
  * never sees the extra key.
- * @typedef {DataSourceOptions & { sessionBinding?: TypeORMContextSessionBinding }} TypeORMAdapterOptions
+ * @typedef {Object} TypeORMAdapterOptions
  * @property {TypeORMContextSessionBinding} [sessionBinding] - Resolves the session settings to bind at transaction start; applied by {@link TypeORMContextLock}.
  */
 export type TypeORMAdapterOptions = DataSourceOptions & {
@@ -307,7 +307,7 @@ export class TypeORMAdapter extends Adapter<
       model,
       Object.assign(
         {
-          user: (this.config as PostgresConnectionOptions).username,
+          user: (this.config as PostgresDataSourceOptions).username,
         },
         flags
       )
@@ -580,12 +580,28 @@ export class TypeORMAdapter extends Adapter<
     try {
       const repo = this.getRepository(m, ctx);
       const { nonEager, relations } = splitEagerRelations(m);
+      const relationOptions = relations.reduce<Record<string, any>>((options, path) => {
+        const parts = path.split(".");
+        let current = options;
+        parts.forEach((part, index) => {
+          const isLeaf = index === parts.length - 1;
+          if (isLeaf) {
+            if (!current[part] || typeof current[part] !== "object")
+              current[part] = true;
+          } else {
+            if (!current[part] || typeof current[part] !== "object")
+              current[part] = {};
+            current = current[part];
+          }
+        });
+        return options;
+      }, {});
       const pk = Model.pk(m) as string;
       const q: FindOneOptions = {
         where: {
           [pk]: id,
         },
-        relations: relations,
+        relations: relationOptions,
         loadRelationIds: {
           relations: nonEager,
         },

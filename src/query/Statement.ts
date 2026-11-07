@@ -455,7 +455,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           ? this.parseConditionForPagination(
               attr1,
               tableName,
-              ++counter,
+              counter + 1,
               conditionalOp
             )
           : buildSimpleCondition();
@@ -464,7 +464,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           ? this.parseConditionForPagination(
               comparison,
               tableName,
-              ++counter,
+              counter + 2,
               conditionalOp
             )
           : buildSimpleCondition();
@@ -479,7 +479,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           ? this.parseConditionForPagination(
               attr1,
               tableName,
-              ++counter,
+              counter + 1,
               conditionalOp
             )
           : buildSimpleCondition();
@@ -488,7 +488,7 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
           ? this.parseConditionForPagination(
               comparison,
               tableName,
-              ++counter,
+              counter + 2,
               conditionalOp
             )
           : buildSimpleCondition();

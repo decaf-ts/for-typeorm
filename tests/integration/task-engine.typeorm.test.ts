@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Adapter, Repository, Repo } from "@decaf-ts/core";
 import { TypeORMDispatch } from "../../src/TypeORMDispatch";
 import { TypeORMFlavour } from "../../src/constants";
@@ -27,7 +28,7 @@ import {
 uses(TypeORMFlavour)(TaskModel);
 uses(TypeORMFlavour)(TaskEventModel);
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 
 jest.setTimeout(200000);
 
@@ -88,7 +89,7 @@ async function createTypeORMTestResources(prefix: string) {
     await adminDbConnection.destroy();
   }
 
-  const adapterConfig: PostgresConnectionOptions = {
+  const adapterConfig: PostgresDataSourceOptions = {
     type: "postgres",
     host,
     port,

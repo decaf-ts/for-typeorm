@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description Tests for simultaneous @transactional calls against live Postgres
  * @summary Verifies that two concurrent @transactional() calls each get their own
@@ -9,7 +10,7 @@
  */
 import { DataSource } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { TypeORMAdapter, TypeORMFlavour } from "../../src";
 import { TypeORMRepository } from "../../src/TypeORMRepository";
 import { column, pk, table, transactional } from "@decaf-ts/core";
@@ -33,7 +34,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 const typeOrmCfg: DataSourceOptions = {
   type: "postgres",

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @module for-typeorm/tests/unit/typeorm-context-lock-driver-gating
  * @summary Verifies the driver gate in `TypeORMContextLock.begin`: the generic

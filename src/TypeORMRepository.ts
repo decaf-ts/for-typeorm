@@ -229,9 +229,8 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     log.debug(
       `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
-    // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, false, ctx);
-    record = await this.adapter.create(
+    const { id, transient } = this.adapter.prepare(model, false, ctx);
+    const record = await this.adapter.create(
       Metadata.constr(this.class),
       id,
       model,
@@ -394,12 +393,11 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
       args,
       this.update
     ) as ContextualizedArgs<TypeORMContext>;
-    // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, false, ctx);
+    const { id, transient } = this.adapter.prepare(model, false, ctx);
     log.debug(
       `updating ${this.class.name} in table ${Model.tableName(this.class)} with id ${id}`
     );
-    record = await this.adapter.update(
+    const record = await this.adapter.update(
       Metadata.constr(this.class),
       id,
       model,
@@ -573,8 +571,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
 
     const prepared = models.map((m) => this.adapter.prepare(m, false, ctx));
     const ids = prepared.map((p) => p.id);
-    let records = prepared.map((p) => p.record);
-    records = await this.adapter.createAll(
+    const records = await this.adapter.createAll(
       Metadata.constr(this.class),
       ids as PrimaryKeyType[],
       models,

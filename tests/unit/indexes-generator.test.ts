@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { generateIndexes } from "../../src/indexes/generator";
 import { Model } from "@decaf-ts/decorator-validation";
 

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Adapter } from "@decaf-ts/core";
 import {
   AbsMigration,

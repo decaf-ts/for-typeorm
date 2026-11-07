@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { DataSource, DataSourceOptions } from "typeorm";
 import { TypeORMAdapter } from "../../src";
 const admin = "alfred";

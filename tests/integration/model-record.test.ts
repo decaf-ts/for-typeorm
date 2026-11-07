@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { DataSource } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
 import { TypeORMAdapter, TypeORMFlavour } from "../../src";
@@ -16,7 +17,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: 5432,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 let con: DataSource;
 let adapter: TypeORMAdapter;
@@ -28,7 +29,7 @@ import { uses } from "@decaf-ts/decoration";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 import { serialize } from "@decaf-ts/db-decorators";
 import { TypeORMBaseModel } from "./baseModel";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 
 jest.setTimeout(50000);
 

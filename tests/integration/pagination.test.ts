@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { TypeORMAdapter, TypeORMRepository } from "../../src";
 
 const admin = "alfred";

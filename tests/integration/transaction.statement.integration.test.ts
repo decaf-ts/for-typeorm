@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description End-to-end regression for the lock-aware statement repository (DECAF-811).
  * @summary Proves that a statement carrying a `transactionLock` override is executed against
@@ -9,7 +10,7 @@
  */
 import { DataSource } from "typeorm";
 import { DataSourceOptions } from "typeorm/data-source/DataSourceOptions";
-import { PostgresConnectionOptions } from "typeorm/driver/postgres/PostgresConnectionOptions";
+import { PostgresDataSourceOptions } from "typeorm/driver/postgres/PostgresDataSourceOptions";
 import { TypeORMAdapter, TypeORMContextLock, TypeORMFlavour } from "../../src";
 import { column, pk, table } from "@decaf-ts/core";
 import { uses } from "@decaf-ts/decoration";
@@ -34,7 +35,7 @@ const config: DataSourceOptions = {
   database: "alfred",
   host: dbHost,
   port: dbPort,
-} as PostgresConnectionOptions;
+} as PostgresDataSourceOptions;
 
 const typeOrmCfg: DataSourceOptions = {
   type: "postgres",

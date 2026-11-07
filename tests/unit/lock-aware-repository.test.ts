@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { TypeORMStatement } from "../../src/query/Statement";
 import { Model, model } from "@decaf-ts/decorator-validation";
 import { prop } from "@decaf-ts/decoration";
