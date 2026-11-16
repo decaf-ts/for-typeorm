@@ -185,7 +185,7 @@ class TypeORMProgressTask extends TaskHandler<{ value: number }, number> {
   }
 }
 
-describe.skip("TypeORM task engine integration", () => {
+describe("TypeORM task engine integration", () => {
   let resources: TypeORMResources | undefined;
   let adapter: TypeORMAdapter;
   let taskService: TaskService<TypeORMAdapter>;
@@ -269,6 +269,9 @@ describe.skip("TypeORM task engine integration", () => {
     const persisted = await taskRepo.read(task.id);
     expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
     expect(persisted.output).toBe(18);
+    // Completion releases the lease (stored as NULL, read as undefined).
+    expect(persisted.leaseOwner).toBeUndefined();
+    expect(persisted.leaseExpiry).toBeUndefined();
 
     const statusEvents = eventsFor(task.id, TaskEventType.STATUS);
     const statusValues = statusEvents.map((evt) => evt.payload?.status);
@@ -311,7 +314,11 @@ describe.skip("TypeORM task engine integration", () => {
   });
 
   it("records task events via the TaskEventModel repository", async () => {
-    const eventRepo = Repository.forModel(TaskEventModel, adapter.alias);
+    // Query results run the after-read handlers (here: `@serialize`d payload
+    // parsing) only when the repository opts in — as the engine's own does.
+    const eventRepo = Repository.forModel(TaskEventModel, adapter.alias).override({
+      afterQueryHandlers: true,
+    } as any);
     const composite = new TaskBuilder()
       .setClassification("typeorm-progress-task")
       .setInput({ value: 2 })
@@ -412,6 +419,10 @@ describe.skip("TypeORM task engine integration", () => {
   });
 
   it("runs tasks through a proxied adapter", async () => {
+    // Every engine claims any runnable task from the shared table, and a
+    // push's tracker only hears its own (in-process) bus: pause the suite's
+    // engine so the proxied one is the only worker.
+    await engine.stop();
     const proxied = adapter.for({ logging: true }) as TypeORMAdapter;
     await proxied.initialize();
     const proxiedBus = new TaskEventBus();
@@ -448,6 +459,7 @@ describe.skip("TypeORM task engine integration", () => {
     } finally {
       await proxiedService.shutdown().catch(() => undefined);
       await proxied.shutdown().catch(() => undefined);
+      await engine.start();
     }
   });
 });

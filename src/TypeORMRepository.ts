@@ -58,9 +58,11 @@ export async function enforceDbDecoratorsRecursive<
   }
 
   for (const key of Object.keys(model)) {
+    // A nested model cleared to `null` has nothing to enforce.
     if (
       Model.isPropertyModel(model, key) &&
-      typeof model[key as keyof typeof model] !== "undefined"
+      model[key as keyof typeof model] !== undefined &&
+      model[key as keyof typeof model] !== null
     ) {
       await innerLoop(
         model[key as keyof typeof model] as any,
@@ -93,6 +95,29 @@ export async function enforceDbDecoratorsRecursive<
       })
     );
   }
+}
+
+/**
+ * The model as TypeORM persists it: without its transient properties.
+ *
+ * @remarks TypeORM saves the model instance itself (its property names are
+ * the entity's), not the column-keyed prepared record, so the transient
+ * properties `prepare()` segregated must be left out here — otherwise they
+ * are stored, and `revert()` rejects them when re-adding the transient set.
+ * The caller's instance is not changed.
+ */
+function withoutTransient<M extends Model>(
+  model: M,
+  transient: Record<string, any> | undefined
+): M {
+  const keys = transient ? Object.keys(transient) : [];
+  if (!keys.length) return model;
+  const copy = Object.assign(
+    Object.create(Object.getPrototypeOf(model)),
+    model
+  ) as Record<string, any>;
+  for (const key of keys) delete copy[key];
+  return copy as M;
 }
 
 /**
@@ -233,7 +258,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     const record = await this.adapter.create(
       Metadata.constr(this.class),
       id,
-      model,
+      withoutTransient(model, transient),
       ...ctxArgs
     );
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
@@ -400,7 +425,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     const record = await this.adapter.update(
       Metadata.constr(this.class),
       id,
-      model,
+      withoutTransient(model, transient),
       ...ctxArgs
     );
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
@@ -574,7 +599,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     const records = await this.adapter.createAll(
       Metadata.constr(this.class),
       ids as PrimaryKeyType[],
-      models,
+      models.map((m, i) => withoutTransient(m, prepared[i].transient)),
       ...ctxArgs
     );
     return records.map((r, i) =>
@@ -750,7 +775,7 @@ export class TypeORMRepository<M extends Model<boolean>> extends Repository<
     const updated = await this.adapter.updateAll(
       Metadata.constr(this.class),
       records.map((r) => r.id),
-      models,
+      models.map((m, i) => withoutTransient(m, records[i].transient)),
       ...ctxArgs
     );
     return updated.map((u, i) =>

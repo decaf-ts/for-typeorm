@@ -62,7 +62,7 @@ describe("TypeORMStatement EXISTS translation", () => {
       {
         method: "where",
         sql: "data_source.processed IS NOT NULL",
-        params: undefined,
+        params: {},
       },
     ]);
   });
@@ -82,13 +82,8 @@ describe("TypeORMStatement EXISTS translation", () => {
     expect(qb.calls).toEqual([
       {
         method: "where",
-        sql: "data_source.processed IS NOT NULL",
-        params: undefined,
-      },
-      {
-        method: "andWhere",
-        sql: "data_source.entityId = :entityId2",
-        params: { entityId2: 5 },
+        sql: "(data_source.processed IS NOT NULL AND data_source.entityId = :entityId0)",
+        params: { entityId0: 5 },
       },
     ]);
   });
@@ -113,7 +108,7 @@ describe("TypeORMStatement EXISTS translation", () => {
       {
         method: "where",
         sql: "data_source.processed IS NULL",
-        params: undefined,
+        params: {},
       },
     ]);
   });
@@ -133,13 +128,8 @@ describe("TypeORMStatement EXISTS translation", () => {
     expect(qb.calls).toEqual([
       {
         method: "where",
-        sql: "data_source.processed IS NULL",
-        params: undefined,
-      },
-      {
-        method: "andWhere",
-        sql: "data_source.entityId = :entityId2",
-        params: { entityId2: 5 },
+        sql: "(data_source.processed IS NULL AND data_source.entityId = :entityId0)",
+        params: { entityId0: 5 },
       },
     ]);
   });

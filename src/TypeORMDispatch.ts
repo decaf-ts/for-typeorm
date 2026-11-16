@@ -125,9 +125,36 @@ export class TypeORMDispatch extends Dispatch<
    *     S-->>D: Promise rejects
    *   end
    */
+  /**
+   * Registers the entity subscriber on the DataSource (once).
+   * Synchronous, so that an observer is wired by the time
+   * `adapter.observe()` returns whenever the DataSource is already
+   * initialized.
+   */
+  private attachSubscriber(): void {
+    if (this.subscriber || !this.adapter) return;
+    this.subscriber = new TypeORMEventSubscriber(
+      this.adapter,
+      this.notificationHandler.bind(this)
+    );
+    const subs = (this.adapter.client as any).subscribers as
+      | Array<any>
+      | undefined;
+    if (subs) subs.push(this.subscriber);
+  }
+
   protected override async initialize(
     ...args: MaybeContextualArg<TypeORMContext>
   ): Promise<void> {
+    // `Adapter.observe()` does not await this: attach before the first
+    // await when nothing else needs to happen first.
+    if (
+      this.eventMode === TypeORMEventMode.SUBSCRIBER &&
+      this.adapter?.client?.isInitialized
+    )
+      this.attachSubscriber();
+    // A close()/dispose() while this is still starting supersedes it.
+    const generation = this.currentGeneration();
     async function subscribeToTypeORM(this: TypeORMDispatch): Promise<void> {
       if (!this.adapter)
         throw new InternalError(`No adapter/native observed for dispatch`);
@@ -135,6 +162,7 @@ export class TypeORMDispatch extends Dispatch<
       try {
         if (!this.adapter.client.isInitialized)
           await this.adapter.client.initialize();
+        if (this.isSuperseded(generation)) return;
 
         const { driver } = (this.adapter as any).constructor.getDriverConfig?.(this.adapter.client) || {
           driver: this.driver,
@@ -143,16 +171,7 @@ export class TypeORMDispatch extends Dispatch<
 
         switch (this.eventMode) {
           case TypeORMEventMode.SUBSCRIBER:
-            if (!this.subscriber) {
-              this.subscriber = new TypeORMEventSubscriber(
-                this.adapter,
-                this.notificationHandler.bind(this)
-              );
-              const subs = (this.adapter.client as any).subscribers as
-                | Array<any>
-                | undefined;
-              if (subs) subs.push(this.subscriber);
-            }
+            this.attachSubscriber();
             break;
           case TypeORMEventMode.TRIGGER:
             switch (this.driver) {
@@ -213,23 +232,29 @@ END;`
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
 
-    subscribeToTypeORM
-      .call(this)
-      .then(() => {
-        log.info(`Subscribed to TypeORM notifications in ${this.eventMode} mode for ${this.driver}`);
-      })
-      .catch((e: unknown) => {
-        throw new InternalError(
-          `Failed to subscribe to TypeORM notifications: ${e}`
+    if (this.isSuperseded(generation)) return;
+    // Awaited (core's `start()` tracks it, so `close()` waits for it, and logs
+    // a failure instead of leaving an unhandled rejection).
+    try {
+      await subscribeToTypeORM.call(this);
+      if (!this.isSuperseded(generation))
+        log.info(
+          `Subscribed to TypeORM notifications in ${this.eventMode} mode for ${this.driver}`
         );
-      });
+    } catch (e: unknown) {
+      throw new InternalError(
+        `Failed to subscribe to TypeORM notifications: ${e}`
+      );
+    }
   }
 
   override async close(
     ...ctxArgs: [...any[], TypeORMContext]
   ): Promise<void> {
+    // Supersede (and wait for) a start still in flight first, so it cannot
+    // attach the subscriber again after it was detached.
+    await super.close(...ctxArgs);
     await this.detachSubscriber();
-    return super.close(...ctxArgs);
   }
 
   private async detachSubscriber(): Promise<void> {

@@ -56,7 +56,7 @@ describe("TypeORMStatement IS [NOT] NULL translation", () => {
 
     expect(result.query).toBe(qb);
     expect(qb.calls).toEqual([
-      { method: "where", sql: "data_source.processed IS NULL", params: undefined },
+      { method: "where", sql: "data_source.processed IS NULL", params: {} },
     ]);
   });
 
@@ -68,7 +68,7 @@ describe("TypeORMStatement IS [NOT] NULL translation", () => {
 
     expect(result.query).toBe(qb);
     expect(qb.calls).toEqual([
-      { method: "where", sql: "data_source.processed IS NOT NULL", params: undefined },
+      { method: "where", sql: "data_source.processed IS NOT NULL", params: {} },
     ]);
   });
 
@@ -96,11 +96,45 @@ describe("TypeORMStatement IS [NOT] NULL translation", () => {
     newStatement().parseCondition(condition, "data_source", qb);
 
     expect(qb.calls).toEqual([
-      { method: "where", sql: "data_source.processed IS NULL", params: undefined },
       {
-        method: "andWhere",
-        sql: "data_source.entityId = :entityId2",
-        params: { entityId2: 5 },
+        method: "where",
+        sql: "(data_source.processed IS NULL AND data_source.entityId = :entityId0)",
+        params: { entityId0: 5 },
+      },
+    ]);
+  });
+});
+
+describe("TypeORMStatement condition groups", () => {
+  // The core TaskEngine claim query: an OR of AND groups on one attribute.
+  it("keeps every OR branch, bracketed, with distinct parameters", () => {
+    const qb = new FakeQueryBuilder();
+    const now = new Date(0);
+    const condition = Condition.attribute<NullConditionModel>("processed")
+      .eq("pending")
+      .or(
+        Condition.attribute<NullConditionModel>("processed")
+          .eq("retry")
+          .and(Condition.attribute<NullConditionModel>("entityId").lte(now))
+      )
+      .or(
+        Condition.attribute<NullConditionModel>("processed")
+          .eq("running")
+          .and(Condition.attribute<NullConditionModel>("entityId").lte(now))
+      );
+    newStatement().parseCondition(condition, "data_source", qb);
+    expect(qb.calls).toEqual([
+      {
+        method: "where",
+        sql:
+          "((data_source.processed = :processed0 OR (data_source.processed = :processed1 AND data_source.entityId <= :entityId2)) OR (data_source.processed = :processed3 AND data_source.entityId <= :entityId4))",
+        params: {
+          processed0: "pending",
+          processed1: "retry",
+          entityId2: now,
+          processed3: "running",
+          entityId4: now,
+        },
       },
     ]);
   });

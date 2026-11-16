@@ -13,7 +13,6 @@ import {
 } from "@decaf-ts/core";
 import { Model } from "@decaf-ts/decorator-validation";
 import { translateOperators } from "./translate";
-import { TypeORMQueryLimit } from "./constants";
 import { SQLOperator, TypeORMQuery } from "../types";
 import { TypeORMAdapter, TypeORMContext } from "../TypeORMAdapter";
 import { TypeORMContextLock } from "../TypeORMContextLock";
@@ -117,7 +116,6 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
    *   Statement-->>Statement: Return query
    */
   protected build(): TypeORMQuery<M> {
-    const log = this.log.for(this.build);
     const tableName = Model.tableName(this.fromSelector);
 
     const q: TypeORMQuery<M, SelectQueryBuilder<M>> = {
@@ -241,26 +239,18 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
       }
     }
 
-    // For non-aggregation queries, apply limit
-    if (!isAggregation) {
-      if (this.limitSelector) {
-        q.query = (q.query as SelectQueryBuilder<any>).limit(
-          this.limitSelector
-        );
-      } else {
-        log.debug(
-          `No limit selector defined. Using default limit of ${TypeORMQueryLimit}`
-        );
-        q.query = (q.query as SelectQueryBuilder<any>).limit(TypeORMQueryLimit);
-      }
-    } else if (this.limitSelector) {
-      // For aggregations, only apply limit if explicitly set
+    // A limit applies only when the caller set one: an implicit cap would
+    // silently truncate unbounded selects (callers that want pages set
+    // `limit()` or use the paginator).
+    if (this.limitSelector) {
       q.query = (q.query as SelectQueryBuilder<any>).limit(this.limitSelector);
     }
 
-    // Add offset
+    // Add offset. `skip()` pairs with `take()` and is silently ignored next
+    // to the SQL-level `limit()` used above, so the SQL-level `offset()` is
+    // the one that applies.
     if (this.offsetSelector)
-      q.query = (q.query as SelectQueryBuilder<any>).skip(this.offsetSelector);
+      q.query = (q.query as SelectQueryBuilder<any>).offset(this.offsetSelector);
 
     return q as any;
   }
@@ -583,140 +573,118 @@ export class TypeORMStatement<M extends Model, R> extends Statement<
     counter = 0,
     conditionalOp?: GroupOperator | Operator
   ): TypeORMQuery<M> {
+    // The whole condition tree compiles to ONE bracketed SQL expression with
+    // uniquely named parameters, applied with a single where call. Applying
+    // each leaf with where/andWhere/orWhere instead loses groups: `where()`
+    // replaces every clause added before it, so `A OR (B AND C)` became
+    // `B AND C`; and branch-local counters reused parameter names, so two
+    // leaves on the same attribute overwrote each other's value.
+    const params: Record<string, any> = {};
+    const sql = this.conditionSql(condition, tableName, params, { next: counter });
+    switch (conditionalOp) {
+      case GroupOperator.AND:
+        return { query: qb.andWhere(sql, params) as any };
+      case GroupOperator.OR:
+        return { query: qb.orWhere(sql, params) as any };
+      case Operator.NOT:
+        throw new Error("NOT operator not implemented");
+      default:
+        return { query: qb.where(sql, params) as any };
+    }
+  }
+
+  /**
+   * Compiles a condition (tree) into a SQL expression, adding its bound
+   * values to `params` under names unique within the statement.
+   */
+  protected conditionSql(
+    condition: Condition<M>,
+    tableName: string,
+    params: Record<string, any>,
+    seq: { next: number }
+  ): string {
     const { attr1, operator, comparison } = condition as unknown as {
       attr1: string | Condition<M>;
       operator: Operator | GroupOperator;
       comparison: any;
     };
 
-    function parse(): TypeORMQuery<M> {
-      // EXISTS is a unary condition: it has no comparison value to bind and
-      // maps to a column nullability check. `exists(true)` (the default) maps to
-      // IS NOT NULL; the supported negation path `exists(false)` maps to IS NULL.
-      if (operator === Operator.EXISTS) {
-        const nullOperator =
-          comparison === false ? SQLOperator.IS_NULL : SQLOperator.IS_NOT_NULL;
-        const queryStr = `${tableName}.${attr1} ${nullOperator}`;
-        switch (conditionalOp) {
-          case GroupOperator.AND:
-            return { query: qb.andWhere(queryStr) as any };
-          case GroupOperator.OR:
-            return { query: qb.orWhere(queryStr) as any };
-          case Operator.NOT:
-            throw new Error("NOT operator not implemented");
-          default:
-            return { query: qb.where(queryStr) as any };
-        }
-      }
+    if (operator === Operator.NOT)
+      throw new Error("NOT operator not implemented");
 
-      // EQUAL/DIFFERENT against a literal `null` have no parameter to bind -
-      // TypeORM's query builder requires the dedicated IS [NOT] NULL SQL form
-      // instead of `= :param`, which Postgres would otherwise evaluate to
-      // NULL (never true) rather than matching NULL rows.
-      if (
-        (operator === Operator.EQUAL || operator === Operator.DIFFERENT) &&
-        comparison === null
-      ) {
-        const nullOperator =
-          operator === Operator.EQUAL
-            ? SQLOperator.IS_NULL
-            : SQLOperator.IS_NOT_NULL;
-        const queryStr = `${tableName}.${attr1} ${nullOperator}`;
-        switch (conditionalOp) {
-          case GroupOperator.AND:
-            return { query: qb.andWhere(queryStr) as any };
-          case GroupOperator.OR:
-            return { query: qb.orWhere(queryStr) as any };
-          case Operator.NOT:
-            throw new Error("NOT operator not implemented");
-          default:
-            return { query: qb.where(queryStr) as any };
-        }
-      }
+    if (operator === GroupOperator.AND || operator === GroupOperator.OR) {
+      const left = this.conditionSql(
+        attr1 as Condition<M>,
+        tableName,
+        params,
+        seq
+      );
+      const right = this.conditionSql(
+        comparison as Condition<M>,
+        tableName,
+        params,
+        seq
+      );
+      return `(${left} ${operator === GroupOperator.AND ? "AND" : "OR"} ${right})`;
+    }
 
-      const sqlOperator = translateOperators(operator);
-      const attrRef = `${attr1}${counter}`;
-      let queryStr: string;
-      let values: Record<string, any>;
+    const column = `${tableName}.${attr1 as string}`;
+    const ref = () =>
+      `${String(attr1).replace(/[^A-Za-z0-9_]/g, "_")}${seq.next++}`;
 
-      // Handle BETWEEN operator specially - comparison is [min, max]
-      if (operator === Operator.BETWEEN) {
-        const [min, max] = comparison as [any, any];
-        const minRef = `${attr1}${counter}_min`;
-        const maxRef = `${attr1}${counter}_max`;
-        queryStr = `${tableName}.${attr1} ${sqlOperator} :${minRef} AND :${maxRef}`;
-        values = {
-          [minRef]: min,
-          [maxRef]: max,
-        };
-      } else if (operator === Operator.IN) {
-        // Handle IN operator - comparison is an array
-        queryStr = `${tableName}.${attr1} ${sqlOperator} (:...${attrRef})`;
-        values = {
-          [attrRef]: comparison,
-        };
-      } else {
-        if (
-          operator === Operator.STARTS_WITH ||
-          operator === Operator.ENDS_WITH
-        ) {
-          if (typeof comparison !== "string")
-            throw new QueryError(
-              `Operator ${operator} requires a string comparison value`
-            );
-        }
-        const paramValue =
-          operator === Operator.STARTS_WITH
-            ? `${comparison}%`
-            : operator === Operator.ENDS_WITH
-              ? `%${comparison}`
-              : comparison;
-        queryStr = `${tableName}.${attr1} ${sqlOperator} :${attrRef}`;
-        values = {
-          [attrRef]: paramValue,
-        };
-      }
+    // EXISTS is a unary condition: it has no comparison value to bind and
+    // maps to a column nullability check. `exists(true)` (the default) maps to
+    // IS NOT NULL; the supported negation path `exists(false)` maps to IS NULL.
+    if (operator === Operator.EXISTS) {
+      return `${column} ${
+        comparison === false ? SQLOperator.IS_NULL : SQLOperator.IS_NOT_NULL
+      }`;
+    }
 
-      switch (conditionalOp) {
-        case GroupOperator.AND:
-          return {
-            query: qb.andWhere(queryStr, values) as any,
-          };
-        case GroupOperator.OR:
-          return {
-            query: qb.orWhere(queryStr, values) as any,
-          };
-        case Operator.NOT:
-          throw new Error("NOT operator not implemented");
-        default:
-          return {
-            query: qb.where(queryStr, values) as any,
-          };
-      }
+    // EQUAL/DIFFERENT against a literal `null` have no parameter to bind -
+    // the dedicated IS [NOT] NULL SQL form is required instead of
+    // `= :param`, which Postgres would evaluate to NULL (never true).
+    if (
+      (operator === Operator.EQUAL || operator === Operator.DIFFERENT) &&
+      comparison === null
+    ) {
+      return `${column} ${
+        operator === Operator.EQUAL ? SQLOperator.IS_NULL : SQLOperator.IS_NOT_NULL
+      }`;
+    }
+
+    const sqlOperator = translateOperators(operator);
+
+    // BETWEEN - comparison is [min, max]
+    if (operator === Operator.BETWEEN) {
+      const [min, max] = comparison as [any, any];
+      const base = ref();
+      params[`${base}_min`] = min;
+      params[`${base}_max`] = max;
+      return `${column} ${sqlOperator} :${base}_min AND :${base}_max`;
+    }
+
+    // IN - comparison is an array
+    if (operator === Operator.IN) {
+      const name = ref();
+      params[name] = comparison;
+      return `${column} ${sqlOperator} (:...${name})`;
     }
 
     if (
-      [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(
-        operator as GroupOperator
-      ) === -1
-    ) {
-      return parse();
-    }
-    // For NOT operator
-    else if (operator === Operator.NOT) {
-      throw new Error("NOT operator not implemented");
-    }
-    // For AND/OR operators
-    else {
-      qb = this.parseCondition(attr1 as Condition<M>, tableName, qb, ++counter)
-        .query as unknown as SelectQueryBuilder<M>;
-      return this.parseCondition(
-        comparison,
-        tableName,
-        qb,
-        ++counter,
-        operator
+      (operator === Operator.STARTS_WITH || operator === Operator.ENDS_WITH) &&
+      typeof comparison !== "string"
+    )
+      throw new QueryError(
+        `Operator ${operator} requires a string comparison value`
       );
-    }
+    const name = ref();
+    params[name] =
+      operator === Operator.STARTS_WITH
+        ? `${comparison}%`
+        : operator === Operator.ENDS_WITH
+          ? `%${comparison}`
+          : comparison;
+    return `${column} ${sqlOperator} :${name}`;
   }
 }

@@ -18,6 +18,7 @@ import {
   OrderDirection,
   Paginator,
   PersistenceKeys,
+  pkOnCreate,
   PreparedModel,
   RawResult,
   relation,
@@ -79,6 +80,13 @@ import {
 } from "./types";
 import { TypeORMRepository } from "./TypeORMRepository";
 import { TypeORMContextLock } from "./TypeORMContextLock";
+import {
+  isTypeORMReadonly,
+  isTypeORMTransient,
+  markTypeORMReadonly,
+  markTypeORMTransient,
+  registerTypeORMIndex,
+} from "./entityFlags";
 import { TypeORMDispatch } from "./TypeORMDispatch";
 import { convertJsRegexToPostgres, splitEagerRelations } from "./utils";
 import {
@@ -88,7 +96,6 @@ import {
   FindOneOptions,
   getMetadataArgsStorage,
   In,
-  Index,
   InsertResult,
   JoinColumn,
   JoinColumnOptions,
@@ -514,7 +521,10 @@ export class TypeORMAdapter extends Adapter<
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
       Object.entries(transient).forEach(([key, val]) => {
-        if (key in obj && typeof obj[key as keyof typeof obj] !== "undefined")
+        // A transient property that is also a column is never written, so
+        // the row returns it as NULL: only a stored value is a conflict.
+        const stored = obj[key as keyof typeof obj];
+        if (key in obj && stored !== undefined && stored !== null)
           throw new InternalError(
             `Transient property ${key} already exists on model ${typeof clazz === "string" ? clazz : clazz.name}. should be impossible`
           );
@@ -1533,7 +1543,13 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
             break;
           case "uuid":
           case "serial":
-            options.generated = true;
+            // The database generates these by default; an explicit
+            // `generated: false` leaves the key to decaf (e.g. `@uuid()`) or
+            // the caller.
+            options.generated =
+              typeof options.generated === "undefined"
+                ? true
+                : options.generated;
             break;
           case !type:
             throw new InternalError(
@@ -1594,6 +1610,17 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
         }
 
         if (options.generated) decorators.push(generated());
+        // Core's `@pk` registers `pkOnCreate`; this override must too, so a
+        // model re-flavoured with `uses(TypeORMFlavour)` (one defined before
+        // this decoration, e.g. the core TaskEngine models) still finds the
+        // handler's arguments. Under TypeORM it never generates the key: the
+        // database does when `generated` is true, and otherwise decaf's other
+        // decorators (`@uuid()`, `@composed()`, …) or the caller fill it
+        // before the record reaches TypeORM — as core's handler does when
+        // `generated` is false.
+        decorators.push(
+          onCreate(pkOnCreate, { ...options, generated: false } as SequenceOptions)
+        );
         return apply(...decorators)(original, propertyKey);
       };
     }
@@ -1605,14 +1632,43 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       } as any)
       .apply();
 
+    /** A column-adding decorator that skips `@transient` properties. */
+    function unlessTransient(decorator: PropertyDecorator): PropertyDecorator {
+      return function (obj: any, prop: any) {
+        if (isTypeORMTransient(obj.constructor, prop)) return;
+        return decorator(obj, prop);
+      };
+    }
+
+    // @transient => no column (removes the column registrations made so far;
+    // the column decorators applied after it skip the property)
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(DBKeys.TRANSIENT)
+      .extend(function transient(obj: any, prop: any) {
+        markTypeORMTransient(obj.constructor, prop);
+      })
+      .apply();
+
+    // @readonly => @Column({ update: false })
+    Decoration.flavouredAs(TypeORMFlavour)
+      .for(DBKeys.READONLY)
+      .extend(function readonly(obj: any, prop: any) {
+        markTypeORMReadonly(obj.constructor, prop);
+      })
+      .apply();
+
     // @column("columnName") => @Column({name: "columnName"})
     Decoration.flavouredAs(TypeORMFlavour)
       .for(PersistenceKeys.COLUMN)
       .extend({
         decorator: function columm(name: string) {
           return function column(obj: any, prop: any) {
+            // @transient: no column at all.
+            if (isTypeORMTransient(obj.constructor, prop)) return;
             const opts: ColumnOptions = {};
             if (name) opts.name = name;
+            // @readonly: never written after the insert.
+            if (isTypeORMReadonly(obj.constructor, prop)) opts.update = false;
             let pk: string | undefined;
             try {
               pk = Model.pk(obj.constructor as Constructor<any>) as string;
@@ -1633,14 +1689,14 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
     Decoration.flavouredAs(TypeORMFlavour)
       .for(PersistenceKeys.UNIQUE)
       .define(propMetadata(PersistenceKeys.UNIQUE, {}))
-      .extend(Column({ unique: true }))
+      .extend(unlessTransient(Column({ unique: true })))
       .apply();
 
     // @required => @Column({ nullable: false })
     const requiredKey = Validation.key(ValidationKeys.REQUIRED);
     Decoration.flavouredAs(TypeORMFlavour)
       .for(requiredKey)
-      .extend(Column({ nullable: false }))
+      .extend(unlessTransient(Column({ nullable: false })))
       .apply();
 
     // @version => @VersionColumn()
@@ -1983,43 +2039,41 @@ $$ LANGUAGE plpgsql SECURITY DEFINER
       } as any)
       .apply();
 
-    // @index() => @Index()
+    // @index() => @Index([prop, ...compositions]) on the entity
     Decoration.flavouredAs(TypeORMFlavour)
       .for(PersistenceKeys.INDEX)
       .extend({
         decorator: function index(
           directions?: OrderDirection[] | string[] | string,
           compositions?: string[] | string,
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           name?: string
         ) {
+          // Normalised once per call (core's @index overloads), never by
+          // mutating the arguments the returned decorator closes over.
+          let indexName: string | undefined = name;
+          let composed: string[] | undefined;
+          if (typeof directions === "string") {
+            indexName = directions;
+          } else if (typeof compositions === "string") {
+            indexName = compositions;
+          } else if (compositions && compositions.length) {
+            composed = compositions as string[];
+          } else if (
+            directions &&
+            directions.some(
+              (d) =>
+                ![OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
+            )
+          ) {
+            // `@index(["other"])`: compositions passed alone.
+            composed = directions as string[];
+          }
           return function index(obj: any, prop: any) {
-            if (typeof directions === "string") {
-              name = directions;
-              directions = undefined;
-              compositions = undefined;
-            }
-            if (typeof compositions === "string") {
-              name = compositions;
-              compositions = undefined;
-            }
-            if (!compositions && directions) {
-              if (
-                directions.find(
-                  (d) =>
-                    ![OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
-                )
-              ) {
-                compositions = directions as string[];
-                directions = undefined;
-              }
-            }
-
-            if (compositions && compositions.length) {
-              return Index([prop, ...compositions])(obj);
-            }
-
-            return Index()(obj, prop);
+            registerTypeORMIndex(
+              obj.constructor,
+              [prop, ...(composed ?? [])],
+              indexName
+            );
           };
         },
       })
